@@ -20,7 +20,6 @@ export type FrequencyCode =
   | 'STAT'
   | 'WEEKLY'
   | 'CUSTOM';
-
 /**
  * Normalizes Eastern Arabic, Urdu, Bengali, and Devanagari digits to ASCII digits.
  */
