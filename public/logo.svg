@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 48" width="200" height="48" fill="none">
+  <defs>
+    <linearGradient id="brand-grad" x1="4" y1="4" x2="44" y2="44" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0d9488" />
+      <stop offset="100%" stop-color="#0f766e" />
+    </linearGradient>
+    <linearGradient id="dot-grad" x1="20" y1="20" x2="28" y2="28" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#2dd4bf" />
+      <stop offset="100%" stop-color="#14b8a6" />
+    </linearGradient>
+  </defs>
+
+  <!-- Mark Icon -->
+  <g transform="translate(2, 2)">
+    <rect x="2" y="2" width="40" height="40" rx="10" fill="url(#brand-grad)" />
+    <path d="M10 8C10 5.79086 11.7909 4 14 4H30C32.2091 4 34 5.79086 34 8V36C34 38.2091 32.2091 40 30 40H14C11.7909 40 10 38.2091 10 36V8Z" fill="white" fill-opacity="0.12" />
+    <path d="M22 12V32M12 22H32" stroke="white" stroke-width="4" stroke-linecap="round" />
+    <circle cx="22" cy="22" r="2.2" fill="url(#dot-grad)" />
+  </g>
+
+  <!-- Wordmark Text -->
+  <text x="56" y="30" font-family="'Inter Variable', 'Inter', system-ui, sans-serif" font-size="22" font-weight="700" fill="#0f172a" letter-spacing="-0.03em">
+    Med<tspan fill="#0d9488">folio</tspan>
+  </text>
+</svg>

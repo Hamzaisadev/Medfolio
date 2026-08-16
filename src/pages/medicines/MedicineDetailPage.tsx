@@ -1,0 +1,438 @@
+import { useState, useEffect, useCallback } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { AppShell } from '../../components/layout/AppShell';
+import { PageHeader } from '../../components/layout/PageHeader';
+import { Button } from '../../components/ui/Button';
+import { Card } from '../../components/ui/Card';
+import { Badge } from '../../components/ui/Badge';
+import { Field } from '../../components/ui/Field';
+import { Textarea } from '../../components/ui/Textarea';
+import { Dialog } from '../../components/ui/Dialog';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { Toast } from '../../components/ui/Toast';
+import { Skeleton } from '../../components/ui/Skeleton';
+import { Disclaimer } from '../../components/ui/Disclaimer';
+import { MedicineIcon } from '../../components/ui/icons';
+import { useAuth } from '../../lib/auth/AuthContext';
+import { medicinesRepo, dosesRepo, sideEffectsRepo, visitsRepo } from '../../lib/db';
+import { explainMedicine } from '../../lib/ai/client';
+import { formatMinutesTo24h, todayInAppTz } from '../../lib/time';
+import { frequencyDescription, defaultDoseTimes } from '../../domain/frequency';
+import { MEDICINE_INFO_DISCLAIMER } from '../../lib/disclaimer';
+import type { Tables } from '../../lib/supabase/types';
+
+export function MedicineDetailPage() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { user, profile } = useAuth();
+
+  const [medicine, setMedicine] = useState<Tables<'medicines'> | null>(null);
+  const [visit, setVisit] = useState<Tables<'visits'> | null>(null);
+  const [sideEffects, setSideEffects] = useState<Tables<'side_effects'>[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Plain-Language Explainer state
+  const [explainer, setExplainer] = useState<{
+    summary: string;
+    purpose: string;
+    common_instructions: string;
+  } | null>(null);
+  const [isLoadingExplainer, setIsLoadingExplainer] = useState(false);
+
+  // Side Effect Modal
+  const [isSideEffectModalOpen, setIsSideEffectModalOpen] = useState(false);
+  const [symptomText, setSymptomText] = useState('');
+  const [severity, setSeverity] = useState<'mild' | 'moderate' | 'severe'>('mild');
+  const [isSavingSymptom, setIsSavingSymptom] = useState(false);
+
+  // Discontinue Dialog
+  const [isDiscontinueOpen, setIsDiscontinueOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const effectiveUserId = user?.id || profile?.user_id || '';
+
+  const loadData = useCallback(async () => {
+    if (!id) return;
+    setIsLoading(true);
+    try {
+      const med = await medicinesRepo.getMedicineById(id);
+      if (!med) {
+        navigate('/medicines/cabinet');
+        return;
+      }
+      setMedicine(med);
+
+      // Load linked visit if any
+      if (med.visit_id) {
+        const v = await visitsRepo.getVisitById(med.visit_id);
+        setVisit(v);
+      }
+
+      // Load side effects logged for this user/medicine
+      const seList = await sideEffectsRepo.listSideEffects(effectiveUserId);
+      setSideEffects(seList.filter((s) => s.medicine_id === id));
+
+      // Fetch or read cached plain language explainer
+      setIsLoadingExplainer(true);
+      try {
+        const info = await explainMedicine({ medicine_name: med.medicine_name });
+        setExplainer(info);
+      } catch (err) {
+        console.error('Failed to fetch explainer:', err);
+      } finally {
+        setIsLoadingExplainer(false);
+      }
+    } catch (err) {
+      console.error('Failed to load medicine details:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [id, navigate, effectiveUserId]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const handleSaveSideEffect = async () => {
+    if (!medicine || !symptomText.trim()) return;
+    setIsSavingSymptom(true);
+    try {
+      await sideEffectsRepo.createSideEffect({
+        user_id: effectiveUserId,
+        profile_id: profile?.id || effectiveUserId,
+        medicine_id: medicine.id,
+        medicine_name: medicine.medicine_name,
+        note: symptomText.trim(),
+        severity,
+        occurred_at: new Date().toISOString(),
+      });
+      setToastMessage('Symptom / Side effect logged.');
+      setSymptomText('');
+      setIsSideEffectModalOpen(false);
+      const updated = await sideEffectsRepo.listSideEffects(effectiveUserId);
+      setSideEffects(updated.filter((s) => s.medicine_id === medicine.id));
+    } catch (err) {
+      console.error('Failed to log side effect:', err);
+      setToastMessage('Failed to save side effect entry.');
+    } finally {
+      setIsSavingSymptom(false);
+    }
+  };
+
+  const handleDiscontinue = async () => {
+    if (!medicine) return;
+    try {
+      const today = todayInAppTz();
+      await medicinesRepo.discontinueMedicine(medicine.id, today);
+      await dosesRepo.deleteFuturePendingDoses(medicine.id, today);
+      setToastMessage('Medicine discontinued. Future scheduled doses cleared.');
+      setIsDiscontinueOpen(false);
+      await loadData();
+    } catch (err) {
+      console.error('Failed to discontinue:', err);
+      setToastMessage('Failed to discontinue medicine.');
+    }
+  };
+
+  if (isLoading || !medicine) {
+    return (
+      <AppShell>
+        <div className="space-y-6">
+          <Skeleton className="h-10 w-1/3" />
+          <Skeleton className="h-40 w-full" />
+          <Skeleton className="h-40 w-full" />
+        </div>
+      </AppShell>
+    );
+  }
+
+  const isDiscontinued = Boolean(medicine.discontinued_at);
+  const freqDesc = frequencyDescription(medicine.frequency_code);
+  const doseTimes = defaultDoseTimes(medicine.frequency_code, medicine.with_food, medicine.frequency_raw);
+
+  return (
+    <AppShell>
+      <PageHeader
+        title={medicine.medicine_name}
+        description={`${medicine.strength || ''} ${medicine.form || ''} • ${freqDesc}`}
+        action={
+          <div className="flex items-center gap-3">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setIsSideEffectModalOpen(true)}
+            >
+              Log Side Effect
+            </Button>
+            {!isDiscontinued && (
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={() => setIsDiscontinueOpen(true)}
+              >
+                Discontinue Course
+              </Button>
+            )}
+          </div>
+        }
+      />
+
+      <Toast
+        open={Boolean(toastMessage)}
+        onClose={() => setToastMessage(null)}
+        message={toastMessage || ''}
+        tone="ok"
+      />
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Column (2/3): Dosage, Instructions & Plain Language Explainer */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Active Status Card */}
+          <Card>
+            <div className="flex items-center justify-between p-2">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-teal-50 text-teal-700 flex items-center justify-center">
+                  <MedicineIcon size={22} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-lg text-ink-900">{medicine.medicine_name}</span>
+                    {isDiscontinued ? (
+                      <Badge tone="risk">Discontinued</Badge>
+                    ) : (
+                      <Badge tone="ok">Active Course</Badge>
+                    )}
+                    {medicine.is_ongoing && <Badge tone="info">Ongoing</Badge>}
+                  </div>
+                  <p className="text-xs text-ink-500 mt-0.5">
+                    Start Date: {medicine.start_date}
+                    {medicine.end_date ? ` • End Date: ${medicine.end_date}` : ''}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-5 pt-4 border-t border-ink-100 text-xs">
+              <div>
+                <span className="text-ink-500 block">Dose Amount</span>
+                <span className="font-bold text-ink-900 text-sm mt-0.5 block">{medicine.dose_amount || '1 tablet'}</span>
+              </div>
+              <div>
+                <span className="text-ink-500 block">Frequency</span>
+                <span className="font-bold text-ink-900 text-sm mt-0.5 block">{medicine.frequency_code || medicine.frequency_raw || 'OD'}</span>
+              </div>
+              <div>
+                <span className="text-ink-500 block">Meal Relation</span>
+                <span className="font-bold text-ink-900 text-sm mt-0.5 block">
+                  {medicine.with_food ? 'With / After Food' : 'Empty Stomach'}
+                </span>
+              </div>
+              <div>
+                <span className="text-ink-500 block">Duration</span>
+                <span className="font-bold text-ink-900 text-sm mt-0.5 block">
+                  {medicine.is_ongoing ? 'Ongoing' : medicine.duration_days ? `${medicine.duration_days} days` : 'As directed'}
+                </span>
+              </div>
+            </div>
+
+            {/* Dose Times Bar */}
+            {doseTimes.length > 0 && (
+              <div className="mt-4 pt-3 border-t border-ink-100 flex items-center gap-2 text-xs">
+                <span className="text-ink-500 font-semibold">Scheduled Dose Times:</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {doseTimes.map((mins, idx) => (
+                    <span key={idx} className="px-2 py-0.5 rounded bg-teal-50 border border-teal-200 font-bold text-teal-800">
+                      {formatMinutesTo24h(mins)}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {medicine.instructions && (
+              <div className="mt-4 pt-3 border-t border-ink-100 text-xs text-ink-700">
+                <span className="font-semibold text-ink-900">Doctor's Special Instructions: </span>
+                <span>{medicine.instructions}</span>
+              </div>
+            )}
+          </Card>
+
+          {/* Plain-Language Medication Guide */}
+          <Card header={<h2 className="text-base font-bold text-ink-900">Medication Overview & Purpose</h2>}>
+            {isLoadingExplainer ? (
+              <div className="space-y-3">
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-4 w-5/6" />
+              </div>
+            ) : explainer ? (
+              <div className="space-y-4 text-xs text-ink-700 leading-relaxed">
+                <div>
+                  <h3 className="font-bold text-ink-900 text-sm mb-1">What this medicine does</h3>
+                  <p>{explainer.summary}</p>
+                </div>
+
+                <div>
+                  <h3 className="font-bold text-ink-900 text-sm mb-1">Common Medical Purpose</h3>
+                  <p>{explainer.purpose}</p>
+                </div>
+
+                <div>
+                  <h3 className="font-bold text-ink-900 text-sm mb-1">Key Usage Tips</h3>
+                  <p>{explainer.common_instructions}</p>
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs text-ink-500">
+                No plain-language summary available for this specific formulation. Always follow your doctor's instructions.
+              </p>
+            )}
+
+            <div className="mt-5 pt-3 border-t border-ink-100">
+              <Disclaimer text={MEDICINE_INFO_DISCLAIMER} />
+            </div>
+          </Card>
+
+          {/* Side Effects Log Section */}
+          <Card
+            header={
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-base font-bold text-ink-900">Logged Symptoms & Side Effects ({sideEffects.length})</h2>
+                  <p className="text-xs text-ink-500">Keep track of any adverse reactions to share with your physician.</p>
+                </div>
+                <Button variant="secondary" size="sm" onClick={() => setIsSideEffectModalOpen(true)}>
+                  + Log Symptom
+                </Button>
+              </div>
+            }
+          >
+            {sideEffects.length === 0 ? (
+              <p className="text-xs text-ink-500 py-4 text-center">
+                No side effects or adverse reactions logged for this medicine.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {sideEffects.map((se) => (
+                  <div key={se.id} className="p-3 rounded-md border border-ink-200 bg-ink-50/50 flex items-start justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-xs text-ink-900">{se.note}</span>
+                        <Badge
+                          tone={se.severity === 'severe' ? 'risk' : se.severity === 'moderate' ? 'warn' : 'neutral'}
+                          size="sm"
+                        >
+                          {se.severity}
+                        </Badge>
+                      </div>
+                      <span className="text-[10px] text-ink-500 mt-1 block">
+                        Logged on {se.occurred_at ? se.occurred_at.split('T')[0] : se.created_at.split('T')[0]}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        </div>
+
+        {/* Right Column (1/3): Linked Doctor Consultation Context */}
+        <div className="space-y-6">
+          <Card header={<h2 className="text-base font-bold text-ink-900">Prescribing Doctor Visit</h2>}>
+            {visit ? (
+              <div className="space-y-3 text-xs">
+                <div>
+                  <span className="text-ink-500 block">Doctor</span>
+                  <span className="font-bold text-ink-900 text-sm">{visit.doctor_name || 'Doctor'}</span>
+                </div>
+                {visit.clinic_name && (
+                  <div>
+                    <span className="text-ink-500 block">Clinic / Hospital</span>
+                    <span className="font-semibold text-ink-900">{visit.clinic_name}</span>
+                  </div>
+                )}
+                <div>
+                  <span className="text-ink-500 block">Consultation Date</span>
+                  <span className="font-semibold text-ink-900">{visit.visit_date}</span>
+                </div>
+                {visit.diagnosis && (
+                  <div>
+                    <span className="text-ink-500 block">Diagnosis</span>
+                    <span className="font-semibold text-ink-900">{visit.diagnosis}</span>
+                  </div>
+                )}
+                {visit.doctor_advice && (
+                  <div>
+                    <span className="text-ink-500 block">Doctor's Advice</span>
+                    <p className="text-ink-700 mt-0.5">{visit.doctor_advice}</p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-xs text-ink-500">
+                This medicine was self-logged or has no linked doctor visit record.
+              </p>
+            )}
+          </Card>
+        </div>
+      </div>
+
+      {/* Log Side Effect Modal */}
+      <Dialog
+        open={isSideEffectModalOpen}
+        onOpenChange={setIsSideEffectModalOpen}
+        title={`Log Side Effect for ${medicine.medicine_name}`}
+        description="Describe any symptoms or bodily changes experienced while taking this medication."
+      >
+        <div className="space-y-4">
+          <Field id="se-desc" label="Symptom Description" required>
+            <Textarea
+              value={symptomText}
+              onChange={(e) => setSymptomText(e.target.value)}
+              placeholder="e.g. Mild stomach ache 30 minutes after dose, dry cough, dizziness"
+              rows={3}
+            />
+          </Field>
+
+          <Field id="se-sev" label="Severity">
+            <select
+              value={severity}
+              onChange={(e) => setSeverity(e.target.value as 'mild' | 'moderate' | 'severe')}
+              className="w-full h-11 px-3.5 py-2 text-sm bg-surface-primary border border-ink-200 rounded-[var(--radius-md)] text-ink-900 focus:outline-none focus:ring-2 focus:ring-teal-500"
+            >
+              <option value="mild">Mild — Slight discomfort, manageable</option>
+              <option value="moderate">Moderate — Noticeable impairment or discomfort</option>
+              <option value="severe">Severe — Significant adverse reaction</option>
+            </select>
+          </Field>
+
+          <div className="flex items-center justify-end gap-3 pt-3">
+            <Button variant="ghost" onClick={() => setIsSideEffectModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              onClick={handleSaveSideEffect}
+              loading={isSavingSymptom}
+              disabled={!symptomText.trim()}
+            >
+              Save Log
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+
+      {/* Discontinue Confirmation Dialog */}
+      <ConfirmDialog
+        open={isDiscontinueOpen}
+        onOpenChange={setIsDiscontinueOpen}
+        title="Discontinue Medicine Course"
+        description={`Are you sure you want to stop taking "${medicine.medicine_name}"? This removes all future scheduled doses from your calendar while preserving your past dose history.`}
+        requiredPhrase="STOP"
+        tone="danger"
+        confirmLabel="Discontinue Course"
+        onConfirm={handleDiscontinue}
+      />
+    </AppShell>
+  );
+}

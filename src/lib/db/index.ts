@@ -1,0 +1,10 @@
+export * as profilesRepo from './profiles';
+export * as visitsRepo from './visits';
+export * as medicinesRepo from './medicines';
+export * as dosesRepo from './doses';
+export * as testOrdersRepo from './testOrders';
+export * as reportsRepo from './reports';
+export * as sideEffectsRepo from './sideEffects';
+export * as remindersRepo from './reminders';
+export * as sharesRepo from './shares';
+export * as extractionAuditRepo from './extractionAudit';
