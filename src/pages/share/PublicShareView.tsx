@@ -3,8 +3,7 @@ import { useParams } from 'react-router-dom';
 import { sharesRepo } from '../../lib/db';
 import { activeMedicines } from '../../domain/activeMedicines';
 import { mealRelationLabel } from '../../domain/mealRelation';
-import { todayInAppTz } from '../../lib/time';
-import { MedicineIcon, StethoscopeIcon } from '../../components/ui/icons';
+import { MedicineIcon, StethoscopeIcon, AlertTriangleIcon } from '../../components/ui/icons';
 import type { Tables } from '../../lib/supabase/types';
 
 export function PublicShareView() {
@@ -133,8 +132,8 @@ export function PublicShareView() {
         {/* High Risk Flags */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-xl border border-red-200 bg-red-50/50 text-xs">
           <div>
-            <span className="font-bold text-red-900 uppercase tracking-wider block mb-1.5">
-              ⚠️ Allergies
+            <span className="font-bold text-red-900 uppercase tracking-wider flex items-center gap-1 mb-1.5">
+              <AlertTriangleIcon size={14} className="text-red-700" /> Allergies
             </span>
             <div className="flex flex-wrap gap-1.5">
               {allergies.map((all, idx) => (

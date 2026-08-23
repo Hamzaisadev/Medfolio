@@ -8,7 +8,13 @@
  * - Percentage = Math.round((taken / scheduled) * 100)
  */
 
-import { todayInAppTz } from '../lib/time';
+import { addDaysAppTz, minutesInAppTz, todayInAppTz } from '../lib/time';
+
+/**
+ * A pending dose becomes 'missed' once it is this many minutes past its
+ * scheduled time (06-DOMAIN-RULES.md §Adherence).
+ */
+export const MISSED_AFTER_MINUTES = 240;
 
 export interface DoseRecord {
   id: string;
@@ -40,19 +46,18 @@ export function deriveStatusOnRead(
   },
   now: Date
 ): 'pending' | 'taken' | 'skipped' | 'missed' {
-  if (dose.status === 'taken' || dose.status === 'skipped') {
+  // A stored 'missed' is a recorded fact and must not be downgraded to pending.
+  if (dose.status === 'taken' || dose.status === 'skipped' || dose.status === 'missed') {
     return dose.status;
   }
+
   const today = todayInAppTz(now);
-  const nowUtcMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();
-  const nowPktMinutes = (nowUtcMinutes + 300) % 1440;
 
   if (dose.scheduled_date < today) {
     return 'missed';
   }
   if (dose.scheduled_date === today) {
-    const minutesPast = nowPktMinutes - dose.scheduled_minutes;
-    if (minutesPast > 240) {
+    if (minutesInAppTz(now) - dose.scheduled_minutes > MISSED_AFTER_MINUTES) {
       return 'missed';
     }
   }
@@ -67,10 +72,6 @@ export function calculateAdherence(
   range: { from: string; to: string },
   now: Date
 ): AdherenceStats {
-  const today = todayInAppTz(now);
-  const nowUtcMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();
-  const nowPktMinutes = (nowUtcMinutes + 300) % 1440;
-
   let scheduled = 0;
   let taken = 0;
   let skipped = 0;
@@ -87,33 +88,25 @@ export function calculateAdherence(
       continue;
     }
 
-    if (dose.status === 'taken') {
+    // 3. Resolve the effective status once, so a stored 'missed' is counted and a
+    //    pending-but-overdue dose is derived consistently with the rest of the app.
+    //    Previously a stored 'missed' dated today fell through every branch and was
+    //    silently dropped from both numerator and denominator.
+    const status = deriveStatusOnRead(dose, now);
+
+    if (status === 'taken') {
       scheduled++;
       taken++;
-      continue;
-    }
-
-    if (dose.status === 'skipped') {
+    } else if (status === 'skipped') {
       scheduled++;
       skipped++;
-      continue;
-    }
-
-    // Status is 'pending': check if it is in the past, today overdue (>4 hrs), or in the future
-    if (dose.scheduled_date < today) {
-      // Past day pending dose -> derived missed
+    } else if (status === 'missed') {
       scheduled++;
       missed++;
-    } else if (dose.scheduled_date === today) {
-      const minutesPast = nowPktMinutes - dose.scheduled_minutes;
-      if (minutesPast > 240) {
-        // > 4 hours overdue on current day -> derived missed
-        scheduled++;
-        missed++;
-      }
-      // If <= 4 hours or upcoming today, it is still pending, not counted in past scheduled denominator yet
     }
-    // If dose.scheduled_date > today, it is a future scheduled dose -> excluded from denominator
+    // status === 'pending': still actionable (today, within the grace window, or a
+    // future date), so it is excluded from the denominator — a day that has not
+    // happened yet cannot lower adherence.
   }
 
   const percentage = scheduled === 0 ? 0 : Math.round((taken / scheduled) * 100);
@@ -125,4 +118,67 @@ export function calculateAdherence(
     missed,
     percentage,
   };
+}
+
+/**
+ * Counts consecutive fully-adherent days ending with the most recent day that has
+ * a settled outcome.
+ *
+ * A day counts toward the streak when it had at least one non-PRN dose scheduled
+ * and every one of them was taken. Days with no scheduled doses are skipped
+ * rather than breaking the streak, and today is only judged once all of its doses
+ * have settled — otherwise a morning check-in would reset the streak every day.
+ *
+ * Replaces the previous dashboard estimate, which derived a "7 day streak" from
+ * today's percentage alone and awarded it to users with no doses at all.
+ */
+export function calculateAdherenceStreak(doses: DoseRecord[], now: Date): number {
+  const byDate = new Map<string, { total: number; taken: number; settled: number }>();
+
+  for (const dose of doses) {
+    if (dose.is_prn) continue;
+
+    const status = deriveStatusOnRead(dose, now);
+    const day = byDate.get(dose.scheduled_date) ?? { total: 0, taken: 0, settled: 0 };
+    day.total++;
+    if (status === 'taken') {
+      day.taken++;
+      day.settled++;
+    } else if (status === 'skipped' || status === 'missed') {
+      day.settled++;
+    }
+    byDate.set(dose.scheduled_date, day);
+  }
+
+  // Walk backwards one calendar day at a time until we pass the oldest day on
+  // record. The bound has to be the date *span*, not `byDate.size`: with a gap in
+  // the history the span exceeds the number of dosing days, and bounding by the
+  // count stopped the walk early and truncated the streak.
+  const earliestDate = [...byDate.keys()].sort()[0];
+  if (!earliestDate) return 0;
+
+  const today = todayInAppTz(now);
+  let streak = 0;
+  let cursor = today;
+
+  while (cursor >= earliestDate) {
+    const day = byDate.get(cursor);
+
+    if (day) {
+      const isSettled = day.settled === day.total;
+      const isPerfect = day.taken === day.total;
+
+      if (cursor === today && !isSettled) {
+        // Today is still in progress: don't count it, don't break the streak.
+      } else if (isPerfect) {
+        streak++;
+      } else {
+        break;
+      }
+    }
+
+    cursor = addDaysAppTz(cursor, -1);
+  }
+
+  return streak;
 }

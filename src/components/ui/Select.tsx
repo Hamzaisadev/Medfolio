@@ -1,6 +1,8 @@
 import React from 'react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { controlStyles, controlHeight } from './Input';
+import { ChevronDownIcon } from './icons';
 
 export interface SelectOption {
   value: string;
@@ -20,13 +22,7 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
           ref={ref}
           disabled={disabled}
           className={twMerge(
-            clsx(
-              'w-full h-11 min-h-[44px] appearance-none rounded-[var(--radius-md)] border border-ink-300 bg-white pl-3.5 pr-10 text-base sm:text-sm text-ink-900',
-              'transition-colors focus:border-brand-600 focus:outline-2 focus:outline-offset-2 focus:outline-brand-600',
-              'disabled:bg-ink-100 disabled:text-ink-400 disabled:cursor-not-allowed',
-              'aria-[invalid=true]:border-risk-border aria-[invalid=true]:focus:outline-risk-text',
-              className
-            )
+            clsx(controlStyles, controlHeight, 'appearance-none pl-3.5 pr-11', className)
           )}
           {...props}
         >
@@ -38,10 +34,8 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
               ))
             : children}
         </select>
-        <div className="pointer-events-none absolute right-3.5 text-ink-500">
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-          </svg>
+        <div className="pointer-events-none absolute right-3.5 text-content-subtle">
+          <ChevronDownIcon size={16} />
         </div>
       </div>
     );

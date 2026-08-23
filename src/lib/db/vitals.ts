@@ -7,8 +7,13 @@ import type { GlucoseReading, BloodPressureReading } from '../../domain/vitals';
  * The generated `Database` type does not yet cover the vitals tables added in
  * migration 0014, so these calls are untyped at the client boundary. Re-run
  * `npm run db:types` to replace these casts with generated types.
+ *
+ * The `any` is deliberate and scoped to this one shim: PostGREST's builder is
+ * chainable and awaitable, and hand-writing a stand-in for it would be a second
+ * source of truth that then has to be kept correct until the real types land.
  */
 const db = supabase as unknown as {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   from: (table: string) => any;
 };
 

@@ -9,6 +9,8 @@
  * 3. Meal relation adjusts morning dose (e.g. empty stomach -> 07:00 instead of 09:00).
  */
 
+import { morningDoseMinutes } from './mealRelation';
+
 export type FrequencyCode =
   | 'OD'
   | 'BD'
@@ -246,6 +248,23 @@ export function parseFrequency(raw: string | null | undefined): FrequencyCode | 
  * dose to 07:00; an unspecified meal relation uses the standard 09:00 slot).
  * PRN / SOS returns [] (never schedule doses for PRN).
  */
+/**
+ * Canonical dose slots, in minutes since midnight.
+ *
+ * Named so the same clinical meaning always resolves to the same time: slot
+ * notation `1+0+1` and the code `BD` both mean "morning and evening" and must
+ * not drift to different times (they previously produced 21:00 vs 22:00).
+ */
+const SLOT = {
+  earlyMorning: 480, // 08:00 — first of 3–4 evenly spread daily doses
+  midday: 720, // 12:00
+  afternoon: 840, // 14:00
+  lateAfternoon: 960, // 16:00
+  evening: 1200, // 20:00 — last of 3–4 evenly spread daily doses
+  night: 1260, // 21:00 — second of two daily doses
+  bedtime: 1320, // 22:00 — QHS only
+} as const;
+
 export function defaultDoseTimes(
   code: FrequencyCode | null,
   withFood?: boolean | null,
@@ -263,17 +282,17 @@ export function defaultDoseTimes(
       const d2 = parseInt(slot3[2] || '0', 10);
       const d3 = parseInt(slot3[3] || '0', 10);
 
-      // Morning + Night (1+0+1)
+      // Morning + Night (1+0+1) — same slots as BD.
       if (d1 > 0 && d2 === 0 && d3 > 0) {
-        return [morningMinutes, 1320];
+        return [morningMinutes, SLOT.night];
       }
       // Morning + Afternoon (1+1+0)
       if (d1 > 0 && d2 > 0 && d3 === 0) {
-        return [morningMinutes, 840];
+        return [morningMinutes, SLOT.afternoon];
       }
       // Afternoon + Night (0+1+1)
       if (d1 === 0 && d2 > 0 && d3 > 0) {
-        return [840, 1320];
+        return [SLOT.afternoon, SLOT.night];
       }
       // Morning only (1+0+0)
       if (d1 > 0 && d2 === 0 && d3 === 0) {
@@ -281,7 +300,7 @@ export function defaultDoseTimes(
       }
       // Night only (0+0+1)
       if (d1 === 0 && d2 === 0 && d3 > 0) {
-        return [1320];
+        return [SLOT.bedtime];
       }
     }
   }
@@ -290,24 +309,26 @@ export function defaultDoseTimes(
     case 'OD':
       return [morningMinutes];
     case 'BD':
-      return [morningMinutes, 1260];
+      return [morningMinutes, SLOT.night];
     case 'TDS':
-      return [480, 840, 1200];
+      return [SLOT.earlyMorning, SLOT.afternoon, SLOT.evening];
     case 'QID':
-      return [480, 720, 960, 1200];
+      // Spread across morning/midday/late-afternoon/evening so the four doses
+      // land in four distinct time buckets rather than doubling up.
+      return [SLOT.earlyMorning, SLOT.midday, SLOT.lateAfternoon, SLOT.evening];
     case 'QHS':
-      return [1320];
+      return [SLOT.bedtime];
     case 'STAT':
+      // A single immediate dose; buildSchedule stops it from repeating.
       return [morningMinutes];
     case 'WEEKLY':
+      // One dose on each dosing day; buildSchedule spaces those 7 days apart.
       return [morningMinutes];
     case 'PRN':
     case 'SOS':
       return [];
     case 'CUSTOM':
       return [morningMinutes];
-    default:
-      return [];
   }
 }
 

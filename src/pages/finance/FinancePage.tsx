@@ -6,6 +6,14 @@ import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Toast } from '../../components/ui/Toast';
 import { EmptyState } from '../../components/ui/EmptyState';
+import {
+  DoctorIcon,
+  MedicineIcon,
+  LabFlaskIcon,
+  HospitalIcon,
+  PlusIcon,
+  XIcon,
+} from '../../components/ui/icons';
 import { visitsRepo, medicinesRepo, reportsRepo } from '../../lib/db';
 import { todayInAppTz } from '../../lib/time';
 
@@ -56,16 +64,17 @@ export function FinancePage() {
       if (!effectiveUserId) return;
       setIsLoading(true);
       try {
-        const [vList] = await Promise.all([
+        const [vList, medList] = await Promise.all([
           visitsRepo.listVisits(effectiveProfileId),
-          medicinesRepo.listMedicines(effectiveUserId),
-          reportsRepo.listReports(effectiveUserId),
+          medicinesRepo.listMedicines(effectiveProfileId),
+          reportsRepo.listReports(effectiveProfileId),
         ]);
 
-        // Auto-sync doctor visit fees from visits table if not already logged
+        // Auto-sync doctor visit fees and medicine costs if not already logged
         const synced: HealthExpenseItem[] = [...expenses];
         let hasChanges = false;
 
+        // 1. Doctor Visits
         for (const v of vList) {
           if (v.visit_cost && v.visit_cost > 0) {
             const exists = synced.some((e) => e.id === `visit-${v.id}`);
@@ -78,6 +87,25 @@ export function FinancePage() {
                 currency: v.currency || 'PKR',
                 date: v.visit_date,
                 note: v.clinic_name || v.diagnosis || undefined,
+              });
+              hasChanges = true;
+            }
+          }
+        }
+
+        // 2. Prescribed Medicines with Recorded Costs
+        for (const m of medList) {
+          if (m.unit_cost && m.unit_cost > 0) {
+            const exists = synced.some((e) => e.id === `med-${m.id}`);
+            if (!exists) {
+              synced.push({
+                id: `med-${m.id}`,
+                category: 'medicine',
+                title: `Medication — ${m.medicine_name}${m.strength ? ' ' + m.strength : ''}`,
+                amount: Number(m.unit_cost),
+                currency: m.currency || 'PKR',
+                date: m.start_date || todayInAppTz(),
+                note: m.instructions || undefined,
               });
               hasChanges = true;
             }
@@ -97,7 +125,7 @@ export function FinancePage() {
 
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [effectiveProfileId, effectiveUserId]);
 
   const saveExpenses = (newList: HealthExpenseItem[]) => {
     setExpenses(newList);
@@ -205,9 +233,9 @@ export function FinancePage() {
               size="sm"
               onClick={() => setIsModalOpen(true)}
               className="font-bold shadow-xs flex items-center gap-1.5"
+              leftIcon={<PlusIcon size={14} />}
             >
-              <span>➕</span>
-              <span>Log Health Expense</span>
+              Log Health Expense
             </Button>
           }
         />
@@ -238,7 +266,9 @@ export function FinancePage() {
           </Card>
 
           <Card className="p-4 bg-white border border-ink-200 rounded-2xl shadow-xs">
-            <span className="text-ink-500 text-xs font-bold block">👨‍⚕️ Doctor Consultation Fees</span>
+            <span className="text-ink-500 text-xs font-bold flex items-center gap-1">
+              <DoctorIcon size={14} className="text-teal-700" /> Doctor Consultation Fees
+            </span>
             <div className="text-xl sm:text-2xl font-black text-teal-900 mt-1">
               PKR {doctorFeesTotal.toLocaleString()}
             </div>
@@ -248,7 +278,9 @@ export function FinancePage() {
           </Card>
 
           <Card className="p-4 bg-white border border-ink-200 rounded-2xl shadow-xs">
-            <span className="text-ink-500 text-xs font-bold block">💊 Medicines & Pharmacy</span>
+            <span className="text-ink-500 text-xs font-bold flex items-center gap-1">
+              <MedicineIcon size={14} className="text-purple-700" /> Medicines & Pharmacy
+            </span>
             <div className="text-xl sm:text-2xl font-black text-purple-900 mt-1">
               PKR {medicineCostsTotal.toLocaleString()}
             </div>
@@ -266,7 +298,9 @@ export function FinancePage() {
               {/* Doctor Fees */}
               <div className="space-y-1">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-bold text-ink-800">👨‍⚕️ Doctor Consultations</span>
+                  <span className="font-bold text-ink-800 flex items-center gap-1">
+                    <DoctorIcon size={14} className="text-teal-700" /> Doctor Consultations
+                  </span>
                   <span className="font-bold text-ink-900">PKR {doctorFeesTotal.toLocaleString()}</span>
                 </div>
                 <div className="w-full bg-ink-100 h-2 rounded-full overflow-hidden">
@@ -280,7 +314,9 @@ export function FinancePage() {
               {/* Medicine Costs */}
               <div className="space-y-1">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-bold text-ink-800">💊 Pharmacy & Refills</span>
+                  <span className="font-bold text-ink-800 flex items-center gap-1">
+                    <MedicineIcon size={14} className="text-purple-700" /> Pharmacy & Refills
+                  </span>
                   <span className="font-bold text-ink-900">PKR {medicineCostsTotal.toLocaleString()}</span>
                 </div>
                 <div className="w-full bg-ink-100 h-2 rounded-full overflow-hidden">
@@ -294,7 +330,9 @@ export function FinancePage() {
               {/* Lab Diagnostics */}
               <div className="space-y-1">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-bold text-ink-800">🧪 Lab Tests & Diagnostics</span>
+                  <span className="font-bold text-ink-800 flex items-center gap-1">
+                    <LabFlaskIcon size={14} className="text-blue-700" /> Lab Tests & Diagnostics
+                  </span>
                   <span className="font-bold text-ink-900">PKR {labTestsTotal.toLocaleString()}</span>
                 </div>
                 <div className="w-full bg-ink-100 h-2 rounded-full overflow-hidden">
@@ -354,10 +392,10 @@ export function FinancePage() {
                 className="h-9 px-2 text-xs bg-white border border-ink-200 rounded-xl text-ink-900 focus:outline-none"
               >
                 <option value="all">All Categories</option>
-                <option value="doctor">👨‍⚕️ Doctor Fees</option>
-                <option value="medicine">💊 Medicines</option>
-                <option value="lab">🧪 Lab Tests</option>
-                <option value="other">🏥 Other</option>
+                <option value="doctor">Doctor Fees</option>
+                <option value="medicine">Medicines</option>
+                <option value="lab">Lab Tests</option>
+                <option value="other">Other Medical</option>
               </select>
             </div>
           </div>
@@ -369,8 +407,8 @@ export function FinancePage() {
               heading="No expenses recorded"
               description="Log prescription purchases, lab fees, or doctor visits to track your healthcare budget."
               action={
-                <Button size="sm" onClick={() => setIsModalOpen(true)}>
-                  + Log Health Expense
+                <Button size="sm" onClick={() => setIsModalOpen(true)} leftIcon={<PlusIcon size={14} />}>
+                  Log Health Expense
                 </Button>
               }
             />
@@ -380,8 +418,16 @@ export function FinancePage() {
                 {filteredExpenses.map((item) => (
                   <div key={item.id} className="p-3.5 flex items-center justify-between hover:bg-ink-50/50 transition-colors">
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-ink-100 text-sm shrink-0">
-                        {item.category === 'doctor' ? '👨‍⚕️' : item.category === 'medicine' ? '💊' : item.category === 'lab' ? '🧪' : '🏥'}
+                      <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-ink-100 text-ink-700 shrink-0">
+                        {item.category === 'doctor' ? (
+                          <DoctorIcon size={16} className="text-teal-700" />
+                        ) : item.category === 'medicine' ? (
+                          <MedicineIcon size={16} className="text-purple-700" />
+                        ) : item.category === 'lab' ? (
+                          <LabFlaskIcon size={16} className="text-blue-700" />
+                        ) : (
+                          <HospitalIcon size={16} className="text-ink-600" />
+                        )}
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
@@ -410,7 +456,7 @@ export function FinancePage() {
                         className="text-ink-400 hover:text-red-600 font-bold p-1"
                         title="Delete expense"
                       >
-                        ✕
+                        <XIcon size={14} />
                       </button>
                     </div>
                   </div>
@@ -426,8 +472,8 @@ export function FinancePage() {
             <div className="bg-white rounded-2xl max-w-md w-full p-5 space-y-4 shadow-xl animate-in fade-in zoom-in-95">
               <div className="flex items-center justify-between">
                 <h3 className="text-base font-bold text-ink-900">Log Healthcare Expense</h3>
-                <button type="button" onClick={() => setIsModalOpen(false)} className="text-ink-400 hover:text-ink-700 text-sm font-bold">
-                  ✕
+                <button type="button" onClick={() => setIsModalOpen(false)} className="text-ink-400 hover:text-ink-700 p-1">
+                  <XIcon size={16} />
                 </button>
               </div>
 
@@ -452,10 +498,10 @@ export function FinancePage() {
                       onChange={(e) => setNewCategory(e.target.value as 'doctor' | 'medicine' | 'lab' | 'other')}
                       className="w-full h-10 px-2 bg-ink-50 border border-ink-200 rounded-xl text-ink-900 focus:outline-none"
                     >
-                      <option value="doctor">👨‍⚕️ Doctor Fee</option>
-                      <option value="medicine">💊 Medicine / Pharmacy</option>
-                      <option value="lab">🧪 Diagnostic Lab Test</option>
-                      <option value="other">🏥 Other Medical</option>
+                      <option value="doctor">Doctor Fee</option>
+                      <option value="medicine">Medicine / Pharmacy</option>
+                      <option value="lab">Diagnostic Lab Test</option>
+                      <option value="other">Other Medical</option>
                     </select>
                   </div>
 

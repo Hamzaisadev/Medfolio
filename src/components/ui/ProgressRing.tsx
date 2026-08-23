@@ -6,65 +6,78 @@ export interface ProgressRingProps {
   size?: number; // pixel diameter
   strokeWidth?: number;
   label?: string;
+  /** Colours the arc by meaning rather than always using the brand accent. */
+  tone?: 'accent' | 'ok' | 'warn' | 'risk';
+  /** Hides the inner percentage text, e.g. when the value is shown alongside. */
+  hideValue?: boolean;
   className?: string;
 }
+
+const arcColor: Record<NonNullable<ProgressRingProps['tone']>, string> = {
+  accent: 'var(--accent)',
+  ok: 'var(--ok-text)',
+  warn: 'var(--warn-text)',
+  risk: 'var(--risk-text)',
+};
 
 export function ProgressRing({
   percentage,
   size = 80,
   strokeWidth = 7,
-  label = 'adherence',
+  label,
+  tone = 'accent',
+  hideValue = false,
   className,
 }: ProgressRingProps) {
-  const clamped = Math.min(100, Math.max(0, percentage));
+  const clamped = Math.min(100, Math.max(0, Math.round(percentage)));
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (clamped / 100) * circumference;
 
   return (
-    <div
-      className={twMerge(clsx('inline-flex flex-col items-center justify-center', className))}
-    >
+    <div className={twMerge(clsx('inline-flex flex-col items-center justify-center', className))}>
       <div className="relative inline-flex items-center justify-center">
         <svg
           width={size}
           height={size}
           viewBox={`0 0 ${size} ${size}`}
           className="rotate-[-90deg]"
-          aria-hidden="true"
+          role="img"
+          aria-label={`${clamped}%${label ? ` ${label}` : ''}`}
         >
-          {/* Background Track */}
           <circle
             cx={size / 2}
             cy={size / 2}
             r={radius}
-            stroke="var(--color-ink-200)"
+            stroke="var(--line)"
             strokeWidth={strokeWidth}
             fill="none"
           />
-          {/* Progress Arc */}
           <circle
             cx={size / 2}
             cy={size / 2}
             r={radius}
-            stroke="var(--color-brand-600)"
+            stroke={arcColor[tone]}
             strokeWidth={strokeWidth}
             strokeDasharray={circumference}
             strokeDashoffset={strokeDashoffset}
             strokeLinecap="round"
             fill="none"
-            className="transition-all duration-500 ease-out"
+            className="transition-[stroke-dashoffset] duration-[var(--duration-slow)] ease-[var(--ease-out-soft)]"
           />
         </svg>
 
-        {/* Text inside — ensures accessibility without arc-alone perception */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-          <span className="text-sm font-bold text-ink-900 leading-none">
-            {clamped}%
-          </span>
-        </div>
+        {/* The number is rendered, not implied by the arc: an arc alone is not a
+            value anyone can read precisely. */}
+        {!hideValue && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="text-sm font-bold text-content leading-none" data-numeric>
+              {clamped}%
+            </span>
+          </div>
+        )}
       </div>
-      {label && <span className="mt-1 text-xs text-ink-500 font-medium">{label}</span>}
+      {label && <span className="mt-1.5 text-xs text-content-subtle font-medium">{label}</span>}
     </div>
   );
 }

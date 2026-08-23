@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { CheckCircleIcon, AlertTriangleIcon, AlertCircleIcon, InfoIcon, XIcon } from './icons';
 
 export interface ToastProps {
   open: boolean;
@@ -10,54 +11,60 @@ export interface ToastProps {
   durationMs?: number;
 }
 
-export function Toast({
-  open,
-  onClose,
-  message,
-  tone = 'ok',
-  durationMs = 5000,
-}: ToastProps) {
+const toneStyles = {
+  ok: 'bg-ok-bg text-ok-text border-ok-border',
+  info: 'bg-info-bg text-info-text border-info-border',
+  warn: 'bg-warn-bg text-warn-text border-warn-border',
+  risk: 'bg-risk-bg text-risk-text border-risk-border',
+};
+
+function toneIcon(tone: NonNullable<ToastProps['tone']>) {
+  switch (tone) {
+    case 'ok':
+      return <CheckCircleIcon size={18} />;
+    case 'warn':
+      return <AlertTriangleIcon size={18} />;
+    case 'risk':
+      return <AlertCircleIcon size={18} />;
+    default:
+      return <InfoIcon size={18} />;
+  }
+}
+
+export function Toast({ open, onClose, message, tone = 'ok', durationMs = 5000 }: ToastProps) {
   useEffect(() => {
     if (!open) return;
-    const timer = setTimeout(() => {
-      onClose();
-    }, durationMs);
+    const timer = setTimeout(onClose, durationMs);
     return () => clearTimeout(timer);
   }, [open, durationMs, onClose]);
 
   if (!open) return null;
 
-  const toneStyles = {
-    ok: 'bg-ink-900 text-white border-ink-800',
-    info: 'bg-info-bg text-info-text border-info-border',
-    warn: 'bg-warn-bg text-warn-text border-warn-border',
-    risk: 'bg-risk-bg text-risk-text border-risk-border',
-  };
-
   return (
     <div
       className={twMerge(
         clsx(
-          'fixed z-50 flex items-center justify-between gap-3 px-4 py-3 rounded-[var(--radius-lg)] shadow-[var(--shadow-raise)] border text-sm font-medium',
-          // Bottom on mobile (<768px), top-right on desktop (≥768px) per design contract
-          'bottom-20 left-4 right-4 md:bottom-auto md:top-6 md:left-auto md:right-6 md:max-w-sm',
-          'animate-in fade-in slide-in-from-bottom-3 md:slide-in-from-top-3 duration-200',
+          'fixed z-50 flex items-start gap-3 px-4 py-3.5 rounded-[var(--radius-lg)]',
+          'border shadow-raise text-sm font-medium',
+          // Above the bottom nav on mobile; top-right on desktop.
+          'bottom-[calc(5rem+env(safe-area-inset-bottom))] left-4 right-4',
+          'md:bottom-auto md:top-6 md:left-auto md:right-6 md:max-w-sm',
+          'animate-in fade-in-0 slide-in-from-bottom-3 md:slide-in-from-top-3',
           toneStyles[tone]
         )
       )}
       role="status"
       aria-live="polite"
     >
-      <span className="flex-1">{message}</span>
+      <span className="shrink-0 mt-px">{toneIcon(tone)}</span>
+      <span className="flex-1 leading-snug">{message}</span>
       <button
         type="button"
         onClick={onClose}
-        aria-label="Dismiss toast"
-        className="opacity-70 hover:opacity-100 p-1 transition-opacity"
+        aria-label="Dismiss"
+        className="shrink-0 -mr-1 -mt-0.5 p-1 rounded-[var(--radius-sm)] opacity-70 hover:opacity-100 transition-opacity"
       >
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-        </svg>
+        <XIcon size={16} />
       </button>
     </div>
   );

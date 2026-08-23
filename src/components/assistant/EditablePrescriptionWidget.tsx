@@ -1,57 +1,76 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 import { medicinesRepo, dosesRepo } from '../../lib/db';
 import { parseFrequency, defaultDoseTimes } from '../../domain/frequency';
 import { buildSchedule } from '../../domain/schedule';
-import { todayInAppTz, addDaysAppTz } from '../../lib/time';
+import { computeEndDate } from '../../domain/duration';
+import { todayInAppTz } from '../../lib/time';
+import { newId } from '../../lib/db/localStore';
+
+/** Used when a row has no duration set, and shown in the UI as the same number. */
+const DEFAULT_DURATION_DAYS = 5;
 
 export interface ExtractedMedItem {
   medicine_name: string;
   strength?: string;
-  frequency_code?: string;
+  /**
+   * Frequency exactly as written (e.g. "1-0-1", "BD", "PRN"). Named `_raw`
+   * because it is free text the app parses — not the `frequency_code` enum.
+   */
+  frequency_raw?: string;
   duration_days?: number;
-  with_food?: boolean;
+  /** null = the prescription did not state a meal relation. */
+  with_food?: boolean | null;
   instructions?: string;
 }
 
 interface EditablePrescriptionWidgetProps {
   initialMedicines: ExtractedMedItem[];
   profileId: string;
+  /** Owning auth user. Distinct from profileId so family profiles save correctly. */
+  userId: string;
   onAddedSuccess?: (count: number) => void;
 }
+
+/** A draft row: the extracted item plus a stable key for React. */
+type DraftRow = ExtractedMedItem & { rowId: string };
 
 export function EditablePrescriptionWidget({
   initialMedicines,
   profileId,
+  userId,
   onAddedSuccess,
 }: EditablePrescriptionWidgetProps) {
-  const [items, setItems] = useState<ExtractedMedItem[]>(initialMedicines);
+  // Rows carry a stable id so React keys survive reordering and removal; with
+  // `key={idx}` an edit could be applied to the wrong row after a delete.
+  const [items, setItems] = useState<DraftRow[]>(() =>
+    initialMedicines.map((m) => ({ ...m, rowId: newId() }))
+  );
   const [isSaving, setIsSaving] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
-  const handleFieldChange = (index: number, field: keyof ExtractedMedItem, val: unknown) => {
-    setItems((prev) => {
-      const next = [...prev];
-      const current = next[index];
-      if (!current) return prev;
-      next[index] = { ...current, [field]: val } as ExtractedMedItem;
-      return next;
-    });
+  const handleFieldChange = (rowId: string, field: keyof ExtractedMedItem, val: unknown) => {
+    setItems((prev) =>
+      prev.map((row) => (row.rowId === rowId ? ({ ...row, [field]: val } as DraftRow) : row))
+    );
   };
 
-  const handleRemoveRow = (index: number) => {
-    setItems((prev) => prev.filter((_, i) => i !== index));
+  const handleRemoveRow = (rowId: string) => {
+    setItems((prev) => prev.filter((row) => row.rowId !== rowId));
   };
 
   const handleAddRow = () => {
     setItems((prev) => [
       ...prev,
       {
-        medicine_name: 'New Medicine',
-        strength: '500mg',
-        frequency_code: 'BD',
-        duration_days: 5,
+        rowId: newId(),
+        medicine_name: '',
+        strength: '',
+        frequency_raw: '',
+        duration_days: DEFAULT_DURATION_DAYS,
         with_food: true,
       },
     ]);
@@ -60,23 +79,45 @@ export function EditablePrescriptionWidget({
   const handleSaveToTimetable = async () => {
     if (items.length === 0 || isSaving || isSaved) return;
 
-    setIsSaving(true);
+    setSaveError(null);
     const today = todayInAppTz();
+
+    // Frequency is never guessed: an unreadable value would otherwise be saved
+    // as once-daily, under-dosing a BD or TDS course.
+    const unreadable = items.filter((item) => !parseFrequency(item.frequency_raw));
+    if (unreadable.length > 0) {
+      setSaveError(
+        `Set a readable frequency (e.g. 1-0-1, BD, TDS, PRN) for: ${unreadable
+          .map((i) => i.medicine_name || 'unnamed medicine')
+          .join(', ')}.`
+      );
+      return;
+    }
+
+    const unnamed = items.some((item) => !item.medicine_name.trim());
+    if (unnamed) {
+      setSaveError('Every row needs a medicine name.');
+      return;
+    }
+
+    setIsSaving(true);
 
     try {
       for (const item of items) {
-        const duration = Number(item.duration_days) || 7;
-        const endDate = addDaysAppTz(today, duration);
-        const freqCode = parseFrequency(item.frequency_code) || 'OD';
-        const withFood = item.with_food ?? true;
+        const duration = Number(item.duration_days) || DEFAULT_DURATION_DAYS;
+        // end_date = start + days - 1, matching computeEndDate's documented rule.
+        // Using `start + days` made every course a day too long.
+        const endDate = computeEndDate(today, duration);
+        const freqCode = parseFrequency(item.frequency_raw)!;
+        const withFood = item.with_food ?? null;
 
         // 1. Create Medicine Record in Cabinet
         const createdMed = await medicinesRepo.createMedicine({
-          user_id: profileId,
+          user_id: userId,
           profile_id: profileId,
-          medicine_name: item.medicine_name,
+          medicine_name: item.medicine_name.trim(),
           strength: item.strength || null,
-          frequency_raw: item.frequency_code || null,
+          frequency_raw: item.frequency_raw || null,
           frequency_code: freqCode,
           start_date: today,
           end_date: endDate,
@@ -87,8 +128,8 @@ export function EditablePrescriptionWidget({
         });
 
         // 2. Generate Scheduled Dose Slots for Timetable & Today Schedule
-        const defaultTimes = defaultDoseTimes(freqCode, withFood, item.frequency_code);
-        if (freqCode !== 'PRN' && freqCode !== 'SOS' && defaultTimes.length > 0) {
+        const defaultTimes = defaultDoseTimes(freqCode, withFood, item.frequency_raw);
+        if (defaultTimes.length > 0) {
           const doseRows = buildSchedule({
             medicineId: createdMed.id,
             startDate: today,
@@ -96,12 +137,13 @@ export function EditablePrescriptionWidget({
             isOngoing: false,
             doseTimes: defaultTimes,
             now: new Date(),
+            frequencyCode: freqCode,
           });
 
           if (doseRows.length > 0) {
             await dosesRepo.createDoses(
               doseRows.map((d) => ({
-                user_id: profileId,
+                user_id: userId,
                 profile_id: profileId,
                 medicine_id: createdMed.id,
                 scheduled_date: d.scheduled_date,
@@ -119,6 +161,11 @@ export function EditablePrescriptionWidget({
       }
     } catch (err) {
       console.error('Failed to add medicines to cabinet & timetable:', err);
+      setSaveError(
+        err instanceof Error
+          ? `Could not save: ${err.message}`
+          : 'Could not save these medicines. Please try again.'
+      );
     } finally {
       setIsSaving(false);
     }
@@ -141,6 +188,12 @@ export function EditablePrescriptionWidget({
         )}
       </div>
 
+      {saveError && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900 leading-relaxed">
+          {saveError}
+        </div>
+      )}
+
       <div className="overflow-x-auto">
         <table className="w-full text-left text-xs border-collapse">
           <thead>
@@ -154,14 +207,15 @@ export function EditablePrescriptionWidget({
             </tr>
           </thead>
           <tbody className="divide-y divide-ink-100">
-            {items.map((med, idx) => (
-              <tr key={idx} className="hover:bg-ink-50/50">
+            {items.map((med) => (
+              <tr key={med.rowId} className="hover:bg-ink-50/50">
                 <td className="py-1.5 pr-2">
                   <input
                     type="text"
                     value={med.medicine_name}
                     disabled={isSaved}
-                    onChange={(e) => handleFieldChange(idx, 'medicine_name', e.target.value)}
+                    placeholder="Medicine name"
+                    onChange={(e) => handleFieldChange(med.rowId, 'medicine_name', e.target.value)}
                     className="w-full font-bold text-ink-900 bg-transparent border-b border-transparent focus:border-teal-500 focus:outline-none"
                   />
                 </td>
@@ -171,36 +225,58 @@ export function EditablePrescriptionWidget({
                     value={med.strength || ''}
                     disabled={isSaved}
                     placeholder="e.g. 500mg"
-                    onChange={(e) => handleFieldChange(idx, 'strength', e.target.value)}
+                    onChange={(e) => handleFieldChange(med.rowId, 'strength', e.target.value)}
                     className="w-20 text-ink-700 bg-transparent border-b border-transparent focus:border-teal-500 focus:outline-none"
                   />
                 </td>
                 <td className="py-1.5 pr-2">
                   <input
                     type="text"
-                    value={med.frequency_code || ''}
+                    value={med.frequency_raw || ''}
                     disabled={isSaved}
                     placeholder="e.g. 1-0-1"
-                    onChange={(e) => handleFieldChange(idx, 'frequency_code', e.target.value)}
-                    className="w-20 text-ink-700 bg-transparent border-b border-transparent focus:border-teal-500 focus:outline-none"
+                    onChange={(e) => handleFieldChange(med.rowId, 'frequency_raw', e.target.value)}
+                    className={`w-20 bg-transparent border-b focus:border-teal-500 focus:outline-none ${
+                      med.frequency_raw && !parseFrequency(med.frequency_raw)
+                        ? 'border-amber-500 text-amber-800'
+                        : 'border-transparent text-ink-700'
+                    }`}
                   />
                 </td>
                 <td className="py-1.5 pr-2">
                   <input
                     type="number"
-                    value={med.duration_days || 5}
+                    min={1}
+                    // Shows the same number that will be saved; the UI previously
+                    // displayed 5 while the save path used 7.
+                    value={med.duration_days ?? DEFAULT_DURATION_DAYS}
                     disabled={isSaved}
-                    onChange={(e) => handleFieldChange(idx, 'duration_days', parseInt(e.target.value) || 1)}
+                    onChange={(e) =>
+                      handleFieldChange(
+                        med.rowId,
+                        'duration_days',
+                        Math.max(1, parseInt(e.target.value, 10) || DEFAULT_DURATION_DAYS)
+                      )
+                    }
                     className="w-12 text-ink-700 bg-transparent border-b border-transparent focus:border-teal-500 focus:outline-none"
                   />
                 </td>
                 <td className="py-1.5 pr-2">
                   <select
-                    value={med.with_food ? 'after' : 'before'}
+                    value={
+                      med.with_food === true ? 'after' : med.with_food === false ? 'before' : 'unknown'
+                    }
                     disabled={isSaved}
-                    onChange={(e) => handleFieldChange(idx, 'with_food', e.target.value === 'after')}
+                    onChange={(e) =>
+                      handleFieldChange(
+                        med.rowId,
+                        'with_food',
+                        e.target.value === 'after' ? true : e.target.value === 'before' ? false : null
+                      )
+                    }
                     className="text-[11px] bg-transparent border border-ink-200 rounded px-1 py-0.5 focus:outline-none focus:border-teal-500"
                   >
+                    <option value="unknown">Not specified</option>
                     <option value="after">After Food</option>
                     <option value="before">Empty Stomach</option>
                   </select>
@@ -209,7 +285,7 @@ export function EditablePrescriptionWidget({
                   {!isSaved && (
                     <button
                       type="button"
-                      onClick={() => handleRemoveRow(idx)}
+                      onClick={() => handleRemoveRow(med.rowId)}
                       className="text-ink-400 hover:text-red-600 text-xs px-1 font-bold"
                       title="Remove medicine"
                     >
@@ -248,13 +324,15 @@ export function EditablePrescriptionWidget({
             <span className="text-xs text-teal-800 font-semibold">
               Added to your daily schedule & timetable.
             </span>
-            <a
-              href="/schedule"
+            {/* `/schedule` was not a registered route (404), and a raw anchor
+                forced a full page reload. */}
+            <Link
+              to="/medicines"
               className="text-xs font-bold text-teal-900 hover:underline flex items-center gap-1"
             >
               <span>View Today's Schedule</span>
               <span>&rarr;</span>
-            </a>
+            </Link>
           </div>
         )}
       </div>

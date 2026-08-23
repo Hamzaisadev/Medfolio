@@ -9,7 +9,7 @@ import { Input } from '../../components/ui/Input';
 import { Badge } from '../../components/ui/Badge';
 import { Disclaimer } from '../../components/ui/Disclaimer';
 import { Toast } from '../../components/ui/Toast';
-import { evaluateLabResult } from '../../domain/referenceRange';
+import { evaluateLabResult, type ProfileSex } from '../../domain/referenceRange';
 import { useAuth } from '../../lib/auth/AuthContext';
 import { todayInAppTz } from '../../lib/time';
 import { REPORT_OUT_OF_RANGE_NOTE } from '../../lib/disclaimer';
@@ -49,6 +49,9 @@ export function ReviewReportPage() {
 
   const effectiveUserId = user?.id || profile?.user_id || '';
   const effectiveProfileId = profile?.id || effectiveUserId;
+  // Needed for sex-specific reference ranges ("M: 13-17, F: 12-15"); without it
+  // every such range evaluates as "Not evaluated".
+  const profileSex = (profile?.sex ?? null) as ProfileSex;
 
   // Form State
   const [reportTitle, setReportTitle] = useState(initialDraft?.title || 'Lab Test Report');
@@ -81,7 +84,7 @@ export function ReviewReportPage() {
   // Results Rows
   const [results, setResults] = useState<ResultItemDraft[]>(
     (initialDraft?.results || []).map((r, idx) => {
-      const evalStatus = evaluateLabResult(r.value_text, r.reference_range || undefined);
+      const evalStatus = evaluateLabResult(r.value_text, r.reference_range || undefined, profileSex);
       return {
         id: `res-${idx}-${Date.now()}`,
         test_name: r.test_name || '',
@@ -102,16 +105,16 @@ export function ReviewReportPage() {
   // Load pending orders to link
   useEffect(() => {
     async function loadPending() {
-      if (!effectiveUserId) return;
+      if (!effectiveProfileId) return;
       try {
-        const list = await testOrdersRepo.listPendingTestOrders(effectiveUserId);
+        const list = await testOrdersRepo.listPendingTestOrders(effectiveProfileId);
         setPendingOrders(list);
       } catch (err) {
         console.error('Failed to load pending orders:', err);
       }
     }
     loadPending();
-  }, [effectiveUserId]);
+  }, [effectiveProfileId]);
 
   const handleAddResult = () => {
     setResults((prev) => [
@@ -179,7 +182,7 @@ export function ReviewReportPage() {
 
       // Step 2: Insert Report Results with Evaluated Reference Ranges
       const resultInserts = results.map((r) => {
-        const evaluation = evaluateLabResult(r.value_text, r.reference_range);
+        const evaluation = evaluateLabResult(r.value_text, r.reference_range, profileSex);
         const numVal = parseFloat(r.value_text);
 
         return {
@@ -451,7 +454,7 @@ export function ReviewReportPage() {
               ) : (
                 results.map((r, idx) => {
                   const isLowConf = r.confidence === 'low';
-                  const evalResult = evaluateLabResult(r.value_text, r.reference_range);
+                  const evalResult = evaluateLabResult(r.value_text, r.reference_range, profileSex);
 
                   let badgeTone: 'ok' | 'warn' | 'neutral' = 'neutral';
                   let badgeLabel = 'Unevaluated';

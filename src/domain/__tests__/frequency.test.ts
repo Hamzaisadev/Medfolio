@@ -117,12 +117,37 @@ describe('frequency parsing (src/domain/frequency.ts)', () => {
     expect(defaultDoseTimes('OD', true)).toEqual([540]);
     expect(defaultDoseTimes('OD', false)).toEqual([420]);
     expect(defaultDoseTimes('BD')).toEqual([540, 1260]);
-    expect(defaultDoseTimes('BD', true, '1+0+1')).toEqual([540, 1320]);
+    // `1+0+1` means the same as BD, so it must resolve to the same slots.
+    expect(defaultDoseTimes('BD', true, '1+0+1')).toEqual([540, 1260]);
     expect(defaultDoseTimes('TDS')).toEqual([480, 840, 1200]);
     expect(defaultDoseTimes('QID')).toEqual([480, 720, 960, 1200]);
     expect(defaultDoseTimes('QHS')).toEqual([1320]);
     expect(defaultDoseTimes('STAT')).toEqual([540]);
     expect(defaultDoseTimes('WEEKLY')).toEqual([540]);
     expect(defaultDoseTimes('CUSTOM')).toEqual([540]);
+  });
+
+  it('uses the standard morning slot when the meal relation is unknown', () => {
+    // null means "the prescription did not say", which must not be read as a
+    // confirmed empty-stomach instruction.
+    expect(defaultDoseTimes('OD', null)).toEqual([540]);
+    expect(defaultDoseTimes('OD', undefined)).toEqual([540]);
+    expect(defaultDoseTimes('BD', null)).toEqual([540, 1260]);
+  });
+
+  it('shifts only the morning dose for a confirmed empty stomach instruction', () => {
+    expect(defaultDoseTimes('BD', false)).toEqual([420, 1260]);
+    expect(defaultDoseTimes('QHS', false)).toEqual([1320]);
+  });
+
+  it('resolves every slot pattern to a canonical set of times', () => {
+    expect(defaultDoseTimes('BD', true, '1+1+0')).toEqual([540, 840]);
+    expect(defaultDoseTimes('BD', true, '0+1+1')).toEqual([840, 1260]);
+    expect(defaultDoseTimes('OD', true, '1+0+0')).toEqual([540]);
+    expect(defaultDoseTimes('QHS', true, '0+0+1')).toEqual([1320]);
+  });
+
+  it('returns no dose times for a null code even with slot notation', () => {
+    expect(defaultDoseTimes(null, true, '1+0+1')).toEqual([]);
   });
 });

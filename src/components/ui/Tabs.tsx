@@ -13,7 +13,11 @@ export function TabsList({ className, ...props }: TabsListProps) {
     <RadixTabs.List
       className={twMerge(
         clsx(
-          'inline-flex h-11 items-center justify-start rounded-[var(--radius-lg)] bg-ink-100 p-1 text-ink-600 gap-1 w-full sm:w-auto',
+          'inline-flex items-center justify-start gap-1 w-full sm:w-auto',
+          'rounded-[var(--radius-lg)] bg-surface-sunken border border-line p-1 text-content-muted',
+          // Many tab sets are long labels with counts; scroll rather than wrap on
+          // a narrow screen, so the control keeps one predictable height.
+          'overflow-x-auto scrollbar-none',
           className
         )
       )}
@@ -31,9 +35,13 @@ export function TabsTrigger({ className, ...props }: TabsTriggerProps) {
     <RadixTabs.Trigger
       className={twMerge(
         clsx(
-          'inline-flex flex-1 sm:flex-initial h-9 items-center justify-center whitespace-nowrap rounded-[var(--radius-md)] px-4 text-sm font-medium transition-all select-none',
-          'focus-visible:outline-2 focus-visible:outline-brand-600 disabled:pointer-events-none disabled:opacity-50',
-          'data-[state=active]:bg-white data-[state=active]:text-ink-900 data-[state=active]:shadow-[var(--shadow-card)]',
+          'inline-flex flex-1 sm:flex-initial h-10 items-center justify-center whitespace-nowrap',
+          'rounded-[var(--radius-md)] px-4 text-sm font-semibold select-none',
+          'transition-[background-color,color,box-shadow] duration-[var(--duration-fast)]',
+          'focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent',
+          'disabled:pointer-events-none disabled:opacity-50',
+          'hover:text-content',
+          'data-[state=active]:bg-surface-raised data-[state=active]:text-content data-[state=active]:shadow-card',
           className
         )
       )}
@@ -51,7 +59,8 @@ export function TabsContent({ className, ...props }: TabsContentProps) {
     <RadixTabs.Content
       className={twMerge(
         clsx(
-          'mt-4 focus-visible:outline-2 focus-visible:outline-brand-600',
+          'mt-5 focus-visible:outline-2 focus-visible:outline-accent',
+          'data-[state=active]:animate-in data-[state=active]:fade-in-0',
           className
         )
       )}

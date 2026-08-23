@@ -50,6 +50,7 @@ export function MedicineDetailPage() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const effectiveUserId = user?.id || profile?.user_id || '';
+  const effectiveProfileId = profile?.id || effectiveUserId;
 
   const loadData = useCallback(async () => {
     if (!id) return;
@@ -69,7 +70,7 @@ export function MedicineDetailPage() {
       }
 
       // Load side effects logged for this user/medicine
-      const seList = await sideEffectsRepo.listSideEffects(effectiveUserId);
+      const seList = await sideEffectsRepo.listSideEffects(effectiveProfileId);
       setSideEffects(seList.filter((s) => s.medicine_id === id));
 
       // Fetch or read cached plain language explainer
@@ -87,7 +88,7 @@ export function MedicineDetailPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [id, navigate, effectiveUserId]);
+  }, [id, navigate, effectiveProfileId]);
 
   useEffect(() => {
     loadData();
@@ -109,7 +110,7 @@ export function MedicineDetailPage() {
       setToastMessage('Symptom / Side effect logged.');
       setSymptomText('');
       setIsSideEffectModalOpen(false);
-      const updated = await sideEffectsRepo.listSideEffects(effectiveUserId);
+      const updated = await sideEffectsRepo.listSideEffects(effectiveProfileId);
       setSideEffects(updated.filter((s) => s.medicine_id === medicine.id));
     } catch (err) {
       console.error('Failed to log side effect:', err);

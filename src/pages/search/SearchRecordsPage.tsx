@@ -42,9 +42,9 @@ export function SearchRecordsPage() {
       try {
         const [vList, mList, rList, sList] = await Promise.all([
           visitsRepo.listVisits(effectiveProfileId),
-          medicinesRepo.listMedicines(effectiveUserId),
-          reportsRepo.listReports(effectiveUserId),
-          sideEffectsRepo.listSideEffects(effectiveUserId),
+          medicinesRepo.listMedicines(effectiveProfileId),
+          reportsRepo.listReports(effectiveProfileId),
+          sideEffectsRepo.listSideEffects(effectiveProfileId),
         ]);
 
         setVisits(vList);

@@ -35,10 +35,27 @@ export const RED_FLAG_CATEGORIES: RedFlagCategoryDefinition[] = [
       'chest pain',
       'chest pressure',
       'chest tightness',
+      'chest discomfort',
+      'chest heaviness',
+      // Natural phrasings. People describe this symptom as a sentence, not as a
+      // clinical noun, so the noun forms above are not enough on their own.
+      'chest feels tight',
+      'chest feels heavy',
+      'chest feels like',
+      'chest is tight',
+      'chest is heavy',
+      'chest hurts',
+      'my chest hurt',
       'pain in chest',
+      'pain in my chest',
+      'tight chest',
+      'heavy chest',
+      'crushing pain',
+      'pain in left arm',
       'seene me dard',
       'seene mein dard',
       'seena jakarna',
+      'chaati me dard',
       'dil ka daura',
       'heart attack',
       'دل کا درد',
@@ -53,12 +70,20 @@ export const RED_FLAG_CATEGORIES: RedFlagCategoryDefinition[] = [
       "can't breathe",
       'cant breathe',
       'cannot breathe',
+      'unable to breathe',
+      'trouble breathing',
+      'hard to breathe',
       'shortness of breath',
+      'short of breath',
+      'breathless',
       'difficulty breathing',
+      'struggling to breathe',
       'gasping',
+      'choking',
       'saans nahi aa rahi',
       'saans phoolna',
       'saans band',
+      'saans lene me',
       'dam ghutna',
       'دم گھٹنا',
       'سانس نہیں آرہی',
@@ -69,11 +94,18 @@ export const RED_FLAG_CATEGORIES: RedFlagCategoryDefinition[] = [
     label: 'Stroke Symptoms',
     keywords: [
       'face drooping',
+      'face is drooping',
       'one side weakness',
+      'weak on one side',
+      'one side of my body',
       'slurred speech',
       "can't speak",
       'cant speak',
+      'cannot speak',
+      "can't move my arm",
       'sudden numbness',
+      'sudden confusion',
+      'vision loss',
       'adha jism sun',
       'falij',
       'faalij',
@@ -87,9 +119,14 @@ export const RED_FLAG_CATEGORIES: RedFlagCategoryDefinition[] = [
       'heavy bleeding',
       "won't stop bleeding",
       'wont stop bleeding',
+      'will not stop bleeding',
+      'bleeding a lot',
       'vomiting blood',
       'blood in vomit',
       'coughing blood',
+      'coughing up blood',
+      'blood in stool',
+      'black stool',
       'khoon aa raha',
       'khoon ki ulti',
       'خون کی الٹی',
@@ -103,8 +140,13 @@ export const RED_FLAG_CATEGORIES: RedFlagCategoryDefinition[] = [
       'unconscious',
       'fainted',
       'passed out',
+      'passing out',
       'unresponsive',
+      "won't wake up",
+      'wont wake up',
+      'not waking up',
       'seizure',
+      'convulsion',
       'fit parna',
       'fits',
       'behosh',
@@ -119,12 +161,18 @@ export const RED_FLAG_CATEGORIES: RedFlagCategoryDefinition[] = [
     label: 'Severe Allergic Reaction',
     keywords: [
       'throat swelling',
+      'throat is swelling',
+      'throat closing',
       'tongue swelling',
+      'lips swelling',
       "can't swallow",
       'cant swallow',
+      'cannot swallow',
       'severe allergic',
+      'allergic reaction',
       'anaphylaxis',
       'whole body rash with breathing',
+      'hives all over',
       'gala soojh',
       'gala phool',
     ],
@@ -134,7 +182,10 @@ export const RED_FLAG_CATEGORIES: RedFlagCategoryDefinition[] = [
     label: 'Pregnancy Emergency',
     keywords: [
       'heavy bleeding pregnancy',
+      'bleeding while pregnant',
+      'bleeding during pregnancy',
       'no fetal movement',
+      'baby not moving',
       'water broke early',
       'severe abdominal pain pregnancy',
       'hamal me khoon',
@@ -147,9 +198,11 @@ export const RED_FLAG_CATEGORIES: RedFlagCategoryDefinition[] = [
     keywords: [
       'baby not breathing',
       'baby blue',
+      'baby is blue',
       'baby limp',
       'newborn fever',
       'baby not waking',
+      "baby won't wake",
       'bacha behosh',
       'bacha saans nahi le raha',
     ],
@@ -160,6 +213,8 @@ export const RED_FLAG_CATEGORIES: RedFlagCategoryDefinition[] = [
     keywords: [
       'overdose',
       'took too many pills',
+      'took too many tablets',
+      'double dose by mistake',
       'swallowed poison',
       'zeher',
       'kerosene',
@@ -173,6 +228,7 @@ export const RED_FLAG_CATEGORIES: RedFlagCategoryDefinition[] = [
     label: 'Sudden Severe Pain',
     keywords: [
       'worst headache of my life',
+      'worst headache ever',
       'sudden severe headache',
       'thunderclap headache',
       'intehai shadeed sar dard',
@@ -188,6 +244,24 @@ export interface RedFlagResult {
 }
 
 /**
+ * Normalises text before keyword matching.
+ *
+ * Mobile keyboards auto-substitute a typographic apostrophe (U+2019), so a real
+ * user typing "can't breathe" produced "can’t breathe" and matched nothing. Same
+ * for collapsed whitespace and stray punctuation. False negatives are the one
+ * failure mode this module must not have.
+ */
+export function normalizeForMatching(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[‘’ʼ′`´]/g, "'")
+    .replace(/[–—]/g, '-')
+    .replace(/[.,!?;:()[\]{}"]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
  * Checks input text for high-risk red flag keywords.
  */
 export function checkRedFlags(text: string | null | undefined): RedFlagResult {
@@ -200,12 +274,14 @@ export function checkRedFlags(text: string | null | undefined): RedFlagResult {
     };
   }
 
-  const normalized = text.toLowerCase();
+  const normalized = normalizeForMatching(text);
   const matchedCategories: string[] = [];
   const matchedLabels: string[] = [];
 
   for (const category of RED_FLAG_CATEGORIES) {
-    const hasMatch = category.keywords.some((kw) => normalized.includes(kw.toLowerCase()));
+    const hasMatch = category.keywords.some((kw) =>
+      normalized.includes(normalizeForMatching(kw))
+    );
     if (hasMatch) {
       matchedCategories.push(category.id);
       matchedLabels.push(category.label);

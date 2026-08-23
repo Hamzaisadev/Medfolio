@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { StatusDot } from '../ui/StatusDot';
 
 export function OfflineBanner() {
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
@@ -22,10 +23,10 @@ export function OfflineBanner() {
     <div
       role="status"
       aria-live="polite"
-      className="bg-amber-50 border-b border-amber-200 px-4 py-2 text-center text-xs font-semibold text-amber-900 flex items-center justify-center gap-2"
+      className="bg-warn-bg border-b border-warn-border px-4 py-2.5 text-center text-xs font-semibold text-warn-text flex items-center justify-center gap-2"
     >
-      <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
-      <span>Working Offline — All saved prescriptions, doses, and emergency red-flags remain fully accessible.</span>
+      <StatusDot tone="warn" pulse size={7} />
+      <span>Working offline — your saved doses, records and emergency numbers still work.</span>
     </div>
   );
 }

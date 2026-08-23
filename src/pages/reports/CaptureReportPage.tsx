@@ -5,8 +5,7 @@ import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { ErrorState } from '../../components/ui/ErrorState';
-import { Disclaimer } from '../../components/ui/Disclaimer';
-import { LabFlaskIcon } from '../../components/ui/icons';
+import { LabFlaskIcon, SparklesIcon, XIcon } from '../../components/ui/icons';
 import { optimizeMedicalImage, type ProcessedImage } from '../../lib/files/imagePipeline';
 import { extractLabReport } from '../../lib/ai/client';
 import { testOrdersRepo } from '../../lib/db';
@@ -36,20 +35,21 @@ export function CaptureReportPage() {
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const effectiveUserId = user?.id || profile?.user_id || '';
+  const effectiveProfileId = profile?.id || effectiveUserId;
 
   // Load pending test orders to suggest auto-linking
   useEffect(() => {
     async function loadPending() {
-      if (!effectiveUserId) return;
+      if (!effectiveProfileId) return;
       try {
-        const list = await testOrdersRepo.listPendingTestOrders(effectiveUserId);
+        const list = await testOrdersRepo.listPendingTestOrders(effectiveProfileId);
         setPendingOrders(list);
       } catch (err) {
         console.error('Failed to load pending test orders:', err);
       }
     }
     loadPending();
-  }, [effectiveUserId]);
+  }, [effectiveProfileId]);
 
   const handleFiles = async (fileList: FileList | null) => {
     if (!fileList || fileList.length === 0) return;

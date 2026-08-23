@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseRange, evaluateRange } from '../referenceRange';
+import { parseRange, evaluateRange, evaluateLabResult } from '../referenceRange';
 
 describe('reference range parsing and evaluation (src/domain/referenceRange.ts)', () => {
   it('parses standard numeric intervals with various dashes and words', () => {
@@ -66,5 +66,65 @@ describe('reference range parsing and evaluation (src/domain/referenceRange.ts)'
     expect(evaluateRange('Negative', null, null, 'negative')).toBe('within');
     expect(evaluateRange('Positive', null, null, 'negative')).toBe('above');
     expect(evaluateRange('Indeterminate', null, null, 'negative')).toBe('unknown');
+  });
+
+  it('parses ranges written with thousands separators', () => {
+    // A routine WBC range; the comma previously defeated the interval match.
+    expect(parseRange('4,000 - 11,000')).toEqual({ low: 4000, high: 11000 });
+    expect(parseRange('150,000-450,000')).toEqual({ low: 150000, high: 450000 });
+    expect(parseRange('< 1,000')).toEqual({ low: null, high: 1000 });
+  });
+
+  it('does not merge separate numbers when stripping separators', () => {
+    // "12,16" is not a thousands separator, so it must not become 1216.
+    expect(parseRange('12,16')).toEqual({ low: null, high: null });
+  });
+
+  describe('evaluateLabResult', () => {
+    it('CRITICAL: flags an abnormal qualitative result as out of range', () => {
+      // Expected negative, got positive. This previously reported "unevaluated".
+      const result = evaluateLabResult('Positive', 'Negative');
+      expect(result.status).toBe('outside_range');
+      expect(result.rangeStatus).toBe('above');
+    });
+
+    it('flags reactive, present, detected and trace results', () => {
+      for (const value of ['Reactive', 'Present', 'Detected', 'Trace']) {
+        expect(evaluateLabResult(value, 'Negative').status, value).toBe('outside_range');
+      }
+    });
+
+    it('accepts a matching qualitative result', () => {
+      expect(evaluateLabResult('Negative', 'Negative').status).toBe('within_range');
+      expect(evaluateLabResult('Non-Reactive', 'Non-reactive').status).toBe('within_range');
+    });
+
+    it('leaves a genuinely ambiguous qualitative result unflagged', () => {
+      expect(evaluateLabResult('Indeterminate', 'Negative').status).toBe('qualitative');
+    });
+
+    it('CRITICAL: resolves sex-specific ranges when sex is supplied', () => {
+      // Haemoglobin 12.5 is normal for a female patient, low for a male one.
+      const range = 'M: 13-17, F: 12-15';
+      expect(evaluateLabResult('12.5', range, 'female').status).toBe('within_range');
+      expect(evaluateLabResult('12.5', range, 'male').status).toBe('outside_range');
+      expect(evaluateLabResult('12.5', range, 'male').rangeStatus).toBe('below');
+    });
+
+    it('does not guess a sex-specific range when sex is unknown', () => {
+      expect(evaluateLabResult('12.5', 'M: 13-17, F: 12-15', null).status).toBe('unevaluated');
+      expect(evaluateLabResult('12.5', 'M: 13-17, F: 12-15').status).toBe('unevaluated');
+    });
+
+    it('evaluates plain numeric ranges', () => {
+      expect(evaluateLabResult('14', '12 - 16').status).toBe('within_range');
+      expect(evaluateLabResult('18', '12 - 16').rangeStatus).toBe('above');
+      expect(evaluateLabResult('8000', '4,000 - 11,000').status).toBe('within_range');
+    });
+
+    it('returns unevaluated rather than a false result for unparseable input', () => {
+      expect(evaluateLabResult('14', 'see comments').status).toBe('unevaluated');
+      expect(evaluateLabResult('', '12 - 16').status).toBe('unevaluated');
+    });
   });
 });

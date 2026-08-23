@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { AppShell } from '../../components/layout/AppShell';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
@@ -6,287 +7,357 @@ import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui/Tabs';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { Dialog } from '../../components/ui/Dialog';
 import { Toast } from '../../components/ui/Toast';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { Skeleton } from '../../components/ui/Skeleton';
+import { SectionHeader } from '../../components/ui/SectionHeader';
+import { PackageIcon, PlusIcon, CheckIcon, MedicineIcon } from '../../components/ui/icons';
 import { useAuth } from '../../lib/auth/AuthContext';
 import { medicinesRepo, dosesRepo } from '../../lib/db';
-import { todayInAppTz, addDaysAppTz } from '../../lib/time';
+import { readInventory, writeInventory } from '../../lib/inventory';
+import { todayInAppTz, addDaysAppTz, formatDateShort, formatDateMedium } from '../../lib/time';
 import { isActive, recentlyFinishedMedicines } from '../../domain/activeMedicines';
+import { mealRelationLabel } from '../../domain/mealRelation';
 import type { Tables } from '../../lib/supabase/types';
 
 type Medicine = Tables<'medicines'>;
 
-const INVENTORY_STORAGE_KEY = 'medfolio_pill_inventory_v1';
+const REFILL_PACK_SIZES = [10, 20, 30, 60];
+
+/** Tablets consumed per day, from the frequency code. */
+function dailyBurn(code: string | null | undefined): number {
+  switch (code) {
+    case 'BD':
+      return 2;
+    case 'TDS':
+      return 3;
+    case 'QID':
+      return 4;
+    default:
+      return 1;
+  }
+}
+
+/** A course is flagged for refill at three days of supply or less. */
+const LOW_STOCK_DAYS = 3;
+const CAUTION_STOCK_DAYS = 7;
 
 export function MedicineCabinetPage() {
   const { user, profile } = useAuth();
   const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Pill supply inventory (medicine_id -> remaining pill count)
-  const [inventory, setInventory] = useState<Record<string, number>>(() => {
-    try {
-      const saved = localStorage.getItem(INVENTORY_STORAGE_KEY);
-      return saved ? JSON.parse(saved) : {};
-    } catch {
-      return {};
-    }
-  });
+  // Pill supply inventory (medicine_id -> remaining count), scoped per profile.
+  const [inventory, setInventory] = useState<Record<string, number>>({});
 
-  // Refill Modal state
   const [refillTarget, setRefillTarget] = useState<Medicine | null>(null);
   const [refillAmount, setRefillAmount] = useState<number>(30);
-
-  // Discontinue confirmation dialog
   const [discontinueTarget, setDiscontinueTarget] = useState<Medicine | null>(null);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; tone: 'ok' | 'risk' } | null>(null);
+
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Confirmation handed over by the prescription review page. Shown here because
+  // a toast set immediately before navigating never renders.
+  useEffect(() => {
+    const flash = (location.state as { flash?: string } | null)?.flash;
+    if (flash) {
+      setToast({ message: flash, tone: 'ok' });
+      // Clear it so a refresh or back-navigation does not replay the message.
+      navigate(location.pathname, { replace: true, state: null });
+    }
+  }, [location.pathname, location.state, navigate]);
 
   const effectiveUserId = user?.id || profile?.user_id || '';
+  const effectiveProfileId = profile?.id || effectiveUserId;
 
   const loadMedicines = useCallback(async () => {
-    if (!effectiveUserId) return;
+    if (!effectiveProfileId) return;
     setIsLoading(true);
     try {
-      const list = await medicinesRepo.listMedicines(effectiveUserId);
+      const list = await medicinesRepo.listMedicines(effectiveProfileId);
       setMedicines(list);
 
-      // Initialize default pill count if not tracked yet
-      setInventory((prev) => {
-        const next = { ...prev };
-        let modified = false;
-        for (const m of list) {
-          if (next[m.id] === undefined) {
-            const duration = m.duration_days || (m.is_ongoing ? 30 : 10);
-            const daily = m.frequency_code === 'BD' ? 2 : m.frequency_code === 'TDS' ? 3 : m.frequency_code === 'QID' ? 4 : 1;
-            next[m.id] = duration * daily;
-            modified = true;
-          }
+      // Seed a starting count for anything not tracked yet, using this profile's
+      // own inventory rather than a single shared key.
+      const stored = readInventory(effectiveProfileId);
+      let modified = false;
+      for (const m of list) {
+        if (stored[m.id] === undefined) {
+          const duration = m.duration_days || (m.is_ongoing ? 30 : 10);
+          stored[m.id] = duration * dailyBurn(m.frequency_code);
+          modified = true;
         }
-        if (modified) {
-          localStorage.setItem(INVENTORY_STORAGE_KEY, JSON.stringify(next));
-        }
-        return next;
-      });
-    } catch {
+      }
+      if (modified) writeInventory(effectiveProfileId, stored);
+      setInventory(stored);
+    } catch (err) {
+      console.error('Failed to load medicines:', err);
       setMedicines([]);
+      setToast({ message: 'Could not load your medicine cabinet.', tone: 'risk' });
     } finally {
       setIsLoading(false);
     }
-  }, [effectiveUserId]);
+  }, [effectiveProfileId]);
 
   useEffect(() => {
     loadMedicines();
   }, [loadMedicines]);
 
-  const saveInventory = (newInv: Record<string, number>) => {
-    setInventory(newInv);
-    try {
-      localStorage.setItem(INVENTORY_STORAGE_KEY, JSON.stringify(newInv));
-    } catch (err) {
-      console.error('Failed to save inventory:', err);
-    }
+  const saveInventory = (next: Record<string, number>) => {
+    setInventory(next);
+    writeInventory(effectiveProfileId, next);
   };
 
   const handleRefillConfirm = () => {
     if (!refillTarget) return;
-    const current = inventory[refillTarget.id] || 0;
-    const updated = { ...inventory, [refillTarget.id]: current + refillAmount };
-    saveInventory(updated);
-    setToastMessage(`Added +${refillAmount} pills to ${refillTarget.medicine_name}.`);
+    const current = countFor(refillTarget);
+    saveInventory({ ...inventory, [refillTarget.id]: current + refillAmount });
+    setToast({
+      message: `Added ${refillAmount} tablets of ${refillTarget.medicine_name}.`,
+      tone: 'ok',
+    });
     setRefillTarget(null);
   };
 
-  const todayStr = todayInAppTz();
-  const active = medicines.filter((m) => isActive(m, todayStr));
-  const past = recentlyFinishedMedicines(medicines, todayStr, 180);
-
-  const prnMedicines = active.filter((m) => m.frequency_code === 'PRN' || m.frequency_code === 'SOS');
-  const scheduledActive = active.filter((m) => m.frequency_code !== 'PRN' && m.frequency_code !== 'SOS');
-
-  // Calculate medicines running low (<= 3 days)
-  const lowStockMeds = scheduledActive.filter((m) => {
-    const count = inventory[m.id] || 0;
-    const daily = m.frequency_code === 'BD' ? 2 : m.frequency_code === 'TDS' ? 3 : m.frequency_code === 'QID' ? 4 : 1;
-    const daysLeft = Math.floor(count / daily);
-    return daysLeft <= 3;
-  });
-
   const handleConfirmDiscontinue = async () => {
     if (!discontinueTarget) return;
+    const name = discontinueTarget.medicine_name;
     try {
-      const nowIso = new Date().toISOString();
-      await medicinesRepo.discontinueMedicine(discontinueTarget.id, nowIso);
+      await medicinesRepo.discontinueMedicine(discontinueTarget.id, new Date().toISOString());
       await dosesRepo.deleteFuturePendingDoses(discontinueTarget.id, todayStr);
-      setToastMessage(`Discontinued ${discontinueTarget.medicine_name}.`);
       setDiscontinueTarget(null);
+      setToast({ message: `Stopped ${name}. Future doses removed.`, tone: 'ok' });
       await loadMedicines();
     } catch (err: unknown) {
       console.error(err);
+      // Previously this only reached the console, so a failed write looked
+      // exactly like a successful one.
+      setToast({
+        message: err instanceof Error ? err.message : `Could not stop ${name}. Please try again.`,
+        tone: 'risk',
+      });
     }
   };
 
   const handleLogPrnDose = async (med: Medicine) => {
     try {
-      const effectiveProfileId = profile?.id || effectiveUserId;
       const now = new Date();
-      const currentMinutes = now.getHours() * 60 + now.getMinutes();
-
       await dosesRepo.createDoses([
         {
           user_id: effectiveUserId,
           profile_id: effectiveProfileId,
           medicine_id: med.id,
           scheduled_date: todayStr,
-          scheduled_minutes: currentMinutes,
+          scheduled_minutes: now.getHours() * 60 + now.getMinutes(),
           status: 'taken',
           taken_at: now.toISOString(),
         },
       ]);
 
-      // Decrement inventory by 1
-      const cur = inventory[med.id] || 0;
-      if (cur > 0) {
-        saveInventory({ ...inventory, [med.id]: cur - 1 });
-      }
+      const current = countFor(med);
+      if (current > 0) saveInventory({ ...inventory, [med.id]: current - 1 });
 
-      setToastMessage(`Logged dose of ${med.medicine_name}.`);
+      setToast({ message: `Logged a dose of ${med.medicine_name}.`, tone: 'ok' });
     } catch (err: unknown) {
       console.error(err);
+      setToast({
+        message: err instanceof Error ? err.message : 'Could not log that dose. Please try again.',
+        tone: 'risk',
+      });
     }
   };
+
+  const todayStr = todayInAppTz();
+
+  /**
+   * Remaining tablets for a medicine.
+   *
+   * One accessor, so the card and the refill banner cannot disagree: they used
+   * `?? 20` and `|| 0` respectively, which let a card read "20 tablets · Stocked"
+   * directly under a banner saying the same medicine was running out.
+   */
+  const countFor = (med: Medicine): number => inventory[med.id] ?? 0;
+
+  const daysLeftFor = (med: Medicine): number =>
+    Math.floor(countFor(med) / dailyBurn(med.frequency_code));
+
+  const active = medicines.filter((m) => isActive(m, todayStr));
+  const past = recentlyFinishedMedicines(medicines, todayStr, 180);
+  const prnMedicines = active.filter(
+    (m) => m.frequency_code === 'PRN' || m.frequency_code === 'SOS'
+  );
+  const scheduledActive = active.filter(
+    (m) => m.frequency_code !== 'PRN' && m.frequency_code !== 'SOS'
+  );
+  const lowStockMeds = scheduledActive.filter((m) => daysLeftFor(m) <= LOW_STOCK_DAYS);
 
   return (
     <AppShell>
       <PageHeader
-        title="Medicine Cabinet & Refill Tracker"
-        description="Manage active courses, remaining pill counts, and proactive prescription refill alerts."
+        title="Medicine cabinet"
+        description="What you are taking, how much is left, and when to buy more."
+        action={
+          <Link to="/prescriptions/new" className="hidden sm:block">
+            <Button leftIcon={<PlusIcon size={17} />}>Add prescription</Button>
+          </Link>
+        }
       />
 
-      <Toast
-        open={Boolean(toastMessage)}
-        onClose={() => setToastMessage(null)}
-        message={toastMessage || ''}
-        tone="ok"
-      />
+      {toast && (
+        <Toast open onClose={() => setToast(null)} message={toast.message} tone={toast.tone} />
+      )}
 
-      {/* Proactive Refill Alert Banner */}
       {lowStockMeds.length > 0 && (
-        <div className="mb-6 p-4 rounded-2xl bg-amber-50 border border-amber-300 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">📦</span>
-            <div>
-              <h3 className="font-bold text-sm text-amber-950">
-                Refill Alert: {lowStockMeds.length} {lowStockMeds.length === 1 ? 'medication is' : 'medications are'} running out soon
-              </h3>
-              <p className="text-xs text-amber-800">
-                {lowStockMeds.map((m) => m.medicine_name).join(', ')} — running low in ≤ 3 days.
+        <Card accent="warn" className="mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+            <span className="shrink-0 flex items-center justify-center w-11 h-11 rounded-[var(--radius-md)] bg-warn-bg text-warn-text">
+              <PackageIcon size={21} />
+            </span>
+            <div className="flex-1 min-w-0">
+              <h2 className="text-sm font-bold text-content">
+                {lowStockMeds.length === 1
+                  ? '1 medicine is running out'
+                  : `${lowStockMeds.length} medicines are running out`}
+              </h2>
+              <p className="mt-1 text-xs text-content-muted">
+                {lowStockMeds.map((m) => m.medicine_name).join(', ')} —{' '}
+                {LOW_STOCK_DAYS} days of supply or less.
               </p>
             </div>
+            <Button
+              size="sm"
+              onClick={() => setRefillTarget(lowStockMeds[0] ?? null)}
+              className="shrink-0"
+            >
+              Log a refill
+            </Button>
           </div>
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => setRefillTarget(lowStockMeds[0] || null)}
-            className="shrink-0 font-bold"
-          >
-            + Log Refill Pack
-          </Button>
-        </div>
+        </Card>
       )}
 
       {isLoading ? (
-        <div className="py-12 text-center text-sm text-ink-500">Loading medicines...</div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {[0, 1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-52 w-full rounded-[var(--radius-lg)]" />
+          ))}
+        </div>
       ) : (
         <Tabs defaultValue="active">
-          <TabsList className="mb-6">
-            <TabsTrigger value="active">Active Courses ({scheduledActive.length})</TabsTrigger>
-            <TabsTrigger value="prn">As-Needed / PRN ({prnMedicines.length})</TabsTrigger>
-            <TabsTrigger value="past">Past Courses ({past.length})</TabsTrigger>
+          <TabsList className="mb-2">
+            <TabsTrigger value="active">Taking now ({scheduledActive.length})</TabsTrigger>
+            <TabsTrigger value="prn">As needed ({prnMedicines.length})</TabsTrigger>
+            <TabsTrigger value="past">Finished ({past.length})</TabsTrigger>
           </TabsList>
 
-          {/* Active Scheduled Courses */}
           <TabsContent value="active">
             {scheduledActive.length === 0 ? (
               <EmptyState
-                heading="No active courses"
-                description="You have no ongoing or scheduled medicine courses right now."
+                heading="No courses running"
+                description="Medicines with a set dose schedule will appear here."
+                action={
+                  <Link to="/prescriptions/new">
+                    <Button leftIcon={<PlusIcon size={17} />}>Add a prescription</Button>
+                  </Link>
+                }
               />
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {scheduledActive.map((med) => {
-                  const count = inventory[med.id] ?? 20;
-                  const daily = med.frequency_code === 'BD' ? 2 : med.frequency_code === 'TDS' ? 3 : med.frequency_code === 'QID' ? 4 : 1;
-                  const daysLeft = Math.floor(count / daily);
-                  const exhaustionDate = addDaysAppTz(todayStr, daysLeft);
-                  const isLow = daysLeft <= 3;
-                  const isCaution = daysLeft <= 7 && !isLow;
+                  const count = countFor(med);
+                  const burn = dailyBurn(med.frequency_code);
+                  const daysLeft = daysLeftFor(med);
+                  const isLow = daysLeft <= LOW_STOCK_DAYS;
+                  const isCaution = !isLow && daysLeft <= CAUTION_STOCK_DAYS;
 
                   return (
-                    <Card key={med.id}>
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h3 className="text-base font-bold text-ink-900">{med.medicine_name}</h3>
+                    <Card key={med.id} accent={isLow ? 'risk' : isCaution ? 'warn' : 'ok'}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <h3 className="text-base font-bold text-content">
+                            {med.medicine_name}
                             {med.strength && (
-                              <span className="text-xs text-ink-600 font-medium">
-                                ({med.strength})
+                              <span className="ml-1.5 text-sm font-medium text-content-muted">
+                                {med.strength}
                               </span>
                             )}
-                          </div>
-                          <p className="text-xs text-ink-500 mt-0.5">
-                            {med.frequency_raw || med.frequency_code} • {med.duration_raw || (med.is_ongoing ? 'Ongoing' : 'Finite course')}
+                          </h3>
+                          <p className="mt-1 text-sm text-content-muted">
+                            {med.frequency_raw || med.frequency_code} ·{' '}
+                            {med.duration_raw || (med.is_ongoing ? 'Ongoing' : 'Fixed course')}
                           </p>
-                          {med.instructions && (
-                            <p className="text-xs text-ink-700 mt-2 bg-ink-50 p-2 rounded">
-                              {med.instructions}
-                            </p>
-                          )}
+                          <p className="mt-0.5 text-xs text-content-subtle">
+                            {mealRelationLabel(med.with_food)}
+                          </p>
                         </div>
-                        <Badge tone={isLow ? 'risk' : isCaution ? 'warn' : 'ok'} size="sm">
-                          {isLow ? '🔴 Low Stock' : isCaution ? '🟡 1 Week Left' : '🟢 Stocked'}
+
+                        <Badge tone={isLow ? 'risk' : isCaution ? 'warn' : 'ok'} size="sm" withIcon>
+                          {isLow ? 'Buy more' : isCaution ? 'A week left' : 'Stocked'}
                         </Badge>
                       </div>
 
-                      {/* Visual Pill Inventory Bar */}
-                      <div className="mt-3 p-3 bg-ink-50 rounded-xl border border-ink-100 space-y-1.5">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="font-semibold text-ink-700">📦 Remaining Supply:</span>
-                          <span className="font-bold text-ink-900">{count} tablets ({daysLeft} days)</span>
+                      {med.instructions && (
+                        <p className="mt-3 text-sm text-content-muted bg-surface-sunken border border-line rounded-[var(--radius-md)] px-3 py-2.5">
+                          {med.instructions}
+                        </p>
+                      )}
+
+                      <div className="mt-4 p-3.5 rounded-[var(--radius-md)] bg-surface-sunken border border-line space-y-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="font-semibold text-content-muted">Supply left</span>
+                          <span className="font-bold text-content" data-numeric>
+                            {count} {count === 1 ? 'tablet' : 'tablets'}
+                            {count > 0 && ` · ${daysLeft} ${daysLeft === 1 ? 'day' : 'days'}`}
+                          </span>
                         </div>
 
-                        {/* Progress meter */}
-                        <div className="w-full bg-ink-200 h-2 rounded-full overflow-hidden">
+                        <div
+                          className="w-full bg-line h-2 rounded-full overflow-hidden"
+                          role="progressbar"
+                          aria-valuenow={Math.min(30, daysLeft)}
+                          aria-valuemin={0}
+                          aria-valuemax={30}
+                          aria-label={`${daysLeft} days of supply remaining`}
+                        >
                           <div
-                            className={`h-full rounded-full transition-all ${
-                              isLow ? 'bg-red-500' : isCaution ? 'bg-amber-500' : 'bg-teal-600'
+                            className={`h-full rounded-full transition-[width] duration-[var(--duration-slow)] ${
+                              isLow ? 'bg-risk-text' : isCaution ? 'bg-warn-text' : 'bg-accent'
                             }`}
-                            style={{ width: `${Math.min(100, Math.max(8, (daysLeft / 30) * 100))}%` }}
+                            style={{ width: `${Math.min(100, (daysLeft / 30) * 100)}%` }}
                           />
                         </div>
 
-                        <div className="flex items-center justify-between text-[11px] text-ink-500 pt-0.5">
-                          <span>Burn: {daily} tab/day</span>
-                          <span>Est. Depletion: <strong>{exhaustionDate}</strong></span>
+                        <div className="flex items-center justify-between text-xs text-content-subtle">
+                          <span data-numeric>
+                            {burn} {burn === 1 ? 'tablet' : 'tablets'} a day
+                          </span>
+                          {count > 0 && (
+                            <span>Runs out {formatDateShort(addDaysAppTz(todayStr, daysLeft))}</span>
+                          )}
                         </div>
                       </div>
 
-                      <div className="mt-3 pt-3 border-t border-ink-200 flex items-center justify-between">
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => setRefillTarget(med)}
-                          className="text-xs font-bold"
-                        >
-                          + Refill Pack
+                      <div className="mt-4 pt-4 border-t border-line flex items-center justify-between gap-2">
+                        <Button variant="secondary" size="sm" onClick={() => setRefillTarget(med)}>
+                          Log a refill
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-red-600 hover:text-red-800 text-xs"
-                          onClick={() => setDiscontinueTarget(med)}
-                        >
-                          Discontinue
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Link to={`/medicines/${med.id}`}>
+                            <Button variant="ghost" size="sm">
+                              Details
+                            </Button>
+                          </Link>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-risk-text hover:bg-risk-bg"
+                            onClick={() => setDiscontinueTarget(med)}
+                          >
+                            Stop
+                          </Button>
+                        </div>
                       </div>
                     </Card>
                   );
@@ -295,145 +366,171 @@ export function MedicineCabinetPage() {
             )}
           </TabsContent>
 
-          {/* PRN / As Needed */}
           <TabsContent value="prn">
             {prnMedicines.length === 0 ? (
               <EmptyState
-                heading="No PRN medicines"
-                description="As-needed medicines (e.g. Panadol for fever, Inhalers) will appear here."
+                heading="Nothing taken as needed"
+                description="Medicines you take only when required — painkillers, inhalers — appear here."
               />
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {prnMedicines.map((med) => {
-                  const count = inventory[med.id] ?? 20;
-
-                  return (
-                    <Card key={med.id}>
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h3 className="text-base font-bold text-ink-900">{med.medicine_name}</h3>
-                          <p className="text-xs text-ink-500 mt-0.5">
-                            {med.frequency_raw || 'Take as needed'}
-                          </p>
-                          {med.instructions && (
-                            <p className="text-xs text-ink-700 mt-2 bg-ink-50 p-2 rounded">
-                              {med.instructions}
-                            </p>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {prnMedicines.map((med) => (
+                  <Card key={med.id} accent="info">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h3 className="text-base font-bold text-content">
+                          {med.medicine_name}
+                          {med.strength && (
+                            <span className="ml-1.5 text-sm font-medium text-content-muted">
+                              {med.strength}
+                            </span>
                           )}
-                        </div>
-                        <Badge tone="info" size="sm">As Needed</Badge>
-                      </div>
-
-                      <div className="mt-3 p-2.5 bg-ink-50 rounded-xl border border-ink-100 flex items-center justify-between text-xs">
-                        <span className="text-ink-600">Cabinet Pack:</span>
-                        <span className="font-bold text-ink-900">{count} pills left</span>
-                      </div>
-
-                      <div className="mt-4 pt-3 border-t border-ink-200 flex items-center justify-between">
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => setRefillTarget(med)}
-                          className="text-xs"
-                        >
-                          + Refill
-                        </Button>
-                        <Button
-                          variant="primary"
-                          size="sm"
-                          onClick={() => handleLogPrnDose(med)}
-                          className="font-bold text-xs"
-                        >
-                          Log Dose Taken (-1)
-                        </Button>
-                      </div>
-                    </Card>
-                  );
-                })}
-              </div>
-            )}
-          </TabsContent>
-
-          {/* Past Courses */}
-          <TabsContent value="past">
-            {past.length === 0 ? (
-              <EmptyState
-                heading="No completed courses"
-                description="Finished or discontinued courses will be listed here."
-              />
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {past.map((med) => (
-                  <Card key={med.id} className="opacity-80">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <h3 className="text-base font-bold text-ink-900">{med.medicine_name}</h3>
-                        <p className="text-xs text-ink-500 mt-0.5">
-                          {med.start_date} to {med.end_date || med.discontinued_at || 'Ended'}
+                        </h3>
+                        <p className="mt-1 text-sm text-content-muted">
+                          {med.frequency_raw || 'Take only when needed'}
                         </p>
                       </div>
-                      <Badge tone="neutral" size="sm">
-                        {med.discontinued_at ? 'Discontinued' : 'Completed'}
+                      <Badge tone="info" size="sm">
+                        As needed
                       </Badge>
+                    </div>
+
+                    {med.instructions && (
+                      <p className="mt-3 text-sm text-content-muted bg-surface-sunken border border-line rounded-[var(--radius-md)] px-3 py-2.5">
+                        {med.instructions}
+                      </p>
+                    )}
+
+                    <div className="mt-4 flex items-center justify-between text-sm p-3 rounded-[var(--radius-md)] bg-surface-sunken border border-line">
+                      <span className="text-content-muted">In your cabinet</span>
+                      <span className="font-bold text-content" data-numeric>
+                        {countFor(med)} left
+                      </span>
+                    </div>
+
+                    <div className="mt-4 pt-4 border-t border-line flex items-center justify-between gap-2">
+                      <Button variant="secondary" size="sm" onClick={() => setRefillTarget(med)}>
+                        Log a refill
+                      </Button>
+                      <Button
+                        size="sm"
+                        leftIcon={<CheckIcon size={16} />}
+                        onClick={() => handleLogPrnDose(med)}
+                      >
+                        I took one
+                      </Button>
                     </div>
                   </Card>
                 ))}
               </div>
             )}
           </TabsContent>
+
+          <TabsContent value="past">
+            {past.length === 0 ? (
+              <EmptyState
+                heading="Nothing finished yet"
+                description="Courses you complete or stop will be kept here for your record."
+              />
+            ) : (
+              <>
+                <SectionHeader title="Last 6 months" className="mb-4" />
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {past.map((med) => (
+                    <Card key={med.id}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <h3 className="text-sm font-bold text-content-muted">
+                            {med.medicine_name}
+                            {med.strength ? ` ${med.strength}` : ''}
+                          </h3>
+                          <p className="mt-1 text-xs text-content-subtle">
+                            {formatDateMedium(med.start_date)} to{' '}
+                            {med.end_date
+                              ? formatDateMedium(med.end_date)
+                              : med.discontinued_at
+                                ? formatDateMedium(med.discontinued_at.slice(0, 10))
+                                : 'ended'}
+                          </p>
+                        </div>
+                        <Badge tone="neutral" size="sm">
+                          {med.discontinued_at ? 'Stopped early' : 'Completed'}
+                        </Badge>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </>
+            )}
+          </TabsContent>
         </Tabs>
       )}
 
-      {/* Refill Pack Modal */}
-      {refillTarget && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-xl animate-in fade-in zoom-in-95">
-            <h3 className="text-base font-bold text-ink-900">
-              Log Refill Pack for {refillTarget.medicine_name}
-            </h3>
-            <p className="text-xs text-ink-600">
-              Current inventory: <strong>{inventory[refillTarget.id] || 0} tablets</strong>. Select the pack size purchased:
-            </p>
+      {/* Refill dialog. Uses the shared Dialog rather than a hand-rolled overlay:
+          the previous one had no focus trap, no Escape handler, no scroll lock and
+          no aria-modal. */}
+      <Dialog
+        open={Boolean(refillTarget)}
+        onOpenChange={(open) => !open && setRefillTarget(null)}
+        title={refillTarget ? `Refill ${refillTarget.medicine_name}` : 'Refill'}
+        description={
+          refillTarget
+            ? `You have ${countFor(refillTarget)} tablets recorded. How many did you buy?`
+            : undefined
+        }
+      >
+        <div className="space-y-5">
+          <div
+            className="grid grid-cols-2 sm:grid-cols-4 gap-2"
+            role="radiogroup"
+            aria-label="Pack size"
+          >
+            {REFILL_PACK_SIZES.map((amount) => (
+              <button
+                key={amount}
+                type="button"
+                role="radio"
+                aria-checked={refillAmount === amount}
+                onClick={() => setRefillAmount(amount)}
+                className={`h-12 rounded-[var(--radius-md)] text-sm font-bold border transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
+                  refillAmount === amount
+                    ? 'bg-accent text-content-onaccent border-accent'
+                    : 'bg-surface-raised border-line text-content hover:bg-surface-hover'
+                }`}
+              >
+                +{amount}
+              </button>
+            ))}
+          </div>
 
-            <div className="grid grid-cols-3 gap-2">
-              {[10, 20, 30].map((amt) => (
-                <button
-                  key={amt}
-                  type="button"
-                  onClick={() => setRefillAmount(amt)}
-                  className={`py-2 rounded-xl text-xs font-bold border transition-all ${
-                    refillAmount === amt
-                      ? 'bg-teal-700 text-white border-teal-800 shadow-2xs'
-                      : 'bg-ink-50 border-ink-200 text-ink-800 hover:bg-ink-100'
-                  }`}
-                >
-                  +{amt} Pills
-                </button>
-              ))}
-            </div>
-
-            <div className="pt-2 flex items-center justify-end gap-2">
-              <Button variant="ghost" size="sm" onClick={() => setRefillTarget(null)}>
-                Cancel
-              </Button>
-              <Button variant="primary" size="sm" onClick={handleRefillConfirm} className="font-bold">
-                Confirm Refill (+{refillAmount})
-              </Button>
-            </div>
+          <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2.5 pt-4 border-t border-line">
+            <Button variant="ghost" onClick={() => setRefillTarget(null)}>
+              Cancel
+            </Button>
+            <Button onClick={handleRefillConfirm} leftIcon={<PackageIcon size={17} />}>
+              Add {refillAmount} tablets
+            </Button>
           </div>
         </div>
-      )}
+      </Dialog>
 
-      {/* Discontinue Confirm Dialog */}
       <ConfirmDialog
         open={Boolean(discontinueTarget)}
         onOpenChange={(open) => !open && setDiscontinueTarget(null)}
-        title="Discontinue Medicine"
-        description={`Are you sure you want to stop taking "${discontinueTarget?.medicine_name}"? All future scheduled doses will be removed, while past dose history will be preserved.`}
-        confirmLabel="Discontinue Course"
+        title="Stop taking this medicine?"
+        description={`This removes all future scheduled doses for "${discontinueTarget?.medicine_name}". Doses you have already recorded are kept. Only stop a medicine when your doctor has told you to.`}
+        confirmLabel="Stop this course"
         tone="danger"
         onConfirm={handleConfirmDiscontinue}
       />
+
+      <div className="sm:hidden mt-8">
+        <Link to="/prescriptions/new">
+          <Button fullWidth size="lg" leftIcon={<MedicineIcon size={18} />}>
+            Add a prescription
+          </Button>
+        </Link>
+      </div>
     </AppShell>
   );
 }

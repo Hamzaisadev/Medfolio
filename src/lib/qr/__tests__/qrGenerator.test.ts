@@ -11,8 +11,9 @@ import { encodeQrMatrix, generateQrSvg, generateQrSvgUrl } from '../qrGenerator'
 const DATA_CODEWORDS_M: Record<number, number> = {
   1: 16, 2: 28, 3: 44, 4: 64, 5: 86, 6: 108, 7: 124, 8: 154, 9: 182, 10: 216,
 };
-const EC_CODEWORDS_M: Record<number, number> = {
-  1: 10, 2: 16, 3: 26, 4: 36, 5: 48, 6: 64, 7: 72, 8: 88, 9: 110, 10: 130,
+/** Per block, not per symbol — see the note on the encoder's table. */
+const EC_CODEWORDS_PER_BLOCK_M: Record<number, number> = {
+  1: 10, 2: 16, 3: 26, 4: 18, 5: 24, 6: 16, 7: 18, 8: 22, 9: 22, 10: 26,
 };
 const EC_BLOCKS_M: Record<number, number[]> = {
   1: [1], 2: [1], 3: [1], 4: [2], 5: [2], 6: [4], 7: [4], 8: [2, 2], 9: [3, 2], 10: [4, 1],
@@ -151,7 +152,8 @@ function roundTrip(payload: string): string {
   const matrix = encodeQrMatrix(payload);
   const version = versionOf(matrix);
   const stream = extractCodewords(matrix);
-  const ecTotal = EC_CODEWORDS_M[version]! * EC_BLOCKS_M[version]!.reduce((a, b) => a + b, 0);
+  const ecTotal =
+    EC_CODEWORDS_PER_BLOCK_M[version]! * EC_BLOCKS_M[version]!.reduce((a, b) => a + b, 0);
   const dataStream = stream.slice(0, stream.length - ecTotal);
   return decodePayload(deinterleave(dataStream, version), version);
 }

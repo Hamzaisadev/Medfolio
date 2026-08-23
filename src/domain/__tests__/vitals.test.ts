@@ -37,6 +37,27 @@ describe('Vitals Domain Logic', () => {
       expect(evaluateGlucose(165, 'post_prandial').status).toBe('elevated');
       expect(evaluateGlucose(220, 'post_prandial').status).toBe('high');
     });
+
+    it('CRITICAL: escalates a hyperglycaemic emergency to crisis', () => {
+      // 600 mg/dL previously returned "High Blood Sugar — stay hydrated and
+      // monitor closely", which is not safe advice for a DKA-range reading.
+      for (const type of ['fasting', 'post_prandial', 'random', 'bedtime'] as const) {
+        const result = evaluateGlucose(600, type);
+        expect(result.status, type).toBe('crisis');
+        expect(result.advice, type).toMatch(/emergency|seek medical care now/i);
+      }
+    });
+
+    it('flags crisis from the 300 mg/dL threshold upward', () => {
+      expect(evaluateGlucose(299, 'random').status).toBe('high');
+      expect(evaluateGlucose(300, 'random').status).toBe('crisis');
+    });
+
+    it('CRITICAL: distinguishes severe hypoglycaemia from mild', () => {
+      expect(evaluateGlucose(69, 'fasting').status).toBe('hypoglycemia');
+      expect(evaluateGlucose(53, 'fasting').status).toBe('severe_hypoglycemia');
+      expect(evaluateGlucose(40, 'random').advice).toMatch(/emergency services/i);
+    });
   });
 
   describe('Blood Pressure Evaluation (AHA Standards)', () => {
@@ -70,6 +91,24 @@ describe('Vitals Domain Logic', () => {
     it('identifies Hypertensive Crisis', () => {
       const result = evaluateBloodPressure(185, 125);
       expect(result.stage).toBe('hypertensive_crisis');
+    });
+
+    it('CRITICAL: identifies hypotension instead of reporting it as optimal', () => {
+      // 70/40 previously returned "Optimal cardiovascular blood pressure reading".
+      const result = evaluateBloodPressure(70, 40);
+      expect(result.stage).toBe('hypotension');
+      expect(result.advice).toMatch(/below the normal range/i);
+    });
+
+    it('treats a low systolic or a low diastolic alone as hypotension', () => {
+      expect(evaluateBloodPressure(85, 70).stage).toBe('hypotension');
+      expect(evaluateBloodPressure(110, 55).stage).toBe('hypotension');
+      expect(evaluateBloodPressure(90, 60).stage).toBe('normal');
+    });
+
+    it('still prioritises crisis over the low-BP check', () => {
+      // A very wide pulse pressure must not be downgraded to hypotension.
+      expect(evaluateBloodPressure(190, 55).stage).toBe('hypertensive_crisis');
     });
   });
 });

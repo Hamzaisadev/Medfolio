@@ -9,6 +9,7 @@ import { Input } from '../../components/ui/Input';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Toast } from '../../components/ui/Toast';
 import { Disclaimer } from '../../components/ui/Disclaimer';
+import { DoctorIcon, ReceiptIcon } from '../../components/ui/icons';
 import {
   profilesRepo,
   visitsRepo,
@@ -16,7 +17,14 @@ import {
   reportsRepo,
   sideEffectsRepo,
   testOrdersRepo,
+  remindersRepo,
 } from '../../lib/db';
+import {
+  notificationPermission,
+  requestNotificationPermission,
+  sendLocalNotification,
+} from '../../lib/notifications';
+import { formatMinutesTo24h, parseTimeToMinutes } from '../../lib/time';
 import {
   EXPORT_FORMAT_IDENTIFIER,
   CURRENT_EXPORT_VERSION,
@@ -40,10 +48,16 @@ export function SettingsPage() {
   const [allergiesText, setAllergiesText] = useState('');
   const [conditionsText, setConditionsText] = useState('');
 
-  // Reminders state
+  // Reminders state, loaded from and saved to reminder_settings.
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [quietHoursStart, setQuietHoursStart] = useState('22:00');
   const [quietHoursEnd, setQuietHoursEnd] = useState('07:00');
+  const [leadMinutes, setLeadMinutes] = useState(0);
+  const [snoozeMinutes, setSnoozeMinutes] = useState(15);
+  const [isSavingReminders, setIsSavingReminders] = useState(false);
+  const [permissionState, setPermissionState] = useState<NotificationPermission>(() =>
+    notificationPermission()
+  );
 
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isDangerOpen, setIsDangerOpen] = useState(false);
@@ -76,9 +90,82 @@ export function SettingsPage() {
       } catch (err) {
         console.error('Failed to load profile settings:', err);
       }
+
+      try {
+        const reminders = await remindersRepo.getReminderSettings(
+          effectiveProfileId,
+          effectiveUserId
+        );
+        setNotificationsEnabled(reminders.enabled);
+        setQuietHoursStart(formatMinutesTo24h(reminders.quiet_hours_start ?? 1320));
+        setQuietHoursEnd(formatMinutesTo24h(reminders.quiet_hours_end ?? 420));
+        setLeadMinutes(reminders.lead_minutes);
+        setSnoozeMinutes(reminders.snooze_minutes);
+      } catch (err) {
+        console.error('Failed to load reminder settings:', err);
+      }
     }
     loadSettings();
-  }, [effectiveUserId]);
+  }, [effectiveUserId, effectiveProfileId]);
+
+  /** Asks the browser for permission before enabling, so the toggle is honest. */
+  const handleToggleNotifications = async (next: boolean) => {
+    setNotificationsEnabled(next);
+    if (!next) return;
+
+    if (notificationPermission() === 'default') {
+      const result = await requestNotificationPermission();
+      setPermissionState(result);
+      if (result !== 'granted') {
+        setToastMessage('Notifications were not allowed, so reminders will stay silent.');
+      }
+    } else {
+      setPermissionState(notificationPermission());
+    }
+  };
+
+  const handleSaveReminders = async () => {
+    setIsSavingReminders(true);
+    try {
+      await remindersRepo.upsertReminderSettings({
+        user_id: effectiveUserId,
+        profile_id: effectiveProfileId,
+        enabled: notificationsEnabled,
+        quiet_hours_start: parseTimeToMinutes(quietHoursStart),
+        quiet_hours_end: parseTimeToMinutes(quietHoursEnd),
+        lead_minutes: leadMinutes,
+        snooze_minutes: snoozeMinutes,
+      });
+      setToastMessage('Reminder settings saved.');
+    } catch (err) {
+      console.error('Failed to save reminder settings:', err);
+      setErrorMessage('Could not save your reminder settings. Please try again.');
+    } finally {
+      setIsSavingReminders(false);
+    }
+  };
+
+  const handleTestNotification = async () => {
+    let permission = notificationPermission();
+    if (permission === 'default') {
+      permission = await requestNotificationPermission();
+      setPermissionState(permission);
+    }
+
+    if (permission !== 'granted') {
+      setToastMessage('Allow notifications in your browser to receive dose reminders.');
+      return;
+    }
+
+    // Actually sends one, rather than only showing a toast that claims it did.
+    const shown = await sendLocalNotification('Medfolio reminder test', {
+      body: 'Dose reminders will look like this.',
+      tag: 'medfolio-test',
+    });
+    setToastMessage(
+      shown ? 'Test notification sent.' : 'Your browser would not display the notification.'
+    );
+  };
 
   const handleSaveProfile = async () => {
     if (!profile) return;
@@ -115,10 +202,10 @@ export function SettingsPage() {
     try {
       const [visits, medicines, reports, sideEffects, orders] = await Promise.all([
         visitsRepo.listVisits(effectiveProfileId),
-        medicinesRepo.listMedicines(effectiveUserId),
-        reportsRepo.listReports(effectiveUserId),
-        sideEffectsRepo.listSideEffects(effectiveUserId),
-        testOrdersRepo.listTestOrders(effectiveUserId),
+        medicinesRepo.listMedicines(effectiveProfileId),
+        reportsRepo.listReports(effectiveProfileId),
+        sideEffectsRepo.listSideEffects(effectiveProfileId),
+        testOrdersRepo.listTestOrders(effectiveProfileId),
       ]);
 
       const exportDoc: MedfolioExportDocument = {
@@ -176,7 +263,9 @@ export function SettingsPage() {
           form: m.form,
           dose_amount: m.dose_amount,
           frequency_raw: m.frequency_raw,
-          frequency_code: (m.frequency_code as 'OD' | 'BD' | 'TDS' | 'QID' | 'QHS' | 'PRN' | 'SOS' | 'STAT' | 'WEEKLY' | 'CUSTOM') || 'CUSTOM',
+          // Preserve null rather than coercing to 'CUSTOM': an export/import
+          // round-trip must not invent a frequency the prescription never had.
+          frequency_code: m.frequency_code,
           duration_raw: m.duration_days ? `${m.duration_days} days` : null,
           duration_days: m.duration_days,
           start_date: m.start_date,
@@ -285,9 +374,9 @@ export function SettingsPage() {
     try {
       const [visits, medicines, reports, sideEffects] = await Promise.all([
         visitsRepo.listVisits(effectiveProfileId),
-        medicinesRepo.listMedicines(effectiveUserId),
-        reportsRepo.listReports(effectiveUserId),
-        sideEffectsRepo.listSideEffects(effectiveUserId),
+        medicinesRepo.listMedicines(effectiveProfileId),
+        reportsRepo.listReports(effectiveProfileId),
+        sideEffectsRepo.listSideEffects(effectiveProfileId),
       ]);
 
       await Promise.all([
@@ -390,15 +479,23 @@ export function SettingsPage() {
                 <input
                   type="checkbox"
                   checked={notificationsEnabled}
-                  onChange={(e) => setNotificationsEnabled(e.target.checked)}
+                  onChange={(e) => handleToggleNotifications(e.target.checked)}
                   className="sr-only peer"
                 />
                 <div className="w-11 h-6 bg-ink-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-ink-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-700" />
               </label>
             </div>
 
+            {notificationsEnabled && permissionState !== 'granted' && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 leading-relaxed">
+                {permissionState === 'denied'
+                  ? 'Notifications are blocked for this site in your browser settings. Reminders cannot be delivered until you allow them there.'
+                  : 'Your browser has not granted notification permission yet, so reminders will not appear.'}
+              </div>
+            )}
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Field id="quiet-start" label="Quiet Hours Start" hint="Alerts are silenced into app banners">
+              <Field id="quiet-start" label="Quiet Hours Start" hint="No reminders are shown during this window">
                 <Input
                   type="time"
                   value={quietHoursStart}
@@ -415,15 +512,49 @@ export function SettingsPage() {
               </Field>
             </div>
 
-            <div className="pt-2 flex items-center justify-between border-t border-ink-100">
-              <span className="text-xs text-ink-500">Test service worker notifications</span>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setToastMessage('Test reminder notification triggered.')}
-              >
-                Test Notification
-              </Button>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Field id="lead-minutes" label="Remind me early by" hint="Minutes before the dose time">
+                <Input
+                  type="number"
+                  min={0}
+                  max={120}
+                  value={leadMinutes}
+                  onChange={(e) => setLeadMinutes(Math.max(0, Number(e.target.value) || 0))}
+                />
+              </Field>
+
+              <Field id="snooze-minutes" label="Snooze length" hint="Minutes (1–120)">
+                <Input
+                  type="number"
+                  min={1}
+                  max={120}
+                  value={snoozeMinutes}
+                  onChange={(e) =>
+                    setSnoozeMinutes(Math.min(120, Math.max(1, Number(e.target.value) || 1)))
+                  }
+                />
+              </Field>
+            </div>
+
+            {/* These preferences are now persisted and read by the reminder loop —
+                previously they were local state that nothing ever consumed. */}
+            <div className="pt-2 flex flex-wrap items-center justify-between gap-3 border-t border-ink-100">
+              <span className="text-xs text-ink-500">
+                Reminders run while Medfolio is open in your browser.
+              </span>
+              <div className="flex items-center gap-2">
+                <Button variant="secondary" size="sm" onClick={handleTestNotification}>
+                  Test Notification
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  loading={isSavingReminders}
+                  onClick={handleSaveReminders}
+                >
+                  Save Reminder Settings
+                </Button>
+              </div>
             </div>
           </div>
         </Card>
@@ -436,7 +567,9 @@ export function SettingsPage() {
               className="p-3.5 rounded-xl border border-teal-200 bg-teal-50/60 hover:bg-teal-100/70 transition-all flex items-center justify-between"
             >
               <div className="flex items-center gap-2.5">
-                <span className="text-xl">👨‍⚕️</span>
+                <div className="p-2 rounded-lg bg-teal-100/80 text-teal-800 shrink-0">
+                  <DoctorIcon size={20} />
+                </div>
                 <div>
                   <span className="font-bold text-ink-900 block text-sm">Doctor Directory</span>
                   <span className="text-ink-500 text-[11px]">View doctor-specific consultation timelines & records</span>
@@ -450,7 +583,9 @@ export function SettingsPage() {
               className="p-3.5 rounded-xl border border-teal-200 bg-teal-50/60 hover:bg-teal-100/70 transition-all flex items-center justify-between"
             >
               <div className="flex items-center gap-2.5">
-                <span className="text-xl">💰</span>
+                <div className="p-2 rounded-lg bg-teal-100/80 text-teal-800 shrink-0">
+                  <ReceiptIcon size={20} />
+                </div>
                 <div>
                   <span className="font-bold text-ink-900 block text-sm">Financial Tracker</span>
                   <span className="text-ink-500 text-[11px]">Track consultation fees, medicine costs & lab budgets</span>

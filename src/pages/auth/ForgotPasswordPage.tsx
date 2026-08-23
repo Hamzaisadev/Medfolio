@@ -16,8 +16,16 @@ export function ForgotPasswordPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email) {
+
+    const trimmedEmail = email.trim();
+
+    if (!trimmedEmail) {
       setErrorMessage('Please enter your email address.');
+      return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      setErrorMessage('Please enter a valid email address.');
       return;
     }
 
@@ -25,8 +33,8 @@ export function ForgotPasswordPage() {
     setErrorMessage(null);
 
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/settings`,
+      const { error } = await supabase.auth.resetPasswordForEmail(trimmedEmail, {
+        redirectTo: `${window.location.origin}/auth/callback`,
       });
 
       if (error) {
@@ -35,7 +43,7 @@ export function ForgotPasswordPage() {
         setSuccessMessage('Password reset link sent! Please check your email inbox.');
       }
     } catch {
-      setErrorMessage('Failed to send password reset email.');
+      setErrorMessage('Failed to send password reset email. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -49,13 +57,13 @@ export function ForgotPasswordPage() {
             <div className="flex justify-center mb-3">
               <Logo size="lg" />
             </div>
-            <h1 className="text-2xl font-black text-ink-900 tracking-tight">Reset Password</h1>
-            <p className="text-xs text-ink-500">
+            <h1 className="text-2xl font-black text-content tracking-tight">Reset Password</h1>
+            <p className="text-xs text-content-muted">
               Enter the email address associated with your account.
             </p>
           </div>
 
-          <Card className="p-6 sm:p-8 shadow-sm">
+          <Card className="p-6 sm:p-8 shadow-sm glass-card border border-line">
             <form onSubmit={handleSubmit} className="space-y-4">
               {errorMessage && (
                 <div className="p-3 rounded-lg bg-risk-bg border border-risk-border text-xs text-risk-text font-medium">
@@ -64,7 +72,7 @@ export function ForgotPasswordPage() {
               )}
 
               {successMessage && (
-                <div className="p-3 rounded-lg bg-teal-50 border border-teal-200 text-xs text-teal-900 font-semibold">
+                <div className="p-3 rounded-lg bg-accent-subtle border border-accent text-xs text-accent-onsubtle font-semibold">
                   {successMessage}
                 </div>
               )}
@@ -77,17 +85,18 @@ export function ForgotPasswordPage() {
                   placeholder="name@example.com"
                   autoComplete="email"
                   required
+                  disabled={isLoading}
                 />
               </Field>
 
-              <Button type="submit" variant="primary" className="w-full h-11 text-sm font-bold" loading={isLoading}>
+              <Button type="submit" variant="primary" className="w-full h-12 text-sm font-bold" loading={isLoading}>
                 Send Reset Link
               </Button>
             </form>
 
-            <div className="mt-6 pt-6 border-t border-ink-100 text-center text-xs text-ink-500">
+            <div className="mt-6 pt-6 border-t border-line text-center text-xs text-content-muted">
               Remember your password?{' '}
-              <Link to="/login" className="text-teal-800 font-bold hover:underline">
+              <Link to="/login" className="text-accent font-bold hover:underline">
                 Back to Sign In
               </Link>
             </div>

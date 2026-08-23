@@ -26,15 +26,21 @@ export function mealRelationLabel(withFood: boolean | null | undefined): string 
   }
 }
 
-/** Patient-facing instruction, including the icon used on schedule surfaces. */
+/**
+ * Patient-facing instruction.
+ *
+ * Plain text only — the icon is the UI's job. Emoji embedded in a domain string
+ * cannot inherit colour, render differently on every platform, and get read aloud
+ * by screen readers as their unicode name.
+ */
 export function mealRelationInstruction(withFood: boolean | null | undefined): string {
   switch (mealRelationOf(withFood)) {
     case 'with_food':
-      return '🍽️ Take with or after meals';
+      return 'Take with or after meals';
     case 'empty_stomach':
-      return '⏳ Take on an empty stomach';
+      return 'Take on an empty stomach';
     case 'unspecified':
-      return 'ℹ️ Meal timing not specified — follow your doctor’s instructions';
+      return 'Meal timing not specified — follow your doctor’s instructions';
   }
 }
 

@@ -26,6 +26,29 @@ export function todayInAppTz(now: Date = new Date()): string {
 }
 
 /**
+ * Returns the current time of day in the app timezone, as minutes since midnight (0–1439).
+ *
+ * Derived from `Intl` rather than by adding a fixed UTC offset, so it stays
+ * correct if APP_TIMEZONE ever changes to a zone that observes DST, and cannot
+ * drift out of step with `todayInAppTz`.
+ */
+export function minutesInAppTz(now: Date = new Date()): number {
+  const formatter = new Intl.DateTimeFormat('en-GB', {
+    timeZone: APP_TIMEZONE,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+
+  const parts = formatter.formatToParts(now);
+  const hour = Number(parts.find((p) => p.type === 'hour')?.value ?? '0');
+  const minute = Number(parts.find((p) => p.type === 'minute')?.value ?? '0');
+
+  // 'en-GB' renders midnight as 24:00 in some ICU versions.
+  return ((hour % 24) * 60 + minute) % 1440;
+}
+
+/**
  * Formats a Date object into 'YYYY-MM-DD' in the app timezone.
  */
 export function toAppDate(date: Date): string {
@@ -124,3 +147,95 @@ export function parseTimeToMinutes(timeStr: string | null | undefined): number |
 
   return null;
 }
+
+/* ---------------------------------------------------------------------------
+   Display formatting.
+
+   A 'YYYY-MM-DD' string is a storage format, not something to show a patient.
+   These were missing, so 20 places across the UI rendered raw ISO dates like
+   "2026-08-16" — including the schedule screen's own heading.
+
+   All of them format the calendar date as written, without re-interpreting it in
+   the viewer's local zone: `fromAppDate` anchors the string at UTC midnight and
+   these read it back in UTC, so "2026-08-16" is always the 16th regardless of
+   where the browser is.
+   --------------------------------------------------------------------------- */
+
+function formatWith(dateStr: string, options: Intl.DateTimeFormatOptions): string {
+  try {
+    return new Intl.DateTimeFormat('en-GB', { ...options, timeZone: 'UTC' }).format(
+      fromAppDate(dateStr)
+    );
+  } catch {
+    // An unparseable value is better shown verbatim than as "Invalid Date".
+    return dateStr;
+  }
+}
+
+/** "16 August 2026" */
+export function formatDateLong(dateStr: string): string {
+  return formatWith(dateStr, { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+/** "16 Aug 2026" */
+export function formatDateMedium(dateStr: string): string {
+  return formatWith(dateStr, { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+/** "16 Aug" — for dense lists where the year is implied by context. */
+export function formatDateShort(dateStr: string): string {
+  return formatWith(dateStr, { day: 'numeric', month: 'short' });
+}
+
+/** "Sunday" */
+export function formatDayName(dateStr: string): string {
+  return formatWith(dateStr, { weekday: 'long' });
+}
+
+/** "Sun" */
+export function formatDayNameShort(dateStr: string): string {
+  return formatWith(dateStr, { weekday: 'short' });
+}
+
+/** Day of the month with no padding, for a date strip: "16". */
+export function formatDayOfMonth(dateStr: string): string {
+  return formatWith(dateStr, { day: 'numeric' });
+}
+
+/**
+ * "Today" / "Yesterday" / "Tomorrow", a weekday name inside the coming or past
+ * week, and an absolute date beyond that.
+ *
+ * Relative labels are anchored to today in PKT, not to the browser's timezone —
+ * otherwise a user in another zone could see "Tomorrow" for a dose that is due
+ * today in Pakistan.
+ */
+export function formatRelativeDay(dateStr: string, now: Date = new Date()): string {
+  const today = todayInAppTz(now);
+  if (dateStr === today) return 'Today';
+  if (dateStr === addDaysAppTz(today, -1)) return 'Yesterday';
+  if (dateStr === addDaysAppTz(today, 1)) return 'Tomorrow';
+
+  const diffDays = Math.round(
+    (fromAppDate(dateStr).getTime() - fromAppDate(today).getTime()) / 86_400_000
+  );
+  if (Math.abs(diffDays) <= 6) return formatDayName(dateStr);
+
+  return formatDateMedium(dateStr);
+}
+
+/**
+ * A heading that names the day and keeps the date visible: "Today · 16 Aug".
+ * Used where a relative label alone would be ambiguous when re-read later.
+ */
+export function formatDayHeading(dateStr: string, now: Date = new Date()): string {
+  const relative = formatRelativeDay(dateStr, now);
+  const absolute = formatDateShort(dateStr);
+  return relative === absolute ? absolute : `${relative} · ${absolute}`;
+}
+
+/** True when the date string is today in the app timezone. */
+export function isToday(dateStr: string, now: Date = new Date()): boolean {
+  return dateStr === todayInAppTz(now);
+}
+

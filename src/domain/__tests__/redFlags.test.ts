@@ -42,4 +42,56 @@ describe('redFlags emergency triage (src/domain/redFlags.ts)', () => {
     expect(res.emergencyNumbers.some((h) => h.number === '115')).toBe(true);
     expect(res.emergencyNumbers.some((h) => h.number === '1020')).toBe(true);
   });
+
+  it('CRITICAL: fires with a typographic apostrophe from a mobile keyboard', () => {
+    // U+2019, which phone keyboards insert automatically. These previously
+    // matched nothing at all.
+    expect(checkRedFlags('I can’t breathe').isEmergency).toBe(true);
+    expect(checkRedFlags('I can’t swallow, my throat is swelling').isEmergency).toBe(true);
+    expect(checkRedFlags('he won’t wake up').isEmergency).toBe(true);
+  });
+
+  it('CRITICAL: fires for common natural phrasings, not just canonical ones', () => {
+    for (const phrase of [
+      'I am short of breath',
+      'feeling breathless walking up stairs',
+      'sudden pain in my chest',
+      'my chest feels tight',
+      'coughing up blood this morning',
+      'baby is blue and not waking up',
+      'worst headache ever, came on suddenly',
+    ]) {
+      expect(checkRedFlags(phrase).isEmergency, phrase).toBe(true);
+    }
+  });
+
+  it('matches regardless of punctuation and spacing', () => {
+    expect(checkRedFlags('CHEST   PAIN!!!').isEmergency).toBe(true);
+    expect(checkRedFlags('Chest pain.').isEmergency).toBe(true);
+    expect(checkRedFlags('(chest pain)').isEmergency).toBe(true);
+  });
+
+  it('reports which categories matched', () => {
+    const res = checkRedFlags('chest pain and I can’t breathe');
+    expect(res.matchedCategories).toContain('cardiac');
+    expect(res.matchedCategories).toContain('breathing');
+    expect(res.matchedLabels.length).toBe(res.matchedCategories.length);
+  });
+
+  it('still does not fire for everyday non-emergency text', () => {
+    for (const phrase of [
+      'I have a mild headache since yesterday',
+      'slight fatigue and a runny nose',
+      'my prescription says take one tablet after food',
+      'when is my next appointment',
+    ]) {
+      expect(checkRedFlags(phrase).isEmergency, phrase).toBe(false);
+    }
+  });
+
+  it('handles empty and nullish input', () => {
+    expect(checkRedFlags('').isEmergency).toBe(false);
+    expect(checkRedFlags(null).isEmergency).toBe(false);
+    expect(checkRedFlags(undefined).isEmergency).toBe(false);
+  });
 });

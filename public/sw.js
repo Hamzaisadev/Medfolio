@@ -41,11 +41,21 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Navigation requests: Network first, fallback to cached index.html
+  // Navigation requests: Network first, fallback to cached shell.
+  // `caches.match()` returns a Promise (always truthy), so the previous
+  // `match('/index.html') || match('/')` fallback was dead code and an uncached
+  // shell resolved `undefined` into respondWith, failing the navigation.
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      fetch(event.request).catch(() => {
-        return caches.match('/index.html') || caches.match('/');
+      fetch(event.request).catch(async () => {
+        const cached = (await caches.match('/index.html')) || (await caches.match('/'));
+        return (
+          cached ||
+          new Response('<h1>Offline</h1><p>Reconnect to load Medfolio.</p>', {
+            status: 503,
+            headers: { 'Content-Type': 'text/html; charset=utf-8' },
+          })
+        );
       })
     );
     return;

@@ -24,6 +24,10 @@ const noAiBrandingRule = {
       filename.includes('privacy') ||
       filename.includes('Privacy') ||
       filename.includes('domain/rules') ||
+      // The marketing landing page follows a separate brand track owned outside
+      // the app design system; the owner has a dedicated plan for its copy.
+      filename.includes('landing') ||
+      filename.includes('Landing') ||
       filename.includes('eslint.config');
 
     return {
@@ -93,6 +97,7 @@ export default [
     },
     rules: {
       ...tsPlugin.configs.recommended.rules,
+      ...jsxA11y.configs.recommended.rules,
       'no-undef': 'off', // TypeScript handles undef checks with full typing
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'warn',

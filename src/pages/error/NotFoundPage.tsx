@@ -1,6 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { Logo } from '../../components/ui/Logo';
 import { Button } from '../../components/ui/Button';
+import { MedicineIcon, StethoscopeIcon } from '../../components/ui/icons';
 
 export function NotFoundPage() {
   const navigate = useNavigate();
@@ -71,7 +72,9 @@ export function NotFoundPage() {
                 to="/medicines"
                 className="p-2.5 rounded-xl border border-ink-200/80 bg-ink-50/50 hover:border-teal-300 hover:bg-teal-50/50 transition-colors group"
               >
-                <p className="text-xs font-bold text-ink-900 group-hover:text-teal-950">💊 Pill Schedule</p>
+                <p className="text-xs font-bold text-ink-900 group-hover:text-teal-950 flex items-center gap-1.5">
+                  <MedicineIcon size={14} className="text-purple-700" /> Pill Schedule
+                </p>
                 <p className="text-[10px] text-ink-500 mt-0.5">Dose timetable</p>
               </Link>
 
@@ -79,7 +82,9 @@ export function NotFoundPage() {
                 to="/timeline"
                 className="p-2.5 rounded-xl border border-ink-200/80 bg-ink-50/50 hover:border-teal-300 hover:bg-teal-50/50 transition-colors group"
               >
-                <p className="text-xs font-bold text-ink-900 group-hover:text-teal-950">🩺 Timeline</p>
+                <p className="text-xs font-bold text-ink-900 group-hover:text-teal-950 flex items-center gap-1.5">
+                  <StethoscopeIcon size={14} className="text-teal-700" /> Timeline
+                </p>
                 <p className="text-[10px] text-ink-500 mt-0.5">Visits & prescriptions</p>
               </Link>
             </div>

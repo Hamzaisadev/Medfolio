@@ -11,7 +11,8 @@ export interface ConfirmDialogProps {
   confirmLabel?: string;
   cancelLabel?: string;
   tone?: 'danger' | 'primary';
-  requiredPhrase?: string; // If provided, enters "type-to-confirm" mode
+  /** When set, the action stays disabled until the user types this exactly. */
+  requiredPhrase?: string;
   loading?: boolean;
   onConfirm: () => void | Promise<void>;
 }
@@ -31,20 +32,22 @@ export function ConfirmDialog({
   const [typedPhrase, setTypedPhrase] = useState('');
 
   useEffect(() => {
-    if (open) {
-      setTypedPhrase('');
-    }
+    if (open) setTypedPhrase('');
   }, [open]);
 
   const isPhraseMatch = !requiredPhrase || typedPhrase.trim() === requiredPhrase.trim();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange} title={title} description={description}>
-      <div className="space-y-4 pt-2">
+      <div className="space-y-5">
         {requiredPhrase && (
-          <div className="space-y-2 rounded-[var(--radius-md)] border border-warn-border bg-warn-bg p-3.5">
+          <div className="space-y-2.5 rounded-[var(--radius-md)] border border-warn-border bg-warn-bg p-4">
             <p className="text-xs font-semibold text-warn-text">
-              Type <span className="font-mono font-bold select-all bg-white px-1.5 py-0.5 rounded border border-warn-border">{requiredPhrase}</span> to confirm:
+              Type{' '}
+              <span className="font-mono font-bold select-all bg-surface-raised text-content px-1.5 py-0.5 rounded border border-warn-border">
+                {requiredPhrase}
+              </span>{' '}
+              to confirm:
             </p>
             <Input
               value={typedPhrase}
@@ -55,12 +58,8 @@ export function ConfirmDialog({
           </div>
         )}
 
-        <div className="flex items-center justify-end gap-3 pt-3 border-t border-ink-200">
-          <Button
-            variant="ghost"
-            onClick={() => onOpenChange(false)}
-            disabled={loading}
-          >
+        <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5 pt-4 border-t border-line">
+          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={loading}>
             {cancelLabel}
           </Button>
           <Button

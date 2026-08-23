@@ -18,5 +18,11 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
+    // Unique storage key prevents session collisions when multiple Supabase
+    // apps run on localhost during development.
+    storageKey: 'medfolio-auth-token',
+    // PKCE flow is more secure for SPAs — it avoids exposing tokens in URL
+    // fragments and works correctly with email confirmation redirects.
+    flowType: 'pkce',
   },
 });

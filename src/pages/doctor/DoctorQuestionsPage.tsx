@@ -4,9 +4,9 @@ import { AppShell } from '../../components/layout/AppShell';
 import { useAuth } from '../../lib/auth/AuthContext';
 import { listMedicines } from '../../lib/db/medicines';
 import { listReports, getReportResults } from '../../lib/db/reports';
-import { listGlucoseReadings, listBloodPressureReadings } from '../../lib/db/vitals';
 import { generateDoctorQuestions, DoctorQuestion } from '../../domain/doctorQuestions';
 import { Button } from '../../components/ui/Button';
+import { CopyIcon, PrinterIcon, SparklesIcon, CheckIcon } from '../../components/ui/icons';
 
 export function DoctorQuestionsPage() {
   const { user, profile } = useAuth();
@@ -131,11 +131,16 @@ export function DoctorQuestionsPage() {
           </div>
 
           <div className="flex items-center gap-2 print:hidden">
-            <Button variant="secondary" size="sm" onClick={handleCopyQuestions}>
-              {copied ? '✓ Copied to Clipboard' : '📋 Copy All'}
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleCopyQuestions}
+              leftIcon={copied ? <CheckIcon size={14} className="text-emerald-600" /> : <CopyIcon size={14} />}
+            >
+              {copied ? 'Copied to Clipboard' : 'Copy All'}
             </Button>
-            <Button variant="primary" size="sm" onClick={handlePrint}>
-              🖨️ Print Checklist
+            <Button variant="primary" size="sm" onClick={handlePrint} leftIcon={<PrinterIcon size={14} />}>
+              Print Checklist
             </Button>
           </div>
         </div>
@@ -221,7 +226,9 @@ export function DoctorQuestionsPage() {
 
         {/* Consultation Tip Banner */}
         <div className="p-4 rounded-2xl bg-linear-to-r from-teal-50 to-emerald-50 border border-teal-200/80 text-xs text-teal-950 print:hidden flex items-start gap-3">
-          <div className="p-1.5 rounded-lg bg-teal-100/80 text-teal-900 shrink-0 font-bold">💡</div>
+          <div className="p-1.5 rounded-lg bg-teal-100/80 text-teal-900 shrink-0">
+            <SparklesIcon size={16} />
+          </div>
           <div>
             <p className="font-bold">Consultation Pro-Tip:</p>
             <p className="text-teal-900/90 mt-0.5 leading-relaxed">

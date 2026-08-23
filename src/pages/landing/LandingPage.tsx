@@ -1,8 +1,35 @@
 import { useState, useEffect, useRef } from 'react';
+import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import {
+  CameraIcon,
+  LabFlaskIcon,
+  MedicineIcon,
+  ClockIcon,
+  ReceiptIcon,
+  LinkIcon,
+  QuestionIcon,
+  FileTextIcon,
+  TargetIcon,
+  StethoscopeIcon,
+  BarChartIcon,
+  ZapIcon,
+  BrainIcon,
+  CheckCircleIcon,
+  LockIcon,
+  ShieldIcon,
+  WifiIcon,
+  FlameIcon,
+  TrophyIcon,
+  AlertTriangleIcon,
+  HeartPulseIcon,
+  UserIcon,
+  SparklesIcon,
+  CheckIcon,
+} from '../../components/ui/icons';
 
 /* ─── Intersection Observer Hook ─── */
-function useInView(options?: IntersectionObserverInit) {
+function useInView(threshold = 0.15) {
   const ref = useRef<HTMLDivElement>(null);
   const [isVisible, setIsVisible] = useState(false);
   useEffect(() => {
@@ -14,11 +41,39 @@ function useInView(options?: IntersectionObserverInit) {
         setIsVisible(true);
         obs.unobserve(el);
       }
-    }, { threshold: 0.15, ...options });
+    }, { threshold });
     obs.observe(el);
     return () => obs.disconnect();
-  }, []);
+  }, [threshold]);
   return { ref, isVisible };
+}
+
+/* ─── Reveal-on-scroll wrapper ─── */
+function Reveal({
+  children,
+  delayMs = 0,
+  className = '',
+  distance = 6,
+}: {
+  children: React.ReactNode;
+  delayMs?: number;
+  className?: string;
+  distance?: 6 | 8;
+}) {
+  const { ref, isVisible } = useInView();
+  return (
+    <div
+      ref={ref}
+      className={`transition-all duration-700 ${
+        isVisible
+          ? 'opacity-100 translate-y-0'
+          : `opacity-0 ${distance === 8 ? 'translate-y-8' : 'translate-y-6'}`
+      } ${className}`}
+      style={{ transitionDelay: `${delayMs}ms` }}
+    >
+      {children}
+    </div>
+  );
 }
 
 /* ─── Animated Counter ─── */
@@ -76,7 +131,7 @@ function FeatureCard({
   gradient,
   delay = 0,
 }: {
-  icon: string;
+  icon: ReactNode;
   title: string;
   desc: string;
   gradient: string;
@@ -95,7 +150,9 @@ function FeatureCard({
         className={`absolute inset-0 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 ${gradient}`}
       />
       <div className="relative z-10">
-        <div className="text-3xl mb-4">{icon}</div>
+        <div className="mb-4 inline-flex p-3 rounded-2xl bg-ink-50/80 border border-ink-100 group-hover:scale-105 transition-transform">
+          {icon}
+        </div>
         <h3 className="text-base font-bold text-ink-900 mb-2">{title}</h3>
         <p className="text-sm text-ink-600 leading-relaxed">{desc}</p>
       </div>
@@ -138,9 +195,10 @@ export function LandingPage() {
           </Link>
 
           {/* Desktop Nav */}
-          <div className="hidden md:flex items-center gap-8 text-sm font-semibold text-ink-600">
+          <div className="hidden md:flex items-center gap-7 text-sm font-semibold text-ink-600">
             <a href="#features" className="hover:text-teal-800 transition-colors">Features</a>
             <a href="#assistant" className="hover:text-teal-800 transition-colors">Assistant</a>
+            <a href="#safety-boundaries" className="hover:text-teal-800 transition-colors">Safety & Ethics</a>
             <a href="#vitals" className="hover:text-teal-800 transition-colors">Vitals</a>
             <a href="#security" className="hover:text-teal-800 transition-colors">Security</a>
           </div>
@@ -180,6 +238,7 @@ export function LandingPage() {
           <div className="md:hidden bg-white/95 backdrop-blur-xl border-t border-ink-200/50 px-6 py-4 space-y-3 animate-in slide-in-from-top">
             <a href="#features" onClick={() => setMobileMenuOpen(false)} className="block text-sm font-semibold text-ink-700 py-2 hover:text-teal-800">Features</a>
             <a href="#assistant" onClick={() => setMobileMenuOpen(false)} className="block text-sm font-semibold text-ink-700 py-2 hover:text-teal-800">Assistant</a>
+            <a href="#safety-boundaries" onClick={() => setMobileMenuOpen(false)} className="block text-sm font-semibold text-ink-700 py-2 hover:text-teal-800">Safety & Ethics</a>
             <a href="#vitals" onClick={() => setMobileMenuOpen(false)} className="block text-sm font-semibold text-ink-700 py-2 hover:text-teal-800">Vitals</a>
             <a href="#security" onClick={() => setMobileMenuOpen(false)} className="block text-sm font-semibold text-ink-700 py-2 hover:text-teal-800">Security</a>
             <div className="pt-2 border-t border-ink-200/50 flex gap-3">
@@ -297,42 +356,42 @@ export function LandingPage() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           <FeatureCard
-            icon="📸"
+            icon={<CameraIcon className="w-6 h-6 text-teal-600" />}
             title="Snap & Extract Prescriptions"
-            desc="Photograph any handwritten doctor slip. Our Gemini-powered OCR extracts medication names, dosages, frequencies, and instructions in seconds."
+            desc="Photograph any handwritten doctor slip. Medicine names, dosages, frequencies and instructions are read off the paper and filled in for you in seconds."
             gradient="bg-linear-to-br from-teal-50/50 to-emerald-50/30"
             delay={0}
           />
           <FeatureCard
-            icon="🧪"
+            icon={<LabFlaskIcon className="w-6 h-6 text-blue-600" />}
             title="Lab Report Intelligence"
             desc="Upload lab reports and instantly see which biomarkers are out of range with visual flagging, reference ranges, and trend charts."
             gradient="bg-linear-to-br from-blue-50/50 to-indigo-50/30"
             delay={100}
           />
           <FeatureCard
-            icon="💊"
+            icon={<MedicineIcon className="w-6 h-6 text-amber-600" />}
             title="Smart Dose Schedule"
             desc="Auto-generated dose timeline with morning, afternoon, evening, and bedtime buckets. One-tap mark-as-taken with skip reasons."
             gradient="bg-linear-to-br from-amber-50/50 to-orange-50/30"
             delay={200}
           />
           <FeatureCard
-            icon="⏳"
+            icon={<ClockIcon className="w-6 h-6 text-purple-600" />}
             title="Clinical Timeline"
             desc="A living longitudinal record of every visit, prescription, lab test, and medicine change — your complete health story in one scroll."
             gradient="bg-linear-to-br from-purple-50/50 to-violet-50/30"
             delay={300}
           />
           <FeatureCard
-            icon="💰"
+            icon={<ReceiptIcon className="w-6 h-6 text-emerald-600" />}
             title="Medical Expense Tracker"
             desc="Track every rupee spent on consultations, medicines, and lab tests. Monthly spend analysis with category breakdowns."
             gradient="bg-linear-to-br from-emerald-50/50 to-green-50/30"
             delay={400}
           />
           <FeatureCard
-            icon="🔗"
+            icon={<LinkIcon className="w-6 h-6 text-indigo-600" />}
             title="Secure Share via PIN & QR"
             desc="Generate time-limited access links with 6-digit PINs or scannable QR codes. Auto-expires after your set window."
             gradient="bg-linear-to-br from-indigo-50/50 to-blue-50/30"
@@ -348,7 +407,7 @@ export function LandingPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.2em] text-teal-400 mb-4">
-              Gemini-Powered Clinical Engine
+              Reads Handwritten Prescriptions
             </p>
             <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight leading-tight">
               Your personal health<br />
@@ -357,37 +416,37 @@ export function LandingPage() {
               </span>
             </h2>
             <p className="text-base text-ink-400 mt-6 leading-relaxed">
-              Ask anything about your medications, lab results, or medical history. The assistant
-              cross-references your actual clinical records to deliver deeply personalized,
-              evidence-aware guidance — not generic web searches.
+              Ask questions about your medications, lab results, or dosage instructions. The assistant
+              cross-references your actual clinical records to deliver grounded,
+              evidence-aware explanations — never generic hallucinations.
             </p>
 
             <div className="mt-8 space-y-4">
               {[
                 {
-                  emoji: '💊',
-                  title: 'Drug Interaction Scanner',
-                  desc: 'Instantly flags high-risk combinations in your active prescriptions',
+                  icon: <MedicineIcon className="w-5 h-5 text-teal-400" />,
+                  title: 'Drug Interaction Radar',
+                  desc: 'Flags potential combinations in active prescriptions for your doctor to review',
                 },
                 {
-                  emoji: '🧪',
+                  icon: <LabFlaskIcon className="w-5 h-5 text-blue-400" />,
                   title: 'Biomarker Trend Analysis',
-                  desc: 'Identifies concerning velocity changes even within normal ranges',
+                  desc: 'Identifies velocity changes and evaluates against clinical reference intervals',
                 },
                 {
-                  emoji: '❓',
+                  icon: <QuestionIcon className="w-5 h-5 text-amber-400" />,
                   title: 'Smart Doctor Questions',
-                  desc: 'Generates targeted clinical questions based on your out-of-range results',
+                  desc: 'Generates targeted clinical questions for your next consultation',
                 },
                 {
-                  emoji: '📋',
+                  icon: <FileTextIcon className="w-5 h-5 text-purple-400" />,
                   title: 'Second-Opinion Dossier',
-                  desc: 'Creates anonymized specialist packages with one click',
+                  desc: 'Creates anonymized clinical packages with one click for specialist review',
                 },
               ].map((item, i) => (
                 <div key={i} className="flex items-start gap-4 group">
-                  <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-lg shrink-0 group-hover:bg-teal-900/50 transition-colors">
-                    {item.emoji}
+                  <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0 group-hover:bg-teal-900/50 transition-colors">
+                    {item.icon}
                   </div>
                   <div>
                     <h4 className="text-sm font-bold text-white">{item.title}</h4>
@@ -401,7 +460,7 @@ export function LandingPage() {
               to="/signup"
               className="inline-flex items-center gap-2 mt-10 px-6 py-3 text-sm font-bold text-teal-950 bg-linear-to-r from-teal-400 to-emerald-400 rounded-xl hover:from-teal-300 hover:to-emerald-300 transition-all shadow-lg"
             >
-              Try the Clinical Assistant
+              Explore Clinical Assistant
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
               </svg>
@@ -417,7 +476,7 @@ export function LandingPage() {
                 </div>
                 <div>
                   <p className="text-xs font-bold text-white">Medfolio Clinical Assistant</p>
-                  <p className="text-[10px] text-teal-400">Analyzing your records...</p>
+                  <p className="text-[10px] text-teal-400">Cross-referencing verified records...</p>
                 </div>
               </div>
 
@@ -435,19 +494,21 @@ export function LandingPage() {
                 <div className="flex justify-start">
                   <div className="bg-ink-700/60 rounded-2xl rounded-bl-sm px-4 py-3 max-w-[320px] border border-ink-600/30">
                     <p className="text-xs text-ink-200 leading-relaxed">
-                      Based on your active prescriptions, I can see you are taking{' '}
-                      <span className="font-bold text-teal-400">Metformin 500mg BD</span> and the newly added{' '}
+                      Based on your active prescriptions, you are taking{' '}
+                      <span className="font-bold text-teal-400">Metformin 500mg BD</span> and newly added{' '}
                       <span className="font-bold text-amber-400">Augmentin 625mg TDS</span>.
                     </p>
-                    <div className="mt-3 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20">
-                      <p className="text-[11px] font-bold text-amber-400">⚠️ Moderate Interaction Detected</p>
-                      <p className="text-[10px] text-ink-300 mt-1 leading-relaxed">
-                        Amoxicillin-Clavulanate may slightly increase Metformin absorption.
-                        Monitor blood glucose more frequently during the antibiotic course.
-                      </p>
+                    <div className="mt-3 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-start gap-2">
+                      <AlertTriangleIcon className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-[11px] font-bold text-amber-400">Moderate Interaction Note</p>
+                        <p className="text-[10px] text-ink-300 mt-0.5 leading-relaxed">
+                          Amoxicillin-Clavulanate may slightly alter glucose readings. Monitor blood sugar closely during the course and inform your physician if levels spike.
+                        </p>
+                      </div>
                     </div>
                     <p className="text-[10px] text-ink-500 mt-2">
-                      Source: Cross-referenced against your 3 active prescriptions
+                      Source: Grounded in your 3 active prescriptions • Assistive only, consult physician
                     </p>
                   </div>
                 </div>
@@ -467,80 +528,204 @@ export function LandingPage() {
         </div>
       </Section>
 
-      {/* ═══════════════════════════════════════
-           SECTION 4 — VITALS TRACKER SPOTLIGHT
-         ═══════════════════════════════════════ */}
-      <Section id="vitals">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-          {/* Mock Vitals Dashboard */}
-          <div className="order-2 lg:order-1">
-            <div className="bg-white rounded-3xl border border-ink-200/80 shadow-lg overflow-hidden">
-              <div className="px-5 py-3 border-b border-ink-100 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-base">🩸</span>
-                  <span className="text-xs font-bold text-ink-900">Chronic Vitals Radar</span>
-                </div>
-                <div className="flex gap-1.5">
-                  <span className="px-2.5 py-1 rounded-lg bg-teal-50 text-[10px] font-bold text-teal-800 border border-teal-200">Blood Sugar</span>
-                  <span className="px-2.5 py-1 rounded-lg bg-ink-100 text-[10px] font-bold text-ink-600">Blood Pressure</span>
-                </div>
-              </div>
+      {/* ═══════════════════════════════════════════════════════════════
+           SECTION 4 — CLINICAL SAFETY & AI BOUNDARIES (NOT A DOCTOR)
+         ═══════════════════════════════════════════════════════════════ */}
+      <Section id="safety-boundaries" dark className="bg-ink-950 text-white overflow-hidden border-y border-ink-800/80">
+        <div className="relative">
+          {/* Ambient Glow */}
+          <div className="absolute top-0 right-1/4 w-96 h-96 bg-teal-500/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute bottom-0 left-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
 
-              {/* Stats Grid */}
-              <div className="p-5 grid grid-cols-4 gap-3">
-                <div className="p-3 rounded-2xl bg-ink-50/70 border border-ink-200/60">
-                  <p className="text-[9px] uppercase font-bold text-ink-500">Avg Level</p>
-                  <p className="text-lg font-black text-ink-900 mt-1">95</p>
-                  <p className="text-[9px] text-ink-400">mg/dL</p>
-                </div>
-                <div className="p-3 rounded-2xl bg-emerald-50/70 border border-emerald-200/60">
-                  <p className="text-[9px] uppercase font-bold text-ink-500">Target</p>
-                  <p className="text-lg font-black text-emerald-700 mt-1">87%</p>
-                  <p className="text-[9px] text-ink-400">In ADA Zone</p>
-                </div>
-                <div className="p-3 rounded-2xl bg-ink-50/70 border border-ink-200/60">
-                  <p className="text-[9px] uppercase font-bold text-ink-500">Lowest</p>
-                  <p className="text-lg font-black text-ink-900 mt-1">72</p>
-                  <p className="text-[9px] text-ink-400">mg/dL</p>
-                </div>
-                <div className="p-3 rounded-2xl bg-rose-50/70 border border-rose-200/60">
-                  <p className="text-[9px] uppercase font-bold text-ink-500">Peak</p>
-                  <p className="text-lg font-black text-rose-700 mt-1">168</p>
-                  <p className="text-[9px] text-ink-400">mg/dL</p>
-                </div>
-              </div>
+          {/* Section Header */}
+          <div className="text-center max-w-3xl mx-auto mb-16">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-teal-500/10 border border-teal-500/30 text-teal-300 text-xs font-black uppercase tracking-[0.2em] mb-6">
+              <ShieldIcon className="w-4 h-4 text-teal-400" />
+              04 — Clinical Safety & AI Boundaries
+            </div>
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight leading-tight text-white">
+              Assisting your care,{' '}
+              <span className="bg-linear-to-r from-teal-400 via-cyan-300 to-emerald-400 bg-clip-text text-transparent">
+                never replacing your doctor
+              </span>
+            </h2>
+            <p className="text-base sm:text-lg text-ink-300 mt-6 leading-relaxed">
+              Medfolio is a clinical organizer and patient assistance tool. We empower patients and doctors with organized data — we are <strong>not a diagnostic agent</strong> and do not prescribe treatments.
+            </p>
+          </div>
 
-              {/* Mock Reading Entries */}
-              <div className="px-5 pb-5 space-y-2">
-                {[
-                  { type: 'Fasting', val: '88', status: 'Optimal Fasting', color: 'bg-emerald-50 text-emerald-800 border-emerald-200' },
-                  { type: 'Post Meal', val: '142', status: 'Elevated Post-Meal', color: 'bg-amber-50 text-amber-800 border-amber-200' },
-                  { type: 'Bedtime', val: '95', status: 'Normal', color: 'bg-emerald-50 text-emerald-800 border-emerald-200' },
-                ].map((r, i) => (
-                  <div key={i} className="flex items-center justify-between p-3 rounded-xl border border-ink-200/60 bg-white">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-lg bg-teal-50 text-teal-800 border border-teal-200/80 flex items-center justify-center font-bold text-xs">
-                        {r.val}
-                      </div>
-                      <span className="text-xs font-bold text-ink-900 capitalize">{r.type}</span>
-                    </div>
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${r.color}`}>
-                      {r.status}
-                    </span>
+          {/* Two-Column Framework Layout */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch mb-12">
+            {/* Left Card: How We Assist */}
+            <div className="lg:col-span-5 flex flex-col justify-between p-8 rounded-3xl bg-ink-900/90 border border-ink-800 backdrop-blur-xl shadow-2xl relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-1.5 h-full bg-teal-400" />
+              <div>
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-10 h-10 rounded-xl bg-teal-500/10 border border-teal-500/30 flex items-center justify-center text-teal-400 shrink-0">
+                    <HeartPulseIcon className="w-5 h-5 text-teal-400" />
                   </div>
-                ))}
+                  <h3 className="text-xl font-bold text-white tracking-tight">How Medfolio Assists You</h3>
+                </div>
+
+                <ul className="space-y-4 text-sm text-ink-300">
+                  <li className="flex items-start gap-3">
+                    <span className="w-1.5 h-1.5 rounded-full bg-teal-400 mt-2 shrink-0" />
+                    <span><strong>Accurate OCR Extraction:</strong> Transcribes doctor handwriting and lab reports with high fidelity for your confirmation.</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <span className="w-1.5 h-1.5 rounded-full bg-teal-400 mt-2 shrink-0" />
+                    <span><strong>Adherence & Timings:</strong> Schedules doses into morning, afternoon, evening and night buckets with meal relations.</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <span className="w-1.5 h-1.5 rounded-full bg-teal-400 mt-2 shrink-0" />
+                    <span><strong>Doctor Visit Readiness:</strong> Generates clean 1-page clinical dossiers so physicians have full longitudinal context.</span>
+                  </li>
+                </ul>
+              </div>
+
+              {/* Safety Guardrail Highlight */}
+              <div className="mt-8 pt-6 border-t border-ink-800">
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-400 block mb-1">
+                  STRICT MEDICAL DISCLAIMER
+                </span>
+                <p className="text-xs text-ink-200 font-medium leading-relaxed">
+                  Medfolio is an assistive tool. Always consult a certified healthcare professional before making medical decisions or modifying medications.
+                </p>
+              </div>
+            </div>
+
+            {/* Right Card: Human-in-the-Loop Workflow */}
+            <div className="lg:col-span-7 flex flex-col justify-between p-8 rounded-3xl bg-ink-900/90 border border-ink-800 backdrop-blur-xl shadow-2xl">
+              <div>
+                <span className="text-[11px] font-black uppercase tracking-[0.2em] text-teal-400 block mb-6">
+                  HUMAN-IN-THE-LOOP SAFEGUARDS
+                </span>
+
+                {/* Workflow Diagram Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Step 1 */}
+                  <div className="p-5 rounded-2xl bg-ink-950/80 border border-ink-800 flex items-start gap-3.5 hover:border-teal-500/40 transition-colors">
+                    <div className="w-9 h-9 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-300 shrink-0">
+                      <UserIcon className="w-5 h-5 text-cyan-300" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-white">1. Patient Input</p>
+                      <p className="text-xs text-ink-400 mt-0.5">Capture prescription slip, upload lab report, or log daily vitals</p>
+                    </div>
+                  </div>
+
+                  {/* Step 2 */}
+                  <div className="p-5 rounded-2xl bg-ink-950/80 border border-teal-500/30 flex items-start gap-3.5 hover:border-teal-400 transition-colors">
+                    <div className="w-9 h-9 rounded-xl bg-teal-500/10 border border-teal-500/30 flex items-center justify-center text-teal-300 shrink-0">
+                      <SparklesIcon className="w-5 h-5 text-teal-300" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-teal-300">2. AI Assistance</p>
+                      <p className="text-xs text-ink-400 mt-0.5">Grounded text extraction, interaction radar & reference range analysis</p>
+                    </div>
+                  </div>
+
+                  {/* Step 3 */}
+                  <div className="p-5 rounded-2xl bg-linear-to-br from-ink-950 to-teal-950/40 border border-teal-500/50 flex items-start gap-3.5">
+                    <div className="w-9 h-9 rounded-xl bg-teal-500/20 border border-teal-400/50 flex items-center justify-center text-teal-200 shrink-0">
+                      <ShieldIcon className="w-5 h-5 text-teal-200" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-white">3. Human Review</p>
+                      <p className="text-xs text-ink-400 mt-0.5">Zero silent commits: you review every field before saving to your profile</p>
+                    </div>
+                  </div>
+
+                  {/* Step 4 */}
+                  <div className="p-5 rounded-2xl bg-ink-950/80 border border-emerald-500/30 flex items-start gap-3.5 hover:border-emerald-400 transition-colors">
+                    <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-300 shrink-0">
+                      <CheckCircleIcon className="w-5 h-5 text-emerald-300" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-emerald-300">4. Doctor Collaboration</p>
+                      <p className="text-xs text-ink-400 mt-0.5">Share tamper-evident records and dossiers directly with consulting physicians</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bottom Assurance */}
+              <div className="mt-6 pt-4 border-t border-ink-800/80 flex items-center justify-between text-xs text-ink-400">
+                <span className="flex items-center gap-1.5">
+                  <LockIcon className="w-3.5 h-3.5 text-teal-400" /> Zero silent commits • 100% Patient & Doctor Verified
+                </span>
+                <span className="text-teal-400 font-semibold">13 Clinical Tables</span>
               </div>
             </div>
           </div>
 
+          {/* Winning Signal Banner */}
+          <div className="p-5 sm:p-6 rounded-2xl bg-linear-to-r from-amber-500/15 via-ink-900 to-teal-500/15 border border-amber-500/30 text-center max-w-4xl mx-auto shadow-xl">
+            <p className="text-xs sm:text-sm text-amber-200 font-medium">
+              <strong className="text-amber-400 font-black uppercase tracking-wider mr-2">Core Clinical Principle:</strong>
+              Medfolio enhances doctor-patient communication and medication compliance without ever pretending to replace medical care.
+            </p>
+          </div>
+        </div>
+      </Section>
+
+      {/* ═══════════════════════════════════════
+           SECTION 5 — CLINICAL VITALS RADAR
+         ═══════════════════════════════════════ */}
+      <Section id="vitals">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+          {/* Mock Vitals Visualizer */}
+          <div className="order-2 lg:order-1 relative">
+            <div className="p-6 rounded-3xl bg-white border border-ink-200/60 shadow-lg space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-ink-900">Vitals Telemetry</h3>
+                  <p className="text-xs text-ink-500">Live clinical evaluation</p>
+                </div>
+                <span className="px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  Target Met
+                </span>
+              </div>
+
+              {/* Glucose Metric Card */}
+              <div className="p-4 rounded-2xl bg-teal-50/50 border border-teal-100">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-bold text-teal-900 flex items-center gap-1.5">
+                    <TargetIcon className="w-4 h-4 text-teal-700" /> Fasting Glucose
+                  </span>
+                  <span className="text-xs text-teal-700 font-bold">ADA Target: 70–99</span>
+                </div>
+                <p className="text-2xl font-black text-teal-950">92 <span className="text-xs font-normal text-teal-700">mg/dL</span></p>
+                <div className="mt-2 w-full bg-teal-200/60 rounded-full h-2">
+                  <div className="bg-teal-600 h-2 rounded-full" style={{ width: '45%' }} />
+                </div>
+              </div>
+
+              {/* BP Metric Card */}
+              <div className="p-4 rounded-2xl bg-blue-50/50 border border-blue-100">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-bold text-blue-900 flex items-center gap-1.5">
+                    <HeartPulseIcon className="w-4 h-4 text-blue-700" /> Blood Pressure
+                  </span>
+                  <span className="text-xs text-blue-700 font-bold">AHA Stage: Normal</span>
+                </div>
+                <p className="text-2xl font-black text-blue-950">118/78 <span className="text-xs font-normal text-blue-700">mmHg</span></p>
+                <p className="text-[11px] text-blue-600 mt-1">Pulse: 72 bpm • Right Arm • Sitting</p>
+              </div>
+            </div>
+
+            <div className="absolute -inset-4 bg-linear-to-tr from-teal-100/40 to-blue-100/30 rounded-[2.5rem] blur-xl -z-10" />
+          </div>
+
           <div className="order-1 lg:order-2">
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-rose-600 mb-4">
-              For Sugar & BP Patients
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-teal-700 mb-4">
+              Evidence-Based Standards
             </p>
             <h2 className="text-3xl sm:text-4xl font-black text-ink-900 tracking-tight leading-tight">
-              Chronic vitals tracking{' '}
-              <span className="bg-linear-to-r from-rose-600 to-amber-500 bg-clip-text text-transparent">
-                that actually helps
+              Clinical vitals tracking<br />
+              <span className="bg-linear-to-r from-teal-700 to-emerald-600 bg-clip-text text-transparent">
+                with automatic staging
               </span>
             </h2>
             <p className="text-base text-ink-600 mt-6 leading-relaxed">
@@ -551,13 +736,15 @@ export function LandingPage() {
 
             <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-4">
               {[
-                { icon: '🎯', title: 'ADA Glycemic Targets', desc: 'Fasting, post-prandial, and random glucose evaluated in real time' },
-                { icon: '🩺', title: 'AHA Blood Pressure Stages', desc: 'Normal, Elevated, Stage 1, Stage 2, and Hypertensive Crisis' },
-                { icon: '📊', title: 'Mean Arterial Pressure', desc: 'MAP computed automatically for organ perfusion insight' },
-                { icon: '⚡', title: 'Spike & Dip Detection', desc: 'Alerts when velocity changes exceed safe clinical thresholds' },
+                { icon: <TargetIcon className="w-5 h-5 text-teal-600" />, title: 'ADA Glycemic Targets', desc: 'Fasting, post-prandial, and random glucose evaluated in real time' },
+                { icon: <StethoscopeIcon className="w-5 h-5 text-blue-600" />, title: 'AHA Blood Pressure Stages', desc: 'Normal, Elevated, Stage 1, Stage 2, and Hypertensive evaluation' },
+                { icon: <BarChartIcon className="w-5 h-5 text-purple-600" />, title: 'Mean Arterial Pressure', desc: 'MAP computed automatically for organ perfusion insight' },
+                { icon: <ZapIcon className="w-5 h-5 text-amber-600" />, title: 'Spike & Dip Detection', desc: 'Alerts when velocity changes exceed safe clinical thresholds' },
               ].map((item, i) => (
                 <div key={i} className="flex items-start gap-3">
-                  <span className="text-xl">{item.icon}</span>
+                  <div className="p-2 rounded-xl bg-ink-50 border border-ink-100 shrink-0 mt-0.5">
+                    {item.icon}
+                  </div>
                   <div>
                     <h4 className="text-xs font-bold text-ink-900">{item.title}</h4>
                     <p className="text-[11px] text-ink-500 mt-0.5">{item.desc}</p>
@@ -570,7 +757,7 @@ export function LandingPage() {
       </Section>
 
       {/* ═══════════════════════════════════════
-           SECTION 5 — PRESCRIPTION OCR & EXTRACTION
+           SECTION 6 — PRESCRIPTION OCR & EXTRACTION
          ═══════════════════════════════════════ */}
       <Section className="bg-ink-50">
         <div className="text-center mb-16">
@@ -581,8 +768,7 @@ export function LandingPage() {
             From doctor's handwriting to structured data
           </h2>
           <p className="text-base text-ink-600 mt-4 max-w-2xl mx-auto">
-            Our multi-model extraction engine decodes even the most challenging medical handwriting
-            with clinical-grade accuracy.
+            Our multi-model extraction engine decodes medical handwriting with high accuracy, presenting each extracted field for your verification.
           </p>
         </div>
 
@@ -590,50 +776,45 @@ export function LandingPage() {
           {[
             {
               step: '01',
-              icon: '📸',
+              icon: <CameraIcon className="w-8 h-8 text-teal-600" />,
               title: 'Snap or Upload',
               desc: 'Take a photo of any prescription slip, lab report, or medical document with your phone camera.',
               color: 'from-teal-500 to-teal-600',
             },
             {
               step: '02',
-              icon: '🧠',
-              title: 'Gemini Clinical Extraction',
-              desc: 'Our Gemini-powered engine identifies medicine names, dosages, frequencies, diagnoses, and test results.',
+              icon: <BrainIcon className="w-8 h-8 text-indigo-600" />,
+              title: 'Automatic Clinical Extraction',
+              desc: 'Medicine names, dosages, frequencies, diagnoses and test results are identified and laid out for you to check.',
               color: 'from-indigo-500 to-indigo-600',
             },
             {
               step: '03',
-              icon: '✅',
+              icon: <CheckCircleIcon className="w-8 h-8 text-emerald-600" />,
               title: 'Review & Confirm',
               desc: 'Every extraction is presented for human verification. You control exactly what gets saved to your record.',
               color: 'from-emerald-500 to-emerald-600',
             },
-          ].map((step, i) => {
-            const { ref, isVisible } = useInView();
-            return (
-              <div
-                key={i}
-                ref={ref}
-                className={`relative p-8 rounded-3xl bg-white border border-ink-200/60 shadow-sm transition-all duration-700 ${
-                  isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
-                }`}
-                style={{ transitionDelay: `${i * 150}ms` }}
-              >
-                <div className={`inline-flex items-center justify-center w-10 h-10 rounded-xl bg-linear-to-br ${step.color} text-white text-sm font-black mb-5`}>
-                  {step.step}
-                </div>
-                <div className="text-3xl mb-4">{step.icon}</div>
-                <h3 className="text-lg font-bold text-ink-900 mb-2">{step.title}</h3>
-                <p className="text-sm text-ink-600 leading-relaxed">{step.desc}</p>
+          ].map((step, i) => (
+            <Reveal
+              key={step.step}
+              delayMs={i * 150}
+              distance={8}
+              className="relative p-8 rounded-3xl bg-white border border-ink-200/60 shadow-sm"
+            >
+              <div className={`inline-flex items-center justify-center w-10 h-10 rounded-xl bg-linear-to-br ${step.color} text-white text-sm font-black mb-5`}>
+                {step.step}
               </div>
-            );
-          })}
+              <div className="mb-4">{step.icon}</div>
+              <h3 className="text-lg font-bold text-ink-900 mb-2">{step.title}</h3>
+              <p className="text-sm text-ink-600 leading-relaxed">{step.desc}</p>
+            </Reveal>
+          ))}
         </div>
       </Section>
 
       {/* ═══════════════════════════════════════
-           SECTION 6 — SECURITY & PRIVACY
+           SECTION 7 — SECURITY & PRIVACY
          ═══════════════════════════════════════ */}
       <Section id="security" dark>
         <div className="text-center mb-16">
@@ -650,32 +831,26 @@ export function LandingPage() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {[
-            { icon: '🔒', title: 'Row-Level Security', desc: 'Every database query is tenant-isolated. Users can only access their own records.' },
-            { icon: '🛡️', title: 'SHA-256 Watermarking', desc: 'Every exported document carries a tamper-evident cryptographic verification hash.' },
-            { icon: '⏳', title: 'Self-Destructing Shares', desc: 'Time-limited access links that auto-expire and can be instantly revoked.' },
-            { icon: '📶', title: 'Offline Vault', desc: 'Full offline capability with local encrypted storage when connectivity drops.' },
-          ].map((item, i) => {
-            const { ref, isVisible } = useInView();
-            return (
-              <div
-                key={i}
-                ref={ref}
-                className={`p-6 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all duration-700 ${
-                  isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'
-                }`}
-                style={{ transitionDelay: `${i * 100}ms` }}
-              >
-                <span className="text-2xl">{item.icon}</span>
-                <h4 className="text-sm font-bold text-white mt-4 mb-2">{item.title}</h4>
-                <p className="text-xs text-ink-400 leading-relaxed">{item.desc}</p>
-              </div>
-            );
-          })}
+            { icon: <LockIcon className="w-6 h-6 text-teal-400" />, title: 'Row-Level Security', desc: 'Every database query is tenant-isolated. Users can only access their own records.' },
+            { icon: <ShieldIcon className="w-6 h-6 text-emerald-400" />, title: 'SHA-256 Watermarking', desc: 'Every exported document carries a tamper-evident cryptographic verification hash.' },
+            { icon: <ClockIcon className="w-6 h-6 text-indigo-400" />, title: 'Self-Destructing Shares', desc: 'Time-limited access links that auto-expire and can be instantly revoked.' },
+            { icon: <WifiIcon className="w-6 h-6 text-amber-400" />, title: 'Offline Vault', desc: 'Full offline capability with local encrypted storage when connectivity drops.' },
+          ].map((item, i) => (
+            <Reveal
+              key={item.title}
+              delayMs={i * 100}
+              className="p-6 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10"
+            >
+              <div className="p-2.5 rounded-xl bg-white/10 w-fit mb-4">{item.icon}</div>
+              <h4 className="text-sm font-bold text-white mb-2">{item.title}</h4>
+              <p className="text-xs text-ink-400 leading-relaxed">{item.desc}</p>
+            </Reveal>
+          ))}
         </div>
       </Section>
 
       {/* ═══════════════════════════════════════
-           SECTION 7 — MILESTONES & GAMIFICATION
+           SECTION 8 — MILESTONES & ADHERENCE
          ═══════════════════════════════════════ */}
       <Section>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
@@ -696,31 +871,27 @@ export function LandingPage() {
             </p>
           </div>
 
-          {/* Mock Badges Grid */}
+          {/* Badges Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {[
-              { icon: '🔥', title: '7-Day Adherence Master', desc: 'Uninterrupted medication compliance for 7 days', level: 'bronze', unlocked: true },
-              { icon: '🎯', title: 'Glycemic Guardian', desc: '10 glucose logs within clinical target range', level: 'silver', unlocked: true },
-              { icon: '🩺', title: 'Cardiovascular Anchor', desc: '10 normal blood pressure readings', level: 'silver', unlocked: false, progress: 60 },
-              { icon: '🏆', title: 'Monthly Champion', desc: '30-day uninterrupted medication streak', level: 'gold', unlocked: false, progress: 40 },
+              { icon: <FlameIcon className="w-6 h-6 text-amber-600" />, title: '7-Day Adherence Master', desc: 'Uninterrupted medication compliance for 7 days', level: 'bronze', unlocked: true },
+              { icon: <TargetIcon className="w-6 h-6 text-teal-600" />, title: 'Glycemic Guardian', desc: '10 glucose logs within clinical target range', level: 'silver', unlocked: true },
+              { icon: <HeartPulseIcon className="w-6 h-6 text-rose-600" />, title: 'Cardiovascular Anchor', desc: '10 normal blood pressure readings', level: 'silver', unlocked: false, progress: 60 },
+              { icon: <TrophyIcon className="w-6 h-6 text-amber-500" />, title: 'Monthly Champion', desc: '30-day uninterrupted medication streak', level: 'gold', unlocked: false, progress: 40 },
             ].map((badge, i) => {
-              const { ref, isVisible } = useInView();
               const borderColor = badge.unlocked
                 ? badge.level === 'gold' ? 'border-amber-400 bg-linear-to-br from-amber-50/80 to-white'
                 : badge.level === 'silver' ? 'border-slate-300 bg-linear-to-br from-slate-50 to-white'
                 : 'border-amber-700/30 bg-linear-to-br from-orange-50/50 to-white'
                 : 'border-ink-200/60 bg-ink-50/50 opacity-70';
               return (
-                <div
-                  key={i}
-                  ref={ref}
-                  className={`p-4 rounded-2xl border transition-all duration-700 ${borderColor} ${
-                    isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'
-                  }`}
-                  style={{ transitionDelay: `${i * 100}ms` }}
+                <Reveal
+                  key={badge.title}
+                  delayMs={i * 100}
+                  className={`p-4 rounded-2xl border ${borderColor}`}
                 >
                   <div className="flex items-start gap-3">
-                    <div className="text-2xl p-2 rounded-xl bg-white border border-ink-100 shadow-xs shrink-0">
+                    <div className="p-2 rounded-xl bg-white border border-ink-100 shadow-xs shrink-0">
                       {badge.icon}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -728,7 +899,7 @@ export function LandingPage() {
                         <h4 className="text-xs font-bold text-ink-900 truncate">{badge.title}</h4>
                         {badge.unlocked && (
                           <span className="text-[9px] font-black uppercase text-emerald-800 bg-emerald-100/80 px-1.5 py-0.5 rounded-full border border-emerald-300">
-                            ✓
+                            <CheckIcon className="w-2.5 h-2.5 inline mr-0.5" /> Done
                           </span>
                         )}
                       </div>
@@ -743,7 +914,7 @@ export function LandingPage() {
                       )}
                     </div>
                   </div>
-                </div>
+                </Reveal>
               );
             })}
           </div>
@@ -751,7 +922,7 @@ export function LandingPage() {
       </Section>
 
       {/* ═══════════════════════════════════════
-           SECTION 8 — DOCTOR CONSULTATION TOOLS
+           SECTION 9 — DOCTOR CONSULTATION TOOLS
          ═══════════════════════════════════════ */}
       <Section className="bg-ink-50">
         <div className="text-center mb-16">
@@ -771,7 +942,9 @@ export function LandingPage() {
           {/* Smart Questions Card */}
           <div className="bg-white rounded-3xl border border-ink-200/60 shadow-sm overflow-hidden">
             <div className="px-6 py-4 border-b border-ink-100 flex items-center gap-3">
-              <span className="text-xl">❓</span>
+              <div className="p-2 rounded-xl bg-indigo-50 border border-indigo-100">
+                <QuestionIcon className="w-5 h-5 text-indigo-700" />
+              </div>
               <div>
                 <h3 className="text-sm font-bold text-ink-900">Smart Doctor Question Generator</h3>
                 <p className="text-[11px] text-ink-500">Auto-synthesized from your records</p>
@@ -804,7 +977,9 @@ export function LandingPage() {
           {/* Second Opinion Card */}
           <div className="bg-white rounded-3xl border border-ink-200/60 shadow-sm overflow-hidden">
             <div className="px-6 py-4 border-b border-ink-100 flex items-center gap-3">
-              <span className="text-xl">🛡️</span>
+              <div className="p-2 rounded-xl bg-teal-50 border border-teal-100">
+                <ShieldIcon className="w-5 h-5 text-teal-700" />
+              </div>
               <div>
                 <h3 className="text-sm font-bold text-ink-900">Second-Opinion Dossier Packager</h3>
                 <p className="text-[11px] text-ink-500">Specialist-ready clinical bundle</p>
@@ -814,7 +989,9 @@ export function LandingPage() {
               <div className="flex items-center gap-2.5">
                 <input type="checkbox" checked readOnly className="h-3.5 w-3.5 rounded text-teal-800" />
                 <span className="text-xs font-bold text-ink-700">Anonymize Patient Identity</span>
-                <span className="text-[10px] text-emerald-700 font-bold ml-auto">SHA-256 ✓</span>
+                <span className="text-[10px] text-emerald-700 font-bold ml-auto flex items-center gap-1">
+                  <ShieldIcon className="w-3 h-3 text-emerald-700" /> SHA-256 Verified
+                </span>
               </div>
               <div className="grid grid-cols-2 gap-3 text-xs">
                 <div className="p-3 rounded-xl bg-ink-50/70 border border-ink-200/60">
@@ -828,10 +1005,11 @@ export function LandingPage() {
               </div>
               <div className="p-3 rounded-xl border border-indigo-200 bg-indigo-50/50 text-xs">
                 <p className="font-bold text-indigo-950">Sections Included:</p>
-                <p className="text-indigo-800/80 mt-1">Active Medications • Abnormal Biomarkers • Vitals Trend • Recent Consultations • Specialist Questions</p>
-              </div>
-              <div className="text-[10px] text-ink-400 font-mono border-t border-ink-200 pt-3">
-                Tamper-evident hash: MED-VERIFIED-A8F3C9D1E2B7...
+                <div className="flex items-center gap-2 mt-1.5 text-[11px] text-indigo-800">
+                  <span className="px-2 py-0.5 rounded-md bg-white border border-indigo-200 font-medium">Active Rx</span>
+                  <span className="px-2 py-0.5 rounded-md bg-white border border-indigo-200 font-medium">Lab Biomarkers</span>
+                  <span className="px-2 py-0.5 rounded-md bg-white border border-indigo-200 font-medium">Vitals Staging</span>
+                </div>
               </div>
             </div>
           </div>
@@ -839,7 +1017,7 @@ export function LandingPage() {
       </Section>
 
       {/* ═══════════════════════════════════════
-           SECTION 9 — TRUST & STATS
+           SECTION 10 — TRUST & STATS
          ═══════════════════════════════════════ */}
       <Section>
         <div className="text-center">
@@ -857,30 +1035,24 @@ export function LandingPage() {
             { value: 50, suffix: '+', label: 'Health Features', desc: 'And growing weekly' },
             { value: 100, suffix: '%', label: 'Open Source', desc: 'Full transparency' },
             { value: 0, suffix: '', label: 'Tracking Cookies', desc: 'Zero surveillance' },
-          ].map((stat, i) => {
-            const { ref, isVisible } = useInView();
-            return (
-              <div
-                key={i}
-                ref={ref}
-                className={`text-center p-8 rounded-3xl border border-ink-200/60 bg-white hover:shadow-md transition-all duration-700 ${
-                  isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'
-                }`}
-                style={{ transitionDelay: `${i * 100}ms` }}
-              >
-                <p className="text-4xl sm:text-5xl font-black text-ink-900">
-                  {isVisible ? <AnimatedCounter target={stat.value} suffix={stat.suffix} /> : '0'}
-                </p>
-                <p className="text-sm font-bold text-ink-700 mt-2">{stat.label}</p>
-                <p className="text-xs text-ink-500 mt-1">{stat.desc}</p>
-              </div>
-            );
-          })}
+          ].map((stat, i) => (
+            <Reveal
+              key={stat.label}
+              delayMs={i * 100}
+              className="text-center p-8 rounded-3xl border border-ink-200/60 bg-white hover:shadow-md"
+            >
+              <p className="text-4xl sm:text-5xl font-black text-ink-900">
+                <AnimatedCounter target={stat.value} suffix={stat.suffix} />
+              </p>
+              <p className="text-sm font-bold text-ink-700 mt-2">{stat.label}</p>
+              <p className="text-xs text-ink-500 mt-1">{stat.desc}</p>
+            </Reveal>
+          ))}
         </div>
       </Section>
 
       {/* ═══════════════════════════════════════
-           SECTION 10 — FINAL CTA
+           SECTION 11 — FINAL CTA
          ═══════════════════════════════════════ */}
       <section className="relative px-6 py-32 sm:py-40 overflow-hidden">
         {/* Gradient Background */}
@@ -933,6 +1105,7 @@ export function LandingPage() {
           <div className="flex items-center gap-6 text-xs text-ink-500">
             <a href="#features" className="hover:text-teal-400 transition-colors">Features</a>
             <a href="#assistant" className="hover:text-teal-400 transition-colors">Assistant</a>
+            <a href="#safety-boundaries" className="hover:text-teal-400 transition-colors">Safety & Ethics</a>
             <a href="#security" className="hover:text-teal-400 transition-colors">Security</a>
             <Link to="/login" className="hover:text-teal-400 transition-colors">Sign In</Link>
           </div>

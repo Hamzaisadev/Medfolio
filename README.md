@@ -4,28 +4,26 @@ Medfolio is a privacy-first personal health management web application and PWA d
 
 ---
 
-## 🌟 Core Features
+## 🌟 Key Features
 
-- 📸 **Prescription Digitization**: Capture paper prescriptions or lab reports with your camera. Uses Google Gemini Multimodal AI on the backend to extract doctor consultations, diagnoses, medicines, dosages, durations, and follow-up advice into structured records.
-- 🔍 **Interactive Magnifier**: Smooth cursor-tracking hover zoom (`2x`, `2.5x`, `3.5x`) and fullscreen modal on prescription and lab test images.
-- 💊 **Deterministic Scheduling**: Generates exact, non-overlapping dose time buckets in Pakistan Standard Time (`Asia/Karachi`), respecting meal relations (`before meals` vs `after meals`), ongoing courses, and PRN cabinet.
-- 🧪 **Diagnostic Lab Trends**: Tracks biomarkers (e.g. Hemoglobin, Fasting Blood Sugar, HbA1c, Serum Creatinine, SGPT) with interactive Recharts line visualizations and reference range evaluation (`Within typical range`, `Outside typical range`).
-- ⏱️ **Medical Timeline**: Unified chronological view interleaving doctor visits, prescriptions, lab results, and patient-logged symptoms.
-- 📋 **Printable Doctor Brief**: A4 print-optimized one-page clinical summary sheet with active medicines, allergy/condition callouts, and recent history for consulting physicians.
-- 🔗 **Doctor Share Links & QR Codes**: Time-limited (24h, 7d, 30d) view-only shareable links and SVG QR codes with instant revocation.
-- 🚨 **Offline Red-Flag Triage**: Instant client-side check for medical emergencies (e.g. chest pain, shortness of breath) with one-tap Pakistan emergency helplines (`1122`, `115`, `1020`) before any network call.
-- 💾 **Cryptographic JSON Backup**: Full export and schema-validated restore of health records.
-- 📱 **Progressive Web App (PWA)**: Installable on mobile and desktop with offline caching and background service worker support.
+- **📸 Prescription Digitization**: Photograph paper prescriptions or lab reports. Google Gemini Multimodal AI extracts medications, dosages, frequencies, and durations into structured records.
+- **💊 Deterministic Dose Scheduling**: Generates exact, non-overlapping dose time buckets in Pakistan Standard Time (`Asia/Karachi`), respecting meal relations (`before meals` vs `after meals`), ongoing courses, and PRN cabinet.
+- **🧪 Diagnostic Lab Trends**: Tracks biomarkers (e.g., Fasting Blood Sugar, HbA1c, ALT/SGPT, Serum Creatinine, Hemoglobin) with interactive Recharts visualizations and clinical reference ranges.
+- **⏱️ Longitudinal Timeline**: Unified chronological view interleaving doctor visits, prescriptions, lab results, and patient-logged symptoms.
+- **📋 Printable Doctor Brief**: A4 print-optimized one-page clinical summary sheet with active medicines, allergy callouts, and recent history for consulting physicians.
+- **🔗 Secure Doctor Sharing**: Time-limited (24h, 7d, 30d) view-only shareable links and QR codes with instant revocation and PIN protection.
+- **🚨 Emergency Red-Flag Triage**: Instant client-side check for medical emergency symptoms with one-tap Pakistan emergency helplines (`1122`, `115`, `1020`) before any network request.
+- **📶 Offline Vault**: Full offline capability with local encrypted storage and PWA background caching when connectivity drops.
 
 ---
 
 ## 🛠️ Tech Stack
 
-- **Frontend**: React 19, TypeScript, Tailwind CSS, Lucide Icons, Recharts
+- **Frontend**: React 19, TypeScript, Tailwind CSS v4, Custom SVG Icons, Recharts
 - **Backend / API**: Vercel Serverless Functions (`/api/extract-prescription`, `/api/extract-lab-report`, `/api/explain-medicine`)
 - **AI Model**: Google Gemini API (`gemini-3.5-flash`)
-- **Database & Auth**: Supabase PostgreSQL with local offline fallback persistence
-- **Testing & Quality**: Vitest, TypeScript strict mode, ESLint (`0 warnings` rule)
+- **Database & Auth**: Supabase PostgreSQL with tenant-isolated Row-Level Security (RLS)
+- **Testing & Quality**: Vitest, strict TypeScript mode, zero-warnings ESLint rule
 
 ---
 
@@ -67,7 +65,7 @@ npm run dev
 ```
 Open [http://localhost:5173](http://localhost:5173) in your browser.
 
-### 5. Run Verification & Tests
+### 5. Verification & Tests
 ```bash
 npm run verify
 ```
@@ -75,8 +73,10 @@ Runs full TypeScript typecheck, ESLint zero-warnings audit, Vitest domain tests,
 
 ---
 
-## 🔒 Security & Privacy Architecture
+## 🔒 Clinical Safety & Security Guardrails
 
+- **Assisting Care, Never Replacing Doctors**: Medfolio is a health organization and patient assistance tool. It does not diagnose illnesses or modify prescriptions without licensed physician supervision.
+- **Zero Silent Commits**: All AI-extracted prescription fields and lab values require explicit human review and confirmation before being committed to patient health records.
 - **No Secrets in Client Bundle**: All AI calls and Gemini API keys operate strictly within backend serverless functions (`/api/*`). The frontend bundle contains zero LLM secrets.
-- **Client Offline Resilience**: If the database is unreachable or offline, the client seamlessly stores and serves data via local encrypted storage.
+- **Client Offline Resilience**: If the database is unreachable or offline, the client securely stores and serves data via local encrypted storage.
 - **Clinical Neutrality**: Out-of-range lab results and AI extraction suggestions use neutral medical language without speculative diagnosing or exaggerated alerts.

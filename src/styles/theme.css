@@ -1,77 +1,304 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+
+/* ---------------------------------------------------------------------------
+   Dark mode is class-based, driven by ThemeProvider toggling `.dark` on <html>.
+   `:where()` keeps the variant at zero specificity so it never out-ranks a
+   utility the way a bare `.dark &` selector would.
+   --------------------------------------------------------------------------- */
+@custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  /* ---------- Colour ---------- */
-  /* Brand: teal. Medical, calm, not the default SaaS blue. */
-  --color-brand-50:  oklch(0.977 0.017 180);
-  --color-brand-100: oklch(0.947 0.038 180);
-  --color-brand-200: oklch(0.897 0.070 180);
-  --color-brand-300: oklch(0.828 0.104 180);
-  --color-brand-400: oklch(0.746 0.120 180);
-  --color-brand-500: oklch(0.670 0.117 180);
-  --color-brand-600: oklch(0.582 0.103 181);   /* primary actions */
-  --color-brand-700: oklch(0.505 0.087 182);
-  --color-brand-800: oklch(0.437 0.072 183);
-  --color-brand-900: oklch(0.386 0.061 184);
+  /* ---------- Raw palette ----------
+     These are the pigments. Screens should not reach for them directly — they
+     use the semantic tokens below, which is what makes one class work in both
+     light and dark. */
 
-  /* Neutrals: slate. Text, borders, surfaces. */
-  --color-ink-50:  oklch(0.984 0.003 248);
-  --color-ink-100: oklch(0.968 0.007 248);
-  --color-ink-200: oklch(0.929 0.013 256);
-  --color-ink-300: oklch(0.869 0.020 252);
-  --color-ink-400: oklch(0.704 0.040 257);
-  --color-ink-500: oklch(0.554 0.046 257);     /* muted text — meets 4.5:1 on white */
-  --color-ink-600: oklch(0.446 0.043 257);
-  --color-ink-700: oklch(0.372 0.044 257);
-  --color-ink-800: oklch(0.279 0.041 260);
-  --color-ink-900: oklch(0.208 0.042 266);     /* primary text */
+  /* Brand: teal, warmed slightly and given more chroma so it reads as a
+     deliberate accent rather than a desaturated corporate blue-green. */
+  --color-brand-50:  oklch(0.979 0.019 186);
+  --color-brand-100: oklch(0.949 0.044 186);
+  --color-brand-200: oklch(0.901 0.078 186);
+  --color-brand-300: oklch(0.833 0.114 187);
+  --color-brand-400: oklch(0.753 0.132 187);
+  --color-brand-500: oklch(0.679 0.129 188);
+  --color-brand-600: oklch(0.593 0.115 188);   /* primary actions */
+  --color-brand-700: oklch(0.513 0.097 189);
+  --color-brand-800: oklch(0.444 0.080 190);
+  --color-brand-900: oklch(0.391 0.067 191);
+  --color-brand-950: oklch(0.281 0.048 192);
 
-  /* Semantic. Each has bg / border / text tuned for contrast. */
-  --color-ok-bg:     oklch(0.979 0.021 166);
-  --color-ok-border: oklch(0.905 0.056 165);
-  --color-ok-text:   oklch(0.448 0.119 151);
-  --color-warn-bg:     oklch(0.987 0.026 102);
-  --color-warn-border: oklch(0.905 0.076 96);
-  --color-warn-text:   oklch(0.476 0.114 62);
-  --color-risk-bg:     oklch(0.971 0.013 18);
-  --color-risk-border: oklch(0.885 0.062 18);
-  --color-risk-text:   oklch(0.457 0.177 26);
-  --color-info-bg:     oklch(0.970 0.014 254);
-  --color-info-border: oklch(0.882 0.059 254);
-  --color-info-text:   oklch(0.488 0.217 264);
+  /* Neutrals: warm stone rather than cool slate. Same lightness steps as the
+     previous ramp, so existing contrast ratios carry over unchanged — only the
+     hue moves, from 248-266 (blue) to ~72 (warm). */
+  --color-ink-50:  oklch(0.985 0.003 75);
+  --color-ink-100: oklch(0.970 0.006 75);
+  --color-ink-200: oklch(0.932 0.010 78);
+  --color-ink-300: oklch(0.872 0.015 78);
+  --color-ink-400: oklch(0.709 0.024 76);
+  --color-ink-500: oklch(0.560 0.026 74);      /* muted text — meets 4.5:1 on white */
+  --color-ink-600: oklch(0.452 0.026 72);
+  --color-ink-700: oklch(0.378 0.025 70);
+  --color-ink-800: oklch(0.284 0.022 68);
+  --color-ink-900: oklch(0.212 0.020 66);      /* primary text */
+  --color-ink-950: oklch(0.164 0.017 64);
 
-  /* ---------- Type ---------- */
-  /* One family. Self-host with @fontsource — do not block first paint on Google Fonts. */
+  /* ---------- Type ----------
+     One family. Self-hosted with @fontsource — never block first paint on a
+     font CDN. */
   --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
-  --text-xs:   0.75rem;   --text-xs--line-height:   1.5;
-  --text-sm:   0.875rem;  --text-sm--line-height:   1.5715;
-  --text-base: 1rem;      --text-base--line-height: 1.5;
-  --text-lg:   1.125rem;  --text-lg--line-height:   1.45;
-  --text-xl:   1.25rem;   --text-xl--line-height:   1.4;
-  --text-2xl:  1.5rem;    --text-2xl--line-height:  1.3;
-  --text-3xl:  1.875rem;  --text-3xl--line-height:  1.2;
+  /* Scaled up for the patient-first direction: 17px body, and `2xs` (12px) is a
+     hard floor. The previous UI used 189 hand-written `text-[10px]`/`[11px]`
+     values, which is below the readable minimum for the people who use this
+     app daily. There is deliberately no token smaller than 2xs. */
+  --text-2xs:  0.75rem;    --text-2xs--line-height:  1.45;   /* 12px — floor */
+  --text-xs:   0.8125rem;  --text-xs--line-height:   1.5;    /* 13px */
+  --text-sm:   0.9375rem;  --text-sm--line-height:   1.55;   /* 15px */
+  --text-base: 1.0625rem;  --text-base--line-height: 1.6;    /* 17px */
+  --text-lg:   1.1875rem;  --text-lg--line-height:  1.5;     /* 19px */
+  --text-xl:   1.375rem;   --text-xl--line-height:  1.4;     /* 22px */
+  --text-2xl:  1.625rem;   --text-2xl--line-height: 1.3;     /* 26px */
+  --text-3xl:  2rem;       --text-3xl--line-height: 1.22;    /* 32px */
+  --text-4xl:  2.5rem;     --text-4xl--line-height: 1.15;    /* 40px */
+  --text-5xl:  3.125rem;   --text-5xl--line-height: 1.08;    /* 50px */
 
-  /* ---------- Radius ---------- */
-  --radius-sm: 0.375rem;
-  --radius-md: 0.625rem;
-  --radius-lg: 0.875rem;
-  --radius-xl: 1.125rem;
-
-  /* ---------- Elevation ---------- */
-  /* Three levels. Nothing floats higher than a modal. */
-  --shadow-card:  0 1px 2px 0 oklch(0.208 0.042 266 / 0.04),
-                  0 1px 3px 0 oklch(0.208 0.042 266 / 0.06);
-  --shadow-raise: 0 4px 6px -1px oklch(0.208 0.042 266 / 0.07),
-                  0 2px 4px -2px oklch(0.208 0.042 266 / 0.05);
-  --shadow-over:  0 20px 25px -5px oklch(0.208 0.042 266 / 0.10),
-                  0 8px 10px -6px oklch(0.208 0.042 266 / 0.06);
+  /* ---------- Radius ----------
+     Softer than before. Warmth in an interface comes mostly from corner radius
+     and spacing, not from hue. */
+  --radius-sm:  0.5rem;
+  --radius-md:  0.75rem;
+  --radius-lg:  1rem;
+  --radius-xl:  1.25rem;
+  --radius-2xl: 1.5rem;
 
   /* ---------- Motion ---------- */
   --ease-out-soft: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring:   cubic-bezier(0.34, 1.4, 0.64, 1);
   --duration-fast: 140ms;
   --duration-base: 220ms;
+  --duration-slow: 380ms;
+
+  /* ---------- Touch targets ----------
+     Primary dose actions are tapped one-handed, often by someone unwell. */
+  --size-tap:       2.75rem;  /* 44px — minimum */
+  --size-tap-large: 3.5rem;   /* 56px — primary actions */
+}
+
+/* ---------------------------------------------------------------------------
+   Semantic layer.
+
+   `@theme inline` is load-bearing: a plain `@theme` inlines the *value* at build
+   time, so redefining the variable under `.dark` would have no effect on the
+   generated utility. `inline` makes `.bg-surface` compile to
+   `background-color: var(--surface)`, so swapping `--surface` re-themes every
+   usage at once. This is what keeps dark mode a ~40-line change instead of a
+   second sweep through 38 files.
+   --------------------------------------------------------------------------- */
+@theme inline {
+  --color-surface:         var(--surface);
+  --color-surface-sunken:  var(--surface-sunken);
+  --color-surface-raised:  var(--surface-raised);
+  --color-surface-hover:   var(--surface-hover);
+  --color-surface-accent:  var(--surface-accent);
+
+  --color-line:            var(--line);
+  --color-line-strong:     var(--line-strong);
+
+  --color-content:         var(--content);
+  --color-content-muted:   var(--content-muted);
+  --color-content-subtle:  var(--content-subtle);
+  --color-content-onaccent: var(--content-onaccent);
+
+  --color-accent:          var(--accent);
+  --color-accent-hover:    var(--accent-hover);
+  --color-accent-active:   var(--accent-active);
+  --color-accent-subtle:   var(--accent-subtle);
+  --color-accent-onsubtle: var(--accent-onsubtle);
+
+  /* Status. Each tone carries a background, border and text value so contrast
+     is controlled per theme rather than guessed at the call site. */
+  --color-ok-bg:      var(--ok-bg);
+  --color-ok-border:  var(--ok-border);
+  --color-ok-text:    var(--ok-text);
+  --color-warn-bg:     var(--warn-bg);
+  --color-warn-border: var(--warn-border);
+  --color-warn-text:   var(--warn-text);
+  --color-risk-bg:     var(--risk-bg);
+  --color-risk-border: var(--risk-border);
+  --color-risk-text:   var(--risk-text);
+  --color-info-bg:     var(--info-bg);
+  --color-info-border: var(--info-border);
+  --color-info-text:   var(--info-text);
+
+  /* Time-of-day accents. The schedule is the screen people open most, and
+     colouring it by daypart is what makes it feel warm rather than clinical.
+     Replaces ad-hoc rose/indigo/emerald picks scattered across pages. */
+  --color-slot-morning-bg:      var(--slot-morning-bg);
+  --color-slot-morning-border:  var(--slot-morning-border);
+  --color-slot-morning-text:    var(--slot-morning-text);
+  --color-slot-afternoon-bg:     var(--slot-afternoon-bg);
+  --color-slot-afternoon-border: var(--slot-afternoon-border);
+  --color-slot-afternoon-text:   var(--slot-afternoon-text);
+  --color-slot-evening-bg:       var(--slot-evening-bg);
+  --color-slot-evening-border:   var(--slot-evening-border);
+  --color-slot-evening-text:     var(--slot-evening-text);
+  --color-slot-night-bg:         var(--slot-night-bg);
+  --color-slot-night-border:     var(--slot-night-border);
+  --color-slot-night-text:       var(--slot-night-text);
+
+  /* Achievement tiers — the only place a metallic palette is appropriate. */
+  --color-tier-bronze:   var(--tier-bronze);
+  --color-tier-silver:   var(--tier-silver);
+  --color-tier-gold:     var(--tier-gold);
+  --color-tier-platinum: var(--tier-platinum);
+
+  --shadow-card:  var(--shadow-card-value);
+  --shadow-raise: var(--shadow-raise-value);
+  --shadow-over:  var(--shadow-over-value);
+}
+
+/* ------------------------------------------------------------------ light ---- */
+:root {
+  color-scheme: light;
+
+  --surface:        oklch(1 0 0);
+  --surface-sunken: var(--color-ink-50);
+  --surface-raised: oklch(1 0 0);
+  --surface-hover:  var(--color-ink-100);
+  --surface-accent: var(--color-brand-50);
+
+  --line:        var(--color-ink-200);
+  --line-strong: var(--color-ink-300);
+
+  --content:          var(--color-ink-900);
+  --content-muted:    var(--color-ink-600);
+  --content-subtle:   var(--color-ink-500);
+  --content-onaccent: oklch(1 0 0);
+
+  --accent:          var(--color-brand-600);
+  --accent-hover:    var(--color-brand-700);
+  --accent-active:   var(--color-brand-800);
+  --accent-subtle:   var(--color-brand-50);
+  --accent-onsubtle: var(--color-brand-800);
+
+  --ok-bg:     oklch(0.979 0.021 166);
+  --ok-border: oklch(0.905 0.056 165);
+  --ok-text:   oklch(0.430 0.115 151);
+  --warn-bg:     oklch(0.987 0.026 102);
+  --warn-border: oklch(0.905 0.076 96);
+  --warn-text:   oklch(0.452 0.108 62);
+  --risk-bg:     oklch(0.971 0.013 18);
+  --risk-border: oklch(0.885 0.062 18);
+  --risk-text:   oklch(0.446 0.172 26);
+  --info-bg:     oklch(0.970 0.014 254);
+  --info-border: oklch(0.882 0.059 254);
+  --info-text:   oklch(0.452 0.180 264);
+
+  --slot-morning-bg:      oklch(0.980 0.028 85);
+  --slot-morning-border:  oklch(0.902 0.075 82);
+  --slot-morning-text:    oklch(0.470 0.108 65);
+  --slot-afternoon-bg:     oklch(0.973 0.021 230);
+  --slot-afternoon-border: oklch(0.890 0.060 232);
+  --slot-afternoon-text:   oklch(0.462 0.132 245);
+  --slot-evening-bg:       oklch(0.973 0.020 305);
+  --slot-evening-border:   oklch(0.892 0.058 305);
+  --slot-evening-text:     oklch(0.458 0.155 300);
+  --slot-night-bg:         oklch(0.968 0.016 275);
+  --slot-night-border:     oklch(0.884 0.052 275);
+  --slot-night-text:       oklch(0.440 0.150 272);
+
+  --tier-bronze:   oklch(0.620 0.108 55);
+  --tier-silver:   oklch(0.700 0.014 250);
+  --tier-gold:     oklch(0.780 0.140 85);
+  --tier-platinum: oklch(0.700 0.100 265);
+
+  /* Warm-tinted shadows: a neutral-grey shadow over warm surfaces reads dirty. */
+  --shadow-card-value:  0 1px 2px 0 oklch(0.212 0.020 66 / 0.05),
+                        0 1px 3px 0 oklch(0.212 0.020 66 / 0.07);
+  --shadow-raise-value: 0 4px 6px -1px oklch(0.212 0.020 66 / 0.08),
+                        0 2px 4px -2px oklch(0.212 0.020 66 / 0.06);
+  --shadow-over-value:  0 20px 25px -5px oklch(0.212 0.020 66 / 0.12),
+                        0 8px 10px -6px oklch(0.212 0.020 66 / 0.08);
+}
+
+/* ------------------------------------------------------------------- dark ---- */
+.dark {
+  color-scheme: dark;
+
+  /* Not pure black: a warm near-black keeps the same character as the light
+     theme and avoids the halo effect OLED black produces around light text. */
+  --surface:        oklch(0.223 0.012 68);
+  --surface-sunken: oklch(0.181 0.010 66);
+  --surface-raised: oklch(0.264 0.013 70);
+  --surface-hover:  oklch(0.305 0.015 70);
+  --surface-accent: oklch(0.300 0.045 190);
+
+  --line:        oklch(0.325 0.014 70);
+  --line-strong: oklch(0.408 0.018 72);
+
+  --content:          oklch(0.962 0.005 75);
+  --content-muted:    oklch(0.788 0.016 74);
+  --content-subtle:   oklch(0.681 0.020 74);
+  --content-onaccent: oklch(0.165 0.020 190);
+
+  /* Lighter accent on dark: brand-600 on a dark surface fails contrast. */
+  --accent:          var(--color-brand-400);
+  --accent-hover:    var(--color-brand-300);
+  --accent-active:   var(--color-brand-200);
+  --accent-subtle:   oklch(0.300 0.048 190);
+  --accent-onsubtle: var(--color-brand-200);
+
+  --ok-bg:     oklch(0.288 0.048 165);
+  --ok-border: oklch(0.400 0.072 163);
+  --ok-text:   oklch(0.868 0.088 165);
+  --warn-bg:     oklch(0.300 0.048 85);
+  --warn-border: oklch(0.418 0.072 82);
+  --warn-text:   oklch(0.888 0.092 92);
+  --risk-bg:     oklch(0.302 0.062 22);
+  --risk-border: oklch(0.428 0.098 24);
+  --risk-text:   oklch(0.868 0.078 24);
+  --info-bg:     oklch(0.296 0.054 258);
+  --info-border: oklch(0.412 0.084 258);
+  --info-text:   oklch(0.868 0.070 255);
+
+  --slot-morning-bg:      oklch(0.298 0.046 82);
+  --slot-morning-border:  oklch(0.412 0.070 80);
+  --slot-morning-text:    oklch(0.882 0.088 88);
+  --slot-afternoon-bg:     oklch(0.292 0.048 235);
+  --slot-afternoon-border: oklch(0.405 0.074 235);
+  --slot-afternoon-text:   oklch(0.870 0.070 232);
+  --slot-evening-bg:       oklch(0.294 0.050 305);
+  --slot-evening-border:   oklch(0.408 0.078 305);
+  --slot-evening-text:     oklch(0.872 0.068 305);
+  --slot-night-bg:         oklch(0.286 0.046 275);
+  --slot-night-border:     oklch(0.398 0.074 275);
+  --slot-night-text:       oklch(0.864 0.066 275);
+
+  --tier-bronze:   oklch(0.720 0.108 58);
+  --tier-silver:   oklch(0.800 0.014 250);
+  --tier-gold:     oklch(0.848 0.140 88);
+  --tier-platinum: oklch(0.790 0.098 268);
+
+  /* Elevation on dark comes from surface lightness, not from shadow, so these
+     are near-invisible black rather than scaled-up light-theme values. */
+  --shadow-card-value:  0 1px 2px 0 oklch(0 0 0 / 0.30),
+                        0 1px 3px 0 oklch(0 0 0 / 0.24);
+  --shadow-raise-value: 0 4px 6px -1px oklch(0 0 0 / 0.38),
+                        0 2px 4px -2px oklch(0 0 0 / 0.30);
+  --shadow-over-value:  0 20px 25px -5px oklch(0 0 0 / 0.50),
+                        0 8px 10px -6px oklch(0 0 0 / 0.38);
+}
+
+/* Horizontally scrollable strips (tab bars, the schedule date strip) should not
+   show a scrollbar gutter — the overflow is a swipe affordance, not a control. */
+@utility scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 @layer base {
@@ -82,42 +309,164 @@
   }
 
   body {
-    background-color: var(--color-ink-50);
-    color: var(--color-ink-900);
+    background-color: var(--surface-sunken);
+    color: var(--content);
     font-family: var(--font-sans);
     min-height: 100%;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
+  /* Numbers that sit in columns (doses, readings, counts) must not jitter as
+     their digits change. */
+  th, td, time, [data-numeric] {
+    font-variant-numeric: tabular-nums;
+  }
+
   /* Visible accessible focus everywhere. Never remove it. */
   :focus-visible {
-    outline: 2px solid var(--color-brand-600);
+    outline: 2px solid var(--accent);
     outline-offset: 2px;
   }
 
-  /* Respect reduced motion preference */
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
       animation-duration: 0.01ms !important;
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
     }
   }
 
-  /* Clean subtle scrollbars */
   ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 8px;
+    height: 8px;
   }
   ::-webkit-scrollbar-track {
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: var(--color-ink-300);
+    background: var(--line-strong);
     border-radius: 9999px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: var(--color-ink-400);
+    background: var(--content-subtle);
+  }
+}
+
+@layer utilities {
+  /* Glassmorphism & Apple Health / Linear UI Utilities */
+  .glass-card {
+    background: color-mix(in oklch, var(--surface-raised) 75%, transparent);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid color-mix(in oklch, var(--line) 60%, transparent);
+    box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.04), 0 2px 6px -1px rgba(0, 0, 0, 0.02);
+  }
+
+  .glass-panel {
+    background: color-mix(in oklch, var(--surface) 80%, transparent);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid color-mix(in oklch, var(--line) 50%, transparent);
+  }
+
+  .glass-elevated {
+    background: color-mix(in oklch, var(--surface-raised) 85%, transparent);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid color-mix(in oklch, var(--line-strong) 40%, transparent);
+    box-shadow: 0 12px 32px -4px rgba(0, 0, 0, 0.08), 0 4px 12px -2px rgba(0, 0, 0, 0.03);
+  }
+
+  .glow-teal {
+    box-shadow: 0 0 28px -4px rgba(13, 148, 136, 0.25);
+  }
+
+  .glow-rose {
+    box-shadow: 0 0 28px -4px rgba(225, 29, 72, 0.22);
+  }
+
+  .glow-amber {
+    box-shadow: 0 0 28px -4px rgba(217, 119, 6, 0.22);
+  }
+
+  .glow-cyan {
+    box-shadow: 0 0 28px -4px rgba(6, 182, 212, 0.22);
+  }
+
+  .tap-spring {
+    transition: transform var(--duration-fast) var(--ease-spring), box-shadow var(--duration-fast) ease;
+  }
+  .tap-spring:active {
+    transform: scale(0.97);
+  }
+
+  .gradient-text-teal {
+    background: linear-gradient(135deg, oklch(0.593 0.115 188), oklch(0.444 0.080 190));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .gradient-text-fire {
+    background: linear-gradient(135deg, #f43f5e, #fb923c);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Print.
+
+   Handled once, here, rather than with per-element `print:bg-white` patches
+   across the five surfaces that call window.print(). A doctor's brief printed
+   from a dark-themed session must come out on white paper: an unreadable or
+   ink-flooded clinical document is a patient-safety problem, not a cosmetic one.
+
+   `.dark` is re-declared with light values so it wins on source order.
+   --------------------------------------------------------------------------- */
+@media print {
+  :root, .dark {
+    color-scheme: light;
+
+    --surface:        oklch(1 0 0);
+    --surface-sunken: oklch(1 0 0);
+    --surface-raised: oklch(1 0 0);
+    --surface-hover:  oklch(1 0 0);
+    --surface-accent: oklch(1 0 0);
+
+    --line:        oklch(0.872 0.015 78);
+    --line-strong: oklch(0.709 0.024 76);
+
+    --content:          oklch(0.164 0.017 64);
+    --content-muted:    oklch(0.378 0.025 70);
+    --content-subtle:   oklch(0.452 0.026 72);
+    --content-onaccent: oklch(1 0 0);
+
+    --accent:          oklch(0.444 0.080 190);
+    --accent-hover:    oklch(0.444 0.080 190);
+    --accent-active:   oklch(0.444 0.080 190);
+    --accent-subtle:   oklch(1 0 0);
+    --accent-onsubtle: oklch(0.281 0.048 192);
+
+    /* Status keeps a readable border and dark text, but loses the fill: solid
+       tinted blocks waste ink and photocopy as grey mud. */
+    --ok-bg: oklch(1 0 0);   --ok-border: oklch(0.709 0.024 76);   --ok-text: oklch(0.300 0.090 151);
+    --warn-bg: oklch(1 0 0); --warn-border: oklch(0.709 0.024 76); --warn-text: oklch(0.340 0.090 62);
+    --risk-bg: oklch(1 0 0); --risk-border: oklch(0.560 0.140 26); --risk-text: oklch(0.380 0.160 26);
+    --info-bg: oklch(1 0 0); --info-border: oklch(0.709 0.024 76); --info-text: oklch(0.340 0.140 264);
+
+    --slot-morning-bg: oklch(1 0 0);   --slot-morning-border: oklch(0.709 0.024 76);   --slot-morning-text: oklch(0.340 0.090 65);
+    --slot-afternoon-bg: oklch(1 0 0); --slot-afternoon-border: oklch(0.709 0.024 76); --slot-afternoon-text: oklch(0.340 0.110 245);
+    --slot-evening-bg: oklch(1 0 0);   --slot-evening-border: oklch(0.709 0.024 76);   --slot-evening-text: oklch(0.340 0.120 300);
+    --slot-night-bg: oklch(1 0 0);     --slot-night-border: oklch(0.709 0.024 76);     --slot-night-text: oklch(0.330 0.120 272);
+
+    --shadow-card-value:  none;
+    --shadow-raise-value: none;
+    --shadow-over-value:  none;
+  }
+
+  body {
+    background: oklch(1 0 0);
   }
 }

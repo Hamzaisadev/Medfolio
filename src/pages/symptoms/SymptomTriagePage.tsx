@@ -7,8 +7,7 @@ import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Textarea } from '../../components/ui/Textarea';
 import { Toast } from '../../components/ui/Toast';
-import { Disclaimer } from '../../components/ui/Disclaimer';
-import { EmergencyAmbulanceIcon } from '../../components/ui/icons';
+import { EmergencyAmbulanceIcon, AlertTriangleIcon, PhoneIcon } from '../../components/ui/icons';
 import { checkRedFlags, EMERGENCY_HELPLINES } from '../../domain/redFlags';
 import { sideEffectsRepo } from '../../lib/db';
 import { SYMPTOM_DISCLAIMER } from '../../lib/disclaimer';
@@ -113,8 +112,8 @@ export function SymptomTriagePage() {
             </div>
             <div className="space-y-2 flex-1">
               <div className="flex items-center justify-between">
-                <h2 className="text-xl font-black uppercase tracking-wider">
-                  ⚠️ Potential Medical Emergency Detected
+                <h2 className="text-xl font-black uppercase tracking-wider flex items-center gap-2">
+                  <AlertTriangleIcon className="w-6 h-6 text-white" /> Potential Medical Emergency Detected
                 </h2>
                 <Badge tone="neutral" size="sm" className="bg-white/20 text-white border-0">
                   Offline Safety Rule
@@ -255,9 +254,9 @@ export function SymptomTriagePage() {
                   </div>
                   <a
                     href={hl.tel}
-                    className="px-3 py-1.5 rounded-md bg-risk-bg text-risk-text border border-risk-border font-bold hover:bg-red-100 transition-colors"
+                    className="px-3 py-1.5 rounded-md bg-risk-bg text-risk-text border border-risk-border font-bold hover:bg-red-100 transition-colors flex items-center gap-1.5"
                   >
-                    📞 Call {hl.number}
+                    <PhoneIcon size={14} /> Call {hl.number}
                   </a>
                 </div>
               ))}

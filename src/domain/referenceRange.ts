@@ -10,6 +10,9 @@
 
 export type RangeStatus = 'within' | 'below' | 'above' | 'unknown';
 
+/** Sex used to resolve sex-specific reference ranges. */
+export type ProfileSex = 'male' | 'female' | 'other' | 'undisclosed' | null;
+
 export interface ParsedRange {
   low: number | null;
   high: number | null;
@@ -17,12 +20,17 @@ export interface ParsedRange {
 }
 
 /**
- * Strips common clinical lab units from the range string without mangling numbers.
+ * Strips common clinical lab units and thousands separators without mangling numbers.
+ *
+ * Thousands separators matter: without this, "4,000 - 11,000" (a routine WBC
+ * range) failed the interval match and the result showed as "Not evaluated".
  */
 function stripUnits(text: string): string {
   return text
     .replace(/\b(?:mg\/dl|g\/dl|mmol\/l|miu\/l|iu\/l|pg\/ml|ng\/ml|ul|\/ul|cells\/cu\.mm|fl|pg)\b/gi, '')
     .replace(/%/g, '')
+    // Only between digits, so it cannot join two separate numbers.
+    .replace(/(\d),(?=\d{3}\b)/g, '$1')
     .trim();
 }
 
@@ -34,7 +42,7 @@ function stripUnits(text: string): string {
  */
 export function parseRange(
   text: string | null | undefined,
-  sex?: 'male' | 'female' | 'other' | 'undisclosed' | null
+  sex?: ProfileSex
 ): ParsedRange {
   if (!text) {
     return { low: null, high: null };
@@ -99,6 +107,17 @@ export function parseRange(
   return { low: null, high: null };
 }
 
+/** Result words that indicate an abnormal qualitative finding. */
+const ABNORMAL_QUALITATIVE = [
+  'positive',
+  'reactive',
+  'present',
+  'detected',
+  'abnormal',
+  'trace',
+  'traces',
+];
+
 /**
  * Evaluates whether a measured lab result falls within, below, or above reference range.
  */
@@ -118,7 +137,10 @@ export function evaluateRange(
     const valLower = value.trim().toLowerCase();
     const expLower = qualitativeExpected.trim().toLowerCase();
     if (valLower === expLower) return 'within';
-    if (valLower === 'positive' || valLower === 'reactive' || valLower === 'present') {
+
+    // 'above' is this type's only way to say "abnormal"; the caller maps it to
+    // out-of-range so a positive result is never silently unflagged.
+    if (ABNORMAL_QUALITATIVE.some((marker) => valLower.includes(marker))) {
       return 'above';
     }
     return 'unknown';
@@ -145,21 +167,32 @@ export function evaluateRange(
 
 /**
  * High-level helper for UI components: parses raw range string and evaluates value.
+ *
+ * `sex` must be threaded through for sex-specific ranges ("M: 13-17, F: 12-15") to
+ * resolve at all — omitting it made every such range show as "Not evaluated".
  */
 export function evaluateLabResult(
   valueText: string | number | null | undefined,
-  referenceRangeText?: string | null | undefined
+  referenceRangeText?: string | null | undefined,
+  sex?: ProfileSex
 ): {
   status: 'within_range' | 'outside_range' | 'qualitative' | 'unevaluated';
   rangeStatus: RangeStatus;
   low: number | null;
   high: number | null;
 } {
-  const parsed = parseRange(referenceRangeText);
+  const parsed = parseRange(referenceRangeText, sex);
+
   if (parsed.qualitativeExpected) {
-    const valStr = String(valueText || '').trim().toLowerCase();
-    if (valStr === parsed.qualitativeExpected.toLowerCase()) {
-      return { status: 'within_range', rangeStatus: 'within', low: null, high: null };
+    const rangeStatus = evaluateRange(valueText, null, null, parsed.qualitativeExpected);
+
+    if (rangeStatus === 'within') {
+      return { status: 'within_range', rangeStatus, low: null, high: null };
+    }
+    // A positive/reactive result where negative was expected is abnormal and must
+    // be flagged, not reported as "not evaluated".
+    if (rangeStatus === 'above' || rangeStatus === 'below') {
+      return { status: 'outside_range', rangeStatus, low: null, high: null };
     }
     return { status: 'qualitative', rangeStatus: 'unknown', low: null, high: null };
   }

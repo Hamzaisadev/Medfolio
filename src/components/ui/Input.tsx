@@ -2,6 +2,25 @@ import React from 'react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
+/**
+ * Shared field-control styling.
+ *
+ * `text-base sm:text-sm` is deliberate: iOS zooms the viewport when a focused
+ * input's font size is under 16px, so mobile keeps the larger size and only
+ * desktop steps down.
+ */
+export const controlStyles = clsx(
+  'w-full rounded-[var(--radius-md)] border border-line-strong bg-surface-raised',
+  'text-base sm:text-sm text-content placeholder:text-content-subtle',
+  'transition-[border-color,box-shadow] duration-[var(--duration-fast)]',
+  'focus:border-accent focus:outline-2 focus:outline-offset-2 focus:outline-accent',
+  'disabled:bg-surface-hover disabled:text-content-subtle disabled:cursor-not-allowed',
+  'aria-[invalid=true]:border-risk-border aria-[invalid=true]:focus:outline-risk-text'
+);
+
+/** 48px: comfortably tappable without being oversized in a dense form. */
+export const controlHeight = 'h-12 min-h-12';
+
 export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
@@ -12,7 +31,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className="relative flex items-center w-full">
         {leftIcon && (
-          <span className="absolute left-3.5 text-ink-400 pointer-events-none shrink-0 flex items-center">
+          <span className="absolute left-3.5 text-content-subtle pointer-events-none shrink-0 flex items-center">
             {leftIcon}
           </span>
         )}
@@ -21,19 +40,18 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
           disabled={disabled}
           className={twMerge(
             clsx(
-              'w-full h-11 min-h-[44px] rounded-[var(--radius-md)] border border-ink-300 bg-white px-3.5 text-base sm:text-sm text-ink-900 placeholder:text-ink-400',
-              'transition-colors focus:border-brand-600 focus:outline-2 focus:outline-offset-2 focus:outline-brand-600',
-              'disabled:bg-ink-100 disabled:text-ink-400 disabled:cursor-not-allowed',
-              'aria-[invalid=true]:border-risk-border aria-[invalid=true]:focus:outline-risk-text',
-              leftIcon && 'pl-10',
-              rightIcon && 'pr-10',
+              controlStyles,
+              controlHeight,
+              'px-3.5',
+              leftIcon && 'pl-11',
+              rightIcon && 'pr-11',
               className
             )
           )}
           {...props}
         />
         {rightIcon && (
-          <span className="absolute right-3.5 text-ink-400 pointer-events-none shrink-0 flex items-center">
+          <span className="absolute right-3.5 text-content-subtle pointer-events-none shrink-0 flex items-center">
             {rightIcon}
           </span>
         )}

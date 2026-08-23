@@ -14,18 +14,20 @@ export function AppShell({ children, fullWidth, noPadding, fixedViewport }: AppS
   return (
     <ErrorBoundary>
       <div
-        className={`flex flex-col bg-ink-50 text-ink-900 font-sans selection:bg-brand-100 selection:text-brand-900 ${
-          fixedViewport ? 'h-[100dvh] overflow-hidden' : 'min-h-screen'
+        className={`flex flex-col bg-surface-sunken text-content font-sans selection:bg-accent-subtle selection:text-accent-onsubtle ${
+          // dvh, not vh: on mobile Safari `100vh` includes the collapsing URL bar,
+          // so the page jumped as the bar hid and showed.
+          fixedViewport ? 'h-[100dvh] overflow-hidden' : 'min-h-[100dvh]'
         }`}
       >
         <TopBar />
         <main
           className={`flex-1 w-full mx-auto flex flex-col min-h-0 ${
-            fullWidth ? 'max-w-7xl px-2 sm:px-4' : 'max-w-5xl px-4 md:px-8'
+            fullWidth ? 'max-w-7xl px-3 sm:px-5' : 'max-w-5xl px-4 md:px-8'
           } ${
             noPadding
-              ? 'p-1.5 pb-16 md:pb-2'
-              : 'py-4 md:py-6 pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-8'
+              ? 'p-2 pb-20 md:pb-3'
+              : 'py-5 md:py-8 pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-10'
           } ${fixedViewport ? 'overflow-hidden' : ''}`}
         >
           {children}

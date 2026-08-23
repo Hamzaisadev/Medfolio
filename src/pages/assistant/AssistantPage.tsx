@@ -3,6 +3,7 @@ import { AppShell } from '../../components/layout/AppShell';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Toast } from '../../components/ui/Toast';
+import { Dialog } from '../../components/ui/Dialog';
 import { Disclaimer } from '../../components/ui/Disclaimer';
 import { MEDICINE_INFO_DISCLAIMER } from '../../lib/disclaimer';
 import { medicinesRepo, visitsRepo, reportsRepo, profilesRepo, sideEffectsRepo } from '../../lib/db';
@@ -15,6 +16,7 @@ import { EditablePrescriptionWidget, type ExtractedMedItem } from '../../compone
 import { DailyScheduleClockWidget, type DailyScheduleSlot } from '../../components/assistant/DailyScheduleClockWidget';
 import { PrescriptionDiffWidget, type PrescriptionDiffItem } from '../../components/assistant/PrescriptionDiffWidget';
 import { ClinicalActionCards, type ClinicalActionCall } from '../../components/assistant/ClinicalActionCards';
+import { useAuth } from '../../lib/auth/AuthContext';
 import type { Tables } from '../../lib/supabase/types';
 
 interface Message {
@@ -52,21 +54,25 @@ const DEEP_CLINICAL_PROMPTS = [
 ];
 
 const CHAT_STORAGE_KEY = 'medfolio_assistant_messages_v2';
-
-import { useAuth } from '../../lib/auth/AuthContext';
+// History kept in localStorage is capped and never includes photo attachments.
+const PERSISTED_MESSAGE_LIMIT = 50;
 
 export function AssistantPage() {
   const { user, profile: authProfile } = useAuth();
   const [activeTab, setActiveTab] = useState<'chat' | 'radar' | 'doctor-prep' | 'biomarkers'>('chat');
   const [showContextDrawer, setShowContextDrawer] = useState(false);
-  
+  const [showSafetyModal, setShowSafetyModal] = useState(false);
+
   // Persist messages in localStorage across page refreshes
   const [messages, setMessages] = useState<Message[]>(() => {
     try {
       const saved = localStorage.getItem(CHAT_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // Older builds persisted photo attachments; drop them on read.
+          return parsed.map((m: Message) => ({ ...m, image_base64: null, image_mime: null }));
+        }
       }
     } catch (err) {
       console.error('Failed to parse saved chat history:', err);
@@ -108,10 +114,10 @@ export function AssistantPage() {
     try {
       const [p, mList, vList, rList, sList] = await Promise.all([
         profilesRepo.getDefaultProfile(effectiveUserId),
-        medicinesRepo.listMedicines(effectiveUserId),
+        medicinesRepo.listMedicines(effectiveProfileId),
         visitsRepo.listVisits(effectiveProfileId),
-        reportsRepo.listReports(effectiveUserId),
-        sideEffectsRepo.listSideEffects(effectiveUserId),
+        reportsRepo.listReports(effectiveProfileId),
+        sideEffectsRepo.listSideEffects(effectiveProfileId),
       ]);
       setProfile(p);
       setMedicines(mList);
@@ -136,10 +142,17 @@ export function AssistantPage() {
     loadData();
   }, [loadData]);
 
-  // Save messages to localStorage whenever they change
+  // Save messages to localStorage whenever they change. Photos are never
+  // persisted: base64 attachments are megabytes of clinical imagery sitting
+  // unencrypted in browser storage, so they stay in memory for the session only.
   useEffect(() => {
     try {
-      localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(messages));
+      const persistable = messages.slice(-PERSISTED_MESSAGE_LIMIT).map((m) => ({
+        ...m,
+        image_base64: null,
+        image_mime: null,
+      }));
+      localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(persistable));
     } catch (err) {
       console.error('Failed to save chat to localStorage:', err);
     }
@@ -374,42 +387,35 @@ export function AssistantPage() {
     }
   };
 
-  const handleQuickLogToTimeline = async (content: string) => {
-    try {
-      await sideEffectsRepo.createSideEffect({
-        user_id: effectiveUserId,
-        profile_id: effectiveProfileId,
-        medicine_name: 'Clinical Health Note',
-        note: content.slice(0, 300),
-        severity: 'mild',
-        occurred_at: new Date().toISOString(),
-      });
-      setToastMessage('Note logged to your Medical Timeline.');
-      loadData();
-    } catch {
-      setToastMessage('Failed to log to timeline.');
-    }
-  };
-
   return (
     <AppShell fullWidth noPadding fixedViewport>
       <div className="flex-1 flex flex-col h-full min-h-0 overflow-hidden w-full">
         {/* Top Header & Tab Controls */}
-        <div className="shrink-0 pb-2 pt-1 border-b border-ink-200/80 bg-white/90 px-3 sm:px-4 rounded-xl mb-1.5 shadow-2xs">
+        <div className="shrink-0 pb-2 pt-1 border-b border-line bg-surface-raised/90 px-3 sm:px-4 rounded-xl mb-1.5 shadow-2xs">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div className="flex items-center gap-2.5">
-              <h1 className="text-base sm:text-lg font-black text-ink-900 leading-tight">Clinical Health Assistant</h1>
-              <Badge tone="ok" size="sm">Active Dossier Grounded</Badge>
+              <h1 className="text-base sm:text-lg font-black text-content leading-tight">Clinical Health Assistant</h1>
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
               <button
                 type="button"
+                onClick={() => setShowSafetyModal(true)}
+                className="px-2.5 py-1 rounded-lg border border-line bg-surface-raised text-content-muted hover:bg-surface-hover text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs"
+                title="View safety and reliability information"
+              >
+                <span>🛡️</span>
+                <span className="hidden sm:inline">Safety & Oversight</span>
+                <span className="sm:hidden">Safety</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={() => setShowContextDrawer(!showContextDrawer)}
                 className={`px-2.5 py-1 rounded-lg border text-xs font-bold transition-all flex items-center gap-1.5 ${
                   showContextDrawer
-                    ? 'bg-teal-800 text-white border-teal-900 shadow-2xs'
-                    : 'bg-white text-ink-700 border-ink-200 hover:bg-ink-50'
+                    ? 'bg-accent text-content-onaccent border-accent shadow-2xs'
+                    : 'bg-surface-raised text-content-muted border-line hover:bg-surface-hover'
                 }`}
               >
                 <span>📁</span>
@@ -443,14 +449,14 @@ export function AssistantPage() {
           </div>
 
           {/* Tab Workspace Selector */}
-          <div className="flex items-center gap-1 p-0.5 bg-ink-100/70 rounded-lg mt-1.5 max-w-xl overflow-x-auto">
+          <div className="flex items-center gap-1 p-1 bg-surface-sunken/80 border border-line rounded-xl mt-1.5 max-w-xl overflow-x-auto">
             <button
               type="button"
               onClick={() => setActiveTab('chat')}
-              className={`flex-1 py-1 px-2.5 text-xs font-bold rounded-md transition-all whitespace-nowrap ${
+              className={`flex-1 py-1.5 px-3 text-xs font-bold rounded-lg transition-all whitespace-nowrap tap-spring ${
                 activeTab === 'chat'
-                  ? 'bg-white text-teal-900 shadow-xs'
-                  : 'text-ink-600 hover:text-ink-900 hover:bg-white/50'
+                  ? 'bg-surface-raised text-accent font-black shadow-xs border border-line'
+                  : 'text-content-muted hover:text-content hover:bg-surface-hover'
               }`}
             >
               💬 Consultation Chat
@@ -459,10 +465,10 @@ export function AssistantPage() {
             <button
               type="button"
               onClick={() => setActiveTab('radar')}
-              className={`flex-1 py-1 px-2.5 text-xs font-bold rounded-md transition-all whitespace-nowrap ${
+              className={`flex-1 py-1.5 px-3 text-xs font-bold rounded-lg transition-all whitespace-nowrap tap-spring ${
                 activeTab === 'radar'
-                  ? 'bg-white text-teal-900 shadow-xs'
-                  : 'text-ink-600 hover:text-ink-900 hover:bg-white/50'
+                  ? 'bg-surface-raised text-accent font-black shadow-xs border border-line'
+                  : 'text-content-muted hover:text-content hover:bg-surface-hover'
               }`}
             >
               🔬 Interaction Radar
@@ -471,10 +477,10 @@ export function AssistantPage() {
             <button
               type="button"
               onClick={() => setActiveTab('doctor-prep')}
-              className={`flex-1 py-1 px-2.5 text-xs font-bold rounded-md transition-all whitespace-nowrap ${
+              className={`flex-1 py-1.5 px-3 text-xs font-bold rounded-lg transition-all whitespace-nowrap tap-spring ${
                 activeTab === 'doctor-prep'
-                  ? 'bg-white text-teal-900 shadow-xs'
-                  : 'text-ink-600 hover:text-ink-900 hover:bg-white/50'
+                  ? 'bg-surface-raised text-accent font-black shadow-xs border border-line'
+                  : 'text-content-muted hover:text-content hover:bg-surface-hover'
               }`}
             >
               👨‍⚕️ Doctor Visit Prep
@@ -483,10 +489,10 @@ export function AssistantPage() {
             <button
               type="button"
               onClick={() => setActiveTab('biomarkers')}
-              className={`flex-1 py-1 px-2.5 text-xs font-bold rounded-md transition-all whitespace-nowrap ${
+              className={`flex-1 py-1.5 px-3 text-xs font-bold rounded-lg transition-all whitespace-nowrap tap-spring ${
                 activeTab === 'biomarkers'
-                  ? 'bg-white text-teal-900 shadow-xs'
-                  : 'text-ink-600 hover:text-ink-900 hover:bg-white/50'
+                  ? 'bg-surface-raised text-accent font-black shadow-xs border border-line'
+                  : 'text-content-muted hover:text-content hover:bg-surface-hover'
               }`}
             >
               📈 Biomarker Trends
@@ -503,23 +509,23 @@ export function AssistantPage() {
 
         {/* Collapsible Active Context Drawer */}
         {showContextDrawer && (
-          <div className="shrink-0 mb-2 p-3 bg-white border border-teal-200 rounded-xl shadow-sm animate-in fade-in slide-in-from-top-2 duration-150">
+          <div className="shrink-0 mb-2 p-3 bg-surface-raised border border-line rounded-2xl shadow-card animate-in fade-in slide-in-from-top-2 duration-150">
             <div className="flex items-center justify-between mb-1.5">
-              <span className="text-xs font-bold text-teal-950">Patient Record Context Grounding</span>
+              <span className="text-xs font-bold text-content">Patient Record Context Grounding</span>
               <button
                 type="button"
                 onClick={() => setShowContextDrawer(false)}
-                className="text-ink-400 hover:text-ink-700 text-xs font-bold"
+                className="text-content-muted hover:text-content text-xs font-bold"
               >
                 ✕ Close
               </button>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-              <div className="p-2 bg-ink-50 rounded-lg">
-                <span className="text-ink-500 font-semibold block text-[10px] mb-0.5">Active Medications ({activeMedsList.length})</span>
+              <div className="p-2 bg-surface-sunken rounded-lg">
+                <span className="text-content-subtle font-semibold block text-2xs mb-0.5">Active Medications ({activeMedsList.length})</span>
                 {activeMedsList.length === 0 ? (
-                  <p className="text-ink-400 italic text-[11px]">No active prescriptions.</p>
+                  <p className="text-content-subtle italic text-2xs">No active prescriptions.</p>
                 ) : (
                   <div className="flex flex-wrap gap-1">
                     {activeMedsList.map((m) => (
@@ -531,20 +537,20 @@ export function AssistantPage() {
                 )}
               </div>
 
-              <div className="p-2 bg-ink-50 rounded-lg">
-                <span className="text-ink-500 font-semibold block text-[10px] mb-0.5">Allergies & Conditions</span>
-                <p className="text-ink-900 font-medium text-[11px]">
+              <div className="p-2 bg-surface-sunken rounded-lg">
+                <span className="text-content-subtle font-semibold block text-2xs mb-0.5">Allergies & Conditions</span>
+                <p className="text-content font-medium text-2xs">
                   {profile?.allergies ? String(profile.allergies) : 'None recorded'}
                 </p>
               </div>
 
-              <div className="p-2 bg-ink-50 rounded-lg">
-                <span className="text-ink-500 font-semibold block text-[10px] mb-0.5">Latest Consultation & Labs</span>
-                <p className="text-ink-900 font-medium text-[11px] truncate">
+              <div className="p-2 bg-surface-sunken rounded-lg">
+                <span className="text-content-subtle font-semibold block text-2xs mb-0.5">Latest Consultation & Labs</span>
+                <p className="text-content font-medium text-2xs truncate">
                   {visits[0] ? `Dr. ${visits[0].doctor_name || 'Physician'} (${visits[0].visit_date})` : 'No recent visits'}
                 </p>
                 {reports[0] && (
-                  <p className="text-teal-900 text-[10px] mt-0.5 truncate">{reports[0].title} ({reports[0].report_date})</p>
+                  <p className="text-accent text-2xs mt-0.5 truncate">{reports[0].title} ({reports[0].report_date})</p>
                 )}
               </div>
             </div>
@@ -553,9 +559,9 @@ export function AssistantPage() {
 
         {/* Tab 1: Full-Height Single Internal Scroll Chat */}
         {activeTab === 'chat' && (
-          <div className="flex-1 flex flex-col bg-white border border-ink-200/80 rounded-2xl shadow-xs overflow-hidden min-h-0">
+          <div className="flex-1 flex flex-col bg-surface-raised/80 backdrop-blur-md border border-line rounded-2xl shadow-card overflow-hidden min-h-0">
             {/* Scrollable Messages Feed — THE ONLY SCROLLBAR */}
-            <div ref={chatContainerRef} className="flex-1 p-3 sm:p-5 overflow-y-auto space-y-4 bg-ink-50/20 text-xs sm:text-sm">
+            <div ref={chatContainerRef} className="flex-1 p-3 sm:p-5 overflow-y-auto space-y-4 text-xs sm:text-sm">
               <div className="max-w-4xl mx-auto space-y-4">
                 {messages.map((m) => (
                   <div
@@ -563,17 +569,17 @@ export function AssistantPage() {
                     className={`flex flex-col ${m.role === 'user' ? 'items-end' : 'items-start'}`}
                   >
                     <div
-                      className={`p-4 sm:p-5 rounded-2xl leading-relaxed shadow-xs ${
+                      className={`p-4 sm:p-5 rounded-2xl leading-relaxed shadow-card transition-all ${
                         m.role === 'user'
-                          ? 'bg-teal-800 text-white rounded-br-none font-medium max-w-[85%] text-sm'
-                          : 'bg-white border border-ink-200 text-ink-900 rounded-bl-none w-full max-w-3xl text-xs sm:text-[13.5px]'
+                          ? 'bg-accent text-content-onaccent rounded-br-xs font-medium max-w-[85%] text-sm'
+                          : 'bg-surface-raised/95 backdrop-blur-md border border-line text-content rounded-bl-xs w-full max-w-3xl text-xs sm:text-sm'
                       }`}
                     >
                       {m.image_base64 && (
                         <img
                           src={m.image_base64}
                           alt="User attachment"
-                          className="w-full max-h-64 object-cover rounded-xl mb-3 border border-black/10 shadow-xs"
+                          className="w-full max-h-64 object-cover rounded-xl mb-3 border border-line shadow-xs"
                         />
                       )}
                       <p className="whitespace-pre-line leading-relaxed font-normal">{m.content}</p>
@@ -583,6 +589,7 @@ export function AssistantPage() {
                         <EditablePrescriptionWidget
                           initialMedicines={m.medicines}
                           profileId={effectiveProfileId}
+                          userId={effectiveUserId}
                           onAddedSuccess={(count) => {
                             setToastMessage(`Added ${count} medicines to your Cabinet & Timetable.`);
                             loadData();
@@ -614,9 +621,9 @@ export function AssistantPage() {
 
                       {/* 5. Safety & Interaction Alerts */}
                       {m.safetyAlerts && m.safetyAlerts.length > 0 && (
-                        <div className="mt-3 p-3 rounded-xl border border-amber-200 bg-amber-50/60 text-xs space-y-1">
-                          <span className="font-bold text-amber-950 block text-xs">⚠️ Critical Safety Radar:</span>
-                          <ul className="list-disc list-inside space-y-0.5 text-amber-900 text-xs">
+                        <div className="mt-3 p-3 rounded-xl border border-warn-border bg-warn-bg text-xs space-y-1">
+                          <span className="font-bold text-warn-text block text-xs">⚠️ Critical Safety Radar:</span>
+                          <ul className="list-disc list-inside space-y-0.5 text-warn-text text-xs">
                             {m.safetyAlerts.map((alert, aIdx) => (
                               <li key={aIdx}>{alert}</li>
                             ))}
@@ -625,26 +632,18 @@ export function AssistantPage() {
                       )}
 
                       {m.role === 'assistant' && m.id !== 'welcome' && (
-                        <div className="mt-3 pt-2 border-t border-ink-100 flex items-center justify-between text-xs text-ink-400">
+                        <div className="mt-3 pt-2 border-t border-line flex items-center justify-between text-xs text-content-subtle">
                           <div className="flex items-center gap-3">
-                            <span>Grounded in active dossier</span>
+                            <span>Based on your saved records</span>
                             <button
                               type="button"
                               onClick={() => handleToggleSpeak(m.id, m.content)}
-                              className="text-ink-600 hover:text-ink-900 font-bold flex items-center gap-1"
+                              className="text-content-muted hover:text-content font-bold flex items-center gap-1"
                               title="Listen to audio response"
                             >
                               <span>{speakingMsgId === m.id ? '⏹️ Stop' : '🔊 Listen'}</span>
                             </button>
                           </div>
-
-                          <button
-                            type="button"
-                            onClick={() => handleQuickLogToTimeline(m.content)}
-                            className="text-teal-800 hover:text-teal-950 font-bold hover:underline"
-                          >
-                            📌 Save to Timeline
-                          </button>
                         </div>
                       )}
                     </div>
@@ -657,25 +656,25 @@ export function AssistantPage() {
                             key={sIdx}
                             type="button"
                             onClick={() => handleSendMessage(s)}
-                            className="px-3 py-1.5 rounded-full bg-teal-50 border border-teal-200 text-teal-900 font-semibold hover:bg-teal-100 hover:border-teal-300 transition-all text-xs text-left shadow-xs flex items-center gap-1.5 active:scale-95"
+                            className="px-3 py-1.5 rounded-full bg-accent-subtle border border-line text-accent font-semibold hover:bg-surface-hover transition-all text-xs text-left shadow-xs flex items-center gap-1.5 active:scale-95"
                           >
-                            <span className="text-teal-700">💡</span>
+                            <span className="text-accent">💡</span>
                             <span>{s}</span>
                           </button>
                         ))}
                       </div>
                     )}
 
-                    <span className="text-[10px] text-ink-400 mt-1 px-1">{m.timestamp}</span>
+                    <span className="text-2xs text-content-subtle mt-1 px-1">{m.timestamp}</span>
                   </div>
                 ))}
 
                 {isLoading && (
-                  <div className="flex items-center gap-2 p-3 bg-white border border-ink-200 rounded-2xl rounded-bl-none w-28 shadow-xs">
-                    <span className="text-xs text-ink-600 font-semibold">Thinking</span>
-                    <div className="w-1.5 h-1.5 rounded-full bg-teal-600 animate-bounce" />
-                    <div className="w-1.5 h-1.5 rounded-full bg-teal-600 animate-bounce [animation-delay:0.2s]" />
-                    <div className="w-1.5 h-1.5 rounded-full bg-teal-600 animate-bounce [animation-delay:0.4s]" />
+                  <div className="flex items-center gap-2 p-3 bg-surface-raised border border-line rounded-2xl rounded-bl-none shadow-xs">
+                    <span className="text-xs text-content-muted font-semibold">Checking your records</span>
+                    <div className="w-1.5 h-1.5 rounded-full bg-accent animate-bounce" />
+                    <div className="w-1.5 h-1.5 rounded-full bg-accent animate-bounce [animation-delay:0.2s]" />
+                    <div className="w-1.5 h-1.5 rounded-full bg-accent animate-bounce [animation-delay:0.4s]" />
                   </div>
                 )}
               </div>
@@ -683,12 +682,12 @@ export function AssistantPage() {
 
             {/* Attached Image Preview */}
             {attachedImage && (
-              <div className="px-4 py-1.5 bg-teal-50 border-t border-teal-200 flex items-center justify-between text-xs text-teal-900 shrink-0 max-w-4xl mx-auto w-full">
+              <div className="px-4 py-1.5 bg-accent-subtle border-t border-line flex items-center justify-between text-xs text-content shrink-0 max-w-4xl mx-auto w-full">
                 <span className="font-semibold truncate">📷 Image attached for clinical inspection</span>
                 <button
                   type="button"
                   onClick={() => setAttachedImage(null)}
-                  className="text-red-700 font-bold hover:underline ml-2 shrink-0"
+                  className="text-risk-text font-bold hover:underline ml-2 shrink-0"
                 >
                   Remove
                 </button>
@@ -696,7 +695,7 @@ export function AssistantPage() {
             )}
 
             {/* Pinned Input Dock with Quick Prompts Bar */}
-            <div className="p-2.5 sm:p-3 bg-white border-t border-ink-200/80 shrink-0 space-y-1.5">
+            <div className="p-2.5 sm:p-3 bg-surface-raised border-t border-line shrink-0 space-y-1.5">
               <div className="max-w-4xl mx-auto space-y-1.5">
                 {/* Horizontal Quick Prompt Chips Bar */}
                 <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none">
@@ -705,7 +704,7 @@ export function AssistantPage() {
                       key={idx}
                       type="button"
                       onClick={() => handleSendMessage(sq.prompt)}
-                      className="px-2.5 py-1 rounded-lg border border-ink-200/80 bg-ink-50/60 hover:bg-teal-50 hover:border-teal-300 transition-colors whitespace-nowrap text-[11px] font-bold text-ink-800 shrink-0"
+                      className="px-2.5 py-1 rounded-lg border border-line bg-surface-sunken/60 hover:bg-accent-subtle transition-colors whitespace-nowrap text-2xs font-bold text-content shrink-0"
                     >
                       {sq.title}
                     </button>
@@ -726,13 +725,15 @@ export function AssistantPage() {
                     accept="image/*"
                     className="hidden"
                     onChange={handleImagePick}
+                    aria-label="Attach a photo"
                   />
 
                   {/* Photo Attachment */}
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="h-10 px-3 rounded-xl border border-ink-200 text-ink-700 hover:bg-ink-100 transition-colors flex items-center gap-1 text-xs font-bold shrink-0 shadow-2xs"
+                    aria-label="Attach photo of medicine strip, prescription, or lab slip"
+                    className="h-11 px-3 rounded-xl border border-line text-content-muted hover:bg-surface-hover transition-colors flex items-center gap-1 text-xs font-bold shrink-0 shadow-2xs"
                     title="Attach photo of medicine strip, prescription, or lab slip"
                   >
                     <span>📷</span>
@@ -743,12 +744,13 @@ export function AssistantPage() {
                   <button
                     type="button"
                     onClick={toggleSpeechRecognition}
-                    className={`h-10 px-3 rounded-xl border transition-all flex items-center gap-1 text-xs font-bold shrink-0 shadow-2xs ${
+                    aria-label={isRecording ? 'Stop voice input' : 'Start voice input'}
+                    className={`h-11 px-3 rounded-xl border transition-all flex items-center gap-1 text-xs font-bold shrink-0 shadow-2xs ${
                       isRecording
-                        ? 'bg-red-500 border-red-600 text-white animate-pulse'
-                        : 'border-ink-200 text-ink-700 hover:bg-ink-100'
+                        ? 'bg-warn-bg border-warn-border text-warn-text animate-pulse'
+                        : 'border-line text-content-muted hover:bg-surface-hover'
                     }`}
-                    title={isRecording ? 'Listening... click to stop' : 'Speak to assistant in English or Urdu'}
+                    title={isRecording ? 'Listening... click to stop' : 'Voice input'}
                   >
                     <span>{isRecording ? '🎙️ Listening...' : '🎙️'}</span>
                     <span className="hidden sm:inline">{!isRecording && 'Speak'}</span>
@@ -759,10 +761,11 @@ export function AssistantPage() {
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     placeholder={isRecording ? 'Listening to your voice...' : 'Ask about medications, timing, symptoms, or attach photos...'}
-                    className="flex-1 h-10 px-3.5 text-xs sm:text-sm bg-ink-50 border border-ink-200 rounded-xl text-ink-900 focus:outline-none focus:ring-2 focus:ring-teal-500 shadow-2xs"
+                    aria-label="Message the assistant"
+                    className="flex-1 h-11 px-3.5 text-base sm:text-sm bg-surface-sunken border border-line rounded-xl text-content focus:outline-none focus:ring-2 focus:ring-accent shadow-2xs"
                     disabled={isLoading}
                   />
-                  <Button type="submit" variant="primary" size="sm" loading={isLoading} disabled={!input.trim() && !attachedImage} className="h-10 px-5 font-bold shrink-0 text-xs shadow-xs">
+                  <Button type="submit" variant="primary" size="sm" loading={isLoading} disabled={!input.trim() && !attachedImage} className="h-11 px-5 font-bold shrink-0 text-xs shadow-xs">
                     Send &rarr;
                   </Button>
                 </form>
@@ -809,6 +812,86 @@ export function AssistantPage() {
             />
           </div>
         )}
+
+        {/* Safety & human-oversight modal */}
+        <Dialog
+          open={showSafetyModal}
+          onOpenChange={setShowSafetyModal}
+          title="Safety, Reliability & Human Oversight"
+          description="How Medfolio keeps every suggestion safe, grounded in your records, and confirmed by you."
+          className="max-w-xl"
+        >
+          <div className="space-y-4 pt-2 text-xs text-content-muted">
+            {/* Core Principle Banner */}
+            <div className="p-3.5 rounded-2xl bg-accent-subtle border border-line">
+              <span className="text-2xs font-black uppercase tracking-wider text-accent block mb-1">
+                Winning Signal Principle
+              </span>
+              <p className="text-xs font-bold text-content leading-relaxed">
+                The solution improves a care decision without pretending to replace care.
+              </p>
+            </div>
+
+            {/* Human in the loop 4 steps */}
+            <div className="border border-line rounded-2xl p-3.5 bg-surface-sunken/60">
+              <span className="text-2xs font-black uppercase tracking-wider text-content-subtle block mb-2.5">
+                Human-in-the-Loop Workflow
+              </span>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="p-2 rounded-xl bg-surface-raised border border-line">
+                  <p className="font-bold text-content text-2xs">1. Care Moment</p>
+                  <p className="text-2xs text-content-subtle mt-0.5">Patient or caregiver logs symptoms, vitals, or prescription</p>
+                </div>
+                <div className="p-2 rounded-xl bg-surface-raised border border-line">
+                  <p className="font-bold text-accent text-2xs">2. Assistant Support</p>
+                  <p className="text-2xs text-content-subtle mt-0.5">Grounded extraction, dosage timetable & interaction checks</p>
+                </div>
+                <div className="p-2 rounded-xl bg-accent text-content-onaccent border border-accent">
+                  <p className="font-bold text-2xs">3. Human Review</p>
+                  <p className="text-2xs mt-0.5 opacity-80">Patient confirms all data; doctor oversight for clinical judgment</p>
+                </div>
+                <div className="p-2 rounded-xl bg-surface-raised border border-ok-border">
+                  <p className="font-bold text-ok-text text-2xs">4. Next Action</p>
+                  <p className="text-2xs text-content-subtle mt-0.5">Clear, verified schedule & checkup preparation notes</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Safety Rules */}
+            <div className="space-y-2 text-2xs">
+              <div className="flex items-start gap-2">
+                <span className="text-ok-text font-bold">✓</span>
+                <p><strong>Assist — Do Not Diagnose:</strong> The assistant helps organize regimens, explains terminology, and detects drug interactions, but never makes unilateral diagnostic claims.</p>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="text-ok-text font-bold">✓</span>
+                <p><strong>Zero Silent Commits:</strong> No medical records, prescriptions, or schedule updates are saved without your explicit confirmation.</p>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="text-ok-text font-bold">✓</span>
+                <p><strong>Domain Isolation:</strong> Responses are bounded strictly to personal health and pharmacology, refusing off-topic generation.</p>
+              </div>
+            </div>
+
+            {/* Emergency Hotlines */}
+            <div className="p-3 rounded-xl bg-risk-bg border border-risk-border flex items-center justify-between">
+              <div>
+                <p className="font-bold text-risk-text text-xs">Medical Emergency?</p>
+                <p className="text-2xs text-risk-text">Dial immediately for acute care in Pakistan</p>
+              </div>
+              <div className="flex gap-1.5">
+                <a href="tel:1122" className="px-2.5 py-1 rounded-lg border border-risk-border bg-surface-raised text-risk-text font-bold text-xs hover:bg-risk-bg">1122</a>
+                <a href="tel:115" className="px-2.5 py-1 rounded-lg border border-risk-border bg-surface-raised text-risk-text font-bold text-xs hover:bg-risk-bg">115</a>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-1">
+              <Button size="sm" variant="primary" onClick={() => setShowSafetyModal(false)}>
+                Understood
+              </Button>
+            </div>
+          </div>
+        </Dialog>
       </div>
     </AppShell>
   );

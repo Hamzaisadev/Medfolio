@@ -4,14 +4,32 @@ export type GlucoseType = 'fasting' | 'post_prandial' | 'random' | 'bedtime';
 
 export type GlucoseUnit = 'mg/dL' | 'mmol/L';
 
-export type GlucoseStatus = 'hypoglycemia' | 'normal' | 'elevated' | 'high' | 'crisis';
+export type GlucoseStatus =
+  | 'severe_hypoglycemia'
+  | 'hypoglycemia'
+  | 'normal'
+  | 'elevated'
+  | 'high'
+  | 'crisis';
 
 export type BpStage =
+  | 'hypotension'
   | 'normal'
   | 'elevated'
   | 'stage_1'
   | 'stage_2'
   | 'hypertensive_crisis';
+
+/**
+ * How urgently a reading should be presented.
+ *
+ * A severity level, not a colour. These functions used to return Tailwind class
+ * strings (`'text-rose-900 bg-rose-50 border-rose-300'`), which put presentation
+ * in the domain layer, made the classes invisible to the theme system, and left
+ * vitals stuck on light-mode colours. The UI maps a tone to classes; the domain
+ * only decides how serious the reading is.
+ */
+export type VitalTone = 'ok' | 'warn' | 'risk' | 'critical';
 
 export interface GlucoseReading {
   id?: string;
@@ -52,95 +70,136 @@ export function mgDlToMmol(mgdl: number): number {
 }
 
 /**
+ * ADA glucose thresholds, in mg/dL.
+ *
+ * `crisis` exists because a reading of 600 previously reported "High Blood Sugar
+ * — stay hydrated and monitor closely", which is the wrong advice for a
+ * hyperglycaemic emergency.
+ */
+const GLUCOSE = {
+  severeLow: 54, // ADA Level 2 hypoglycaemia — clinically significant
+  low: 70, // ADA Level 1 hypoglycaemia
+  fastingNormalMax: 99,
+  fastingPreDiabeticMax: 125,
+  postMealNormalMax: 140,
+  postMealElevatedMax: 199,
+  crisis: 300, // hyperglycaemic crisis range (DKA / HHS risk)
+} as const;
+
+const URGENT_CARE_ADVICE =
+  'Seek medical care now. Very high glucose can lead to diabetic ketoacidosis — check ketones if you can, drink water, and contact your doctor or the nearest emergency department immediately.';
+
+/**
  * Evaluates Blood Glucose according to American Diabetes Association (ADA) standards
  */
 export function evaluateGlucose(valueMgDl: number, type: GlucoseType): {
   status: GlucoseStatus;
   label: string;
-  color: string;
+  tone: VitalTone;
   advice: string;
 } {
-  if (valueMgDl < 70) {
+  // Emergencies are checked before the per-type bands, so they cannot be missed
+  // for any reading type.
+  if (valueMgDl < GLUCOSE.severeLow) {
+    return {
+      status: 'severe_hypoglycemia',
+      label: 'Severely Low (Emergency)',
+      tone: 'critical',
+      advice:
+        'Dangerously low. Take 15–20g of fast-acting sugar immediately and have someone stay with you. If you feel confused, drowsy or cannot swallow safely, call emergency services now.',
+    };
+  }
+
+  if (valueMgDl < GLUCOSE.low) {
     return {
       status: 'hypoglycemia',
       label: 'Low (Hypoglycemia)',
-      color: 'text-amber-600 bg-amber-50 border-amber-200',
-      advice: 'Consume 15g of fast-acting carbohydrates immediately (juice, glucose tablet) and recheck in 15 minutes.',
+      tone: 'warn',
+      advice:
+        'Consume 15g of fast-acting carbohydrates immediately (juice, glucose tablet) and recheck in 15 minutes.',
+    };
+  }
+
+  if (valueMgDl >= GLUCOSE.crisis) {
+    return {
+      status: 'crisis',
+      label: 'Critically High (Urgent)',
+      tone: 'critical',
+      advice: URGENT_CARE_ADVICE,
     };
   }
 
   if (type === 'fasting') {
-    if (valueMgDl <= 99) {
+    if (valueMgDl <= GLUCOSE.fastingNormalMax) {
       return {
         status: 'normal',
         label: 'Optimal Fasting',
-        color: 'text-emerald-700 bg-emerald-50 border-emerald-200',
+        tone: 'ok',
         advice: 'Normal healthy fasting blood glucose range.',
       };
     }
-    if (valueMgDl <= 125) {
+    if (valueMgDl <= GLUCOSE.fastingPreDiabeticMax) {
       return {
         status: 'elevated',
         label: 'Pre-diabetic Range',
-        color: 'text-amber-700 bg-amber-50 border-amber-200',
+        tone: 'warn',
         advice: 'Elevated fasting level. Monitor carbohydrate intake and discuss with your physician.',
       };
     }
     return {
       status: 'high',
       label: 'High (Diabetic Fasting)',
-      color: 'text-rose-700 bg-rose-50 border-rose-200',
+      tone: 'risk',
       advice: 'Fasting glucose is above target. Ensure prescribed medications are taken as directed.',
     };
   }
 
-  // Post-prandial / Random / Bedtime
   if (type === 'post_prandial') {
-    if (valueMgDl <= 140) {
+    if (valueMgDl <= GLUCOSE.postMealNormalMax) {
       return {
         status: 'normal',
         label: 'Normal Post-Meal',
-        color: 'text-emerald-700 bg-emerald-50 border-emerald-200',
+        tone: 'ok',
         advice: 'Post-meal glucose managed effectively within normal target.',
       };
     }
-    if (valueMgDl <= 199) {
+    if (valueMgDl <= GLUCOSE.postMealElevatedMax) {
       return {
         status: 'elevated',
         label: 'Elevated Post-Meal',
-        color: 'text-amber-700 bg-amber-50 border-amber-200',
+        tone: 'warn',
         advice: 'Post-prandial spike. Review meal composition and glycemic load.',
       };
     }
     return {
       status: 'high',
       label: 'High (Spike)',
-      color: 'text-rose-700 bg-rose-50 border-rose-200',
+      tone: 'risk',
       advice: 'Marked post-meal spike. Consult your physician regarding dose timing.',
     };
   }
 
   // General random / bedtime
-  if (valueMgDl <= 140) {
+  if (valueMgDl <= GLUCOSE.postMealNormalMax) {
     return {
       status: 'normal',
       label: 'Normal Blood Sugar',
-      color: 'text-emerald-700 bg-emerald-50 border-emerald-200',
+      tone: 'ok',
       advice: 'Healthy glucose level.',
     };
   }
-  if (valueMgDl <= 199) {
+  if (valueMgDl <= GLUCOSE.postMealElevatedMax) {
     return {
       status: 'elevated',
       label: 'Elevated',
-      color: 'text-amber-700 bg-amber-50 border-amber-200',
+      tone: 'warn',
       advice: 'Moderately elevated reading.',
     };
   }
   return {
     status: 'high',
     label: 'High Blood Sugar',
-    color: 'text-rose-700 bg-rose-50 border-rose-200',
+    tone: 'risk',
     advice: 'High glucose reading. Stay hydrated and monitor closely.',
   };
 }
@@ -154,22 +213,33 @@ export function calculateMap(systolic: number, diastolic: number): number {
 }
 
 /**
- * Evaluates Blood Pressure according to American Heart Association (AHA) standards
+ * Evaluates Blood Pressure according to American Heart Association (AHA) standards,
+ * plus a low-BP band the AHA table itself does not cover.
  */
 export function evaluateBloodPressure(systolic: number, diastolic: number): {
   stage: BpStage;
   label: string;
-  color: string;
-  badgeBg: string;
+  tone: VitalTone;
   advice: string;
 } {
   if (systolic >= 180 || diastolic >= 120) {
     return {
       stage: 'hypertensive_crisis',
       label: 'Hypertensive Crisis',
-      color: 'text-rose-900',
-      badgeBg: 'bg-rose-100 text-rose-900 border-rose-300 font-bold animate-pulse',
+      tone: 'critical',
       advice: 'Critically high blood pressure. Rest quietly for 5 minutes and re-test. If still high or accompanied by headache/chest pain, seek emergency medical care immediately.',
+    };
+  }
+
+  // Checked before the "normal" fall-through: 70/40 previously reported
+  // "Optimal cardiovascular blood pressure reading".
+  if (systolic < 90 || diastolic < 60) {
+    return {
+      stage: 'hypotension',
+      label: 'Low Blood Pressure',
+      tone: 'warn',
+      advice:
+        'Blood pressure is below the normal range. If you feel dizzy, faint, confused or unusually cold and clammy, seek medical help now. Otherwise sit or lie down, sip fluids, re-test after 5 minutes, and tell your doctor — some blood pressure medicines need adjusting.',
     };
   }
 
@@ -177,8 +247,7 @@ export function evaluateBloodPressure(systolic: number, diastolic: number): {
     return {
       stage: 'stage_2',
       label: 'Stage 2 Hypertension',
-      color: 'text-rose-800',
-      badgeBg: 'bg-rose-50 text-rose-800 border-rose-200 font-semibold',
+      tone: 'risk',
       advice: 'Blood pressure is significantly elevated. Review antihypertensive medication adherence with your doctor.',
     };
   }
@@ -187,8 +256,7 @@ export function evaluateBloodPressure(systolic: number, diastolic: number): {
     return {
       stage: 'stage_1',
       label: 'Stage 1 Hypertension',
-      color: 'text-amber-800',
-      badgeBg: 'bg-amber-50 text-amber-800 border-amber-200 font-semibold',
+      tone: 'warn',
       advice: 'Mild hypertension. Maintain low dietary sodium and regular tracking.',
     };
   }
@@ -197,8 +265,7 @@ export function evaluateBloodPressure(systolic: number, diastolic: number): {
     return {
       stage: 'elevated',
       label: 'Elevated BP',
-      color: 'text-amber-700',
-      badgeBg: 'bg-amber-50 text-amber-700 border-amber-200',
+      tone: 'warn',
       advice: 'Systolic pressure is slightly above optimal. Focus on stress management and physical activity.',
     };
   }
@@ -206,8 +273,7 @@ export function evaluateBloodPressure(systolic: number, diastolic: number): {
   return {
     stage: 'normal',
     label: 'Normal Blood Pressure',
-    color: 'text-emerald-800',
-    badgeBg: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+    tone: 'ok',
     advice: 'Optimal cardiovascular blood pressure reading.',
   };
 }

@@ -9,8 +9,18 @@
  * the ~90 characters a share URL needs.
  */
 
-const EC_CODEWORDS_M: Record<number, number> = {
-  1: 10, 2: 16, 3: 26, 4: 36, 5: 48, 6: 64, 7: 72, 8: 88, 9: 110, 10: 130,
+/**
+ * Error-correction codewords **per block** at level M, per version.
+ *
+ * Per block, not per symbol. Published QR tables usually list the total EC
+ * codewords for the whole symbol (v5-M: 48), and using that figure directly for
+ * every block generated `blocks × total` EC codewords — double at v4/v5, four
+ * times over at v6/v7. The overflow pushed the real data past the end of the
+ * matrix, so anything that needed more than one block silently encoded garbage.
+ * Total EC is recovered as `perBlock × blocks`.
+ */
+const EC_CODEWORDS_PER_BLOCK_M: Record<number, number> = {
+  1: 10, 2: 16, 3: 26, 4: 18, 5: 24, 6: 16, 7: 18, 8: 22, 9: 22, 10: 26,
 };
 
 /** Total data codewords available at level M, per version. */
@@ -140,7 +150,7 @@ function interleave(dataCodewords: number[], version: number): number[] {
   const blockCounts = EC_BLOCKS_M[version]!;
   const totalBlocks = blockCounts.reduce((sum, n) => sum + n, 0);
   const totalData = DATA_CODEWORDS_M[version]!;
-  const ecPerBlock = EC_CODEWORDS_M[version]!;
+  const ecPerBlock = EC_CODEWORDS_PER_BLOCK_M[version]!;
 
   const shortLength = Math.floor(totalData / totalBlocks);
   const longBlocks = totalData % totalBlocks;

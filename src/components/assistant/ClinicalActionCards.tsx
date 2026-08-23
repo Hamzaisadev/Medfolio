@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 import { Toast } from '../ui/Toast';
@@ -426,12 +427,11 @@ export function ClinicalActionCards({ action, profileId, onExecuted }: ClinicalA
 
         <div className="pt-1 flex items-center justify-between text-xs">
           <span className="text-[11px] text-ink-500">Refill Reminder Alert active</span>
-          <a
-            href="/cabinet"
-            className="text-xs text-teal-800 font-bold hover:underline"
-          >
+          {/* `/cabinet` was not a registered route (404); the cabinet lives at
+              /medicines/cabinet. Link, not <a>, to avoid a full page reload. */}
+          <Link to="/medicines/cabinet" className="text-xs text-teal-800 font-bold hover:underline">
             Manage Cabinet &rarr;
-          </a>
+          </Link>
         </div>
       </div>
     );

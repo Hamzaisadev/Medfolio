@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { AppShell } from '../../components/layout/AppShell';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
@@ -6,6 +7,13 @@ import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Toast } from '../../components/ui/Toast';
 import { EmptyState } from '../../components/ui/EmptyState';
+import {
+  DoctorIcon,
+  CalendarDaysIcon,
+  PrinterIcon,
+  XIcon,
+  PlusIcon,
+} from '../../components/ui/icons';
 import { visitsRepo, medicinesRepo } from '../../lib/db';
 import { todayInAppTz } from '../../lib/time';
 import type { Tables } from '../../lib/supabase/types';
@@ -52,7 +60,7 @@ export function DoctorDirectoryPage() {
     try {
       const [vList, mList] = await Promise.all([
         visitsRepo.listVisits(effectiveProfileId),
-        medicinesRepo.listMedicines(effectiveUserId),
+        medicinesRepo.listMedicines(effectiveProfileId),
       ]);
       setVisits(vList);
       setMedicines(mList);
@@ -156,9 +164,9 @@ export function DoctorDirectoryPage() {
               size="sm"
               onClick={() => setIsAddVisitModalOpen(true)}
               className="font-bold shadow-xs flex items-center gap-1.5"
+              leftIcon={<PlusIcon size={14} />}
             >
-              <span>👨‍⚕️</span>
-              <span>+ Add Doctor Consultation</span>
+              Add Doctor Consultation
             </Button>
           }
         />
@@ -193,8 +201,8 @@ export function DoctorDirectoryPage() {
             heading="No doctors recorded yet"
             description="When you scan prescriptions or log visits, your doctors and their consultation history will appear here."
             action={
-              <Button size="sm" onClick={() => setIsAddVisitModalOpen(true)}>
-                + Add Doctor Consultation
+              <Button size="sm" onClick={() => setIsAddVisitModalOpen(true)} leftIcon={<PlusIcon size={14} />}>
+                Add Doctor Consultation
               </Button>
             }
           />
@@ -205,8 +213,8 @@ export function DoctorDirectoryPage() {
                 <div className="space-y-3">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-10 h-10 rounded-2xl bg-teal-100 text-teal-900 font-black text-sm flex items-center justify-center shrink-0">
-                        👨‍⚕️
+                      <div className="w-10 h-10 rounded-2xl bg-teal-100 text-teal-900 flex items-center justify-center shrink-0">
+                        <DoctorIcon size={20} />
                       </div>
                       <div>
                         <h3 className="font-bold text-sm text-ink-900">Dr. {doc.name}</h3>
@@ -229,7 +237,7 @@ export function DoctorDirectoryPage() {
 
                   {doc.nextFollowUp && (
                     <div className="text-xs text-amber-900 bg-amber-50 p-2 rounded-lg border border-amber-200 flex items-center gap-1.5">
-                      <span>📅</span>
+                      <CalendarDaysIcon size={14} className="text-amber-800 shrink-0" />
                       <span>Next Follow-up Due: <strong>{doc.nextFollowUp}</strong></span>
                     </div>
                   )}
@@ -283,8 +291,8 @@ export function DoctorDirectoryPage() {
               {/* Modal Header */}
               <div className="flex items-start justify-between pb-3 border-b border-ink-200 shrink-0">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-2xl bg-teal-100 text-teal-900 text-xl font-bold flex items-center justify-center shrink-0">
-                    👨‍⚕️
+                  <div className="w-12 h-12 rounded-2xl bg-teal-100 text-teal-900 flex items-center justify-center shrink-0">
+                    <DoctorIcon size={24} />
                   </div>
                   <div>
                     <h2 className="text-lg font-black text-ink-900">Dr. {selectedDoctor.name}</h2>
@@ -295,9 +303,9 @@ export function DoctorDirectoryPage() {
                 <button
                   type="button"
                   onClick={() => setSelectedDoctor(null)}
-                  className="text-ink-400 hover:text-ink-700 text-sm font-bold p-1"
+                  className="text-ink-400 hover:text-ink-700 p-1"
                 >
-                  ✕
+                  <XIcon size={16} />
                 </button>
               </div>
 
@@ -351,8 +359,9 @@ export function DoctorDirectoryPage() {
                         )}
 
                         {v.follow_up_date && (
-                          <p className="text-amber-900 text-[11px] font-medium pt-1">
-                            📅 Follow-up scheduled for: <strong>{v.follow_up_date}</strong>
+                          <p className="text-amber-900 text-[11px] font-medium pt-1 flex items-center gap-1.5">
+                            <CalendarDaysIcon size={13} className="text-amber-800 shrink-0" />
+                            <span>Follow-up scheduled for: <strong>{v.follow_up_date}</strong></span>
                           </p>
                         )}
                       </div>
@@ -399,12 +408,14 @@ export function DoctorDirectoryPage() {
 
               {/* Modal Footer */}
               <div className="pt-3 border-t border-ink-200 flex items-center justify-between shrink-0">
-                <a
-                  href="/doctor"
-                  className="text-xs font-bold text-teal-800 hover:underline flex items-center gap-1"
+                {/* Client-side navigation: a raw anchor forced a full reload. */}
+                <Link
+                  to="/doctor-brief"
+                  className="text-xs font-bold text-teal-800 hover:underline flex items-center gap-1.5"
                 >
-                  <span>🖨️ Export Doctor Brief</span>
-                </a>
+                  <PrinterIcon size={14} />
+                  <span>Export Doctor Brief</span>
+                </Link>
 
                 <Button variant="primary" size="sm" onClick={() => setSelectedDoctor(null)}>
                   Done
@@ -420,8 +431,8 @@ export function DoctorDirectoryPage() {
             <div className="bg-white rounded-2xl max-w-md w-full p-5 space-y-4 shadow-xl animate-in fade-in zoom-in-95">
               <div className="flex items-center justify-between">
                 <h3 className="text-base font-bold text-ink-900">Add Doctor Consultation</h3>
-                <button type="button" onClick={() => setIsAddVisitModalOpen(false)} className="text-ink-400 hover:text-ink-700 text-sm font-bold">
-                  ✕
+                <button type="button" onClick={() => setIsAddVisitModalOpen(false)} className="text-ink-400 hover:text-ink-700 p-1">
+                  <XIcon size={16} />
                 </button>
               </div>
 

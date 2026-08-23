@@ -36,9 +36,9 @@ export function DoctorBriefPage() {
       try {
         const [p, meds, visits, reports] = await Promise.all([
           profilesRepo.getDefaultProfile(effectiveUserId),
-          medicinesRepo.listMedicines(effectiveUserId),
+          medicinesRepo.listMedicines(effectiveProfileId),
           visitsRepo.listVisits(effectiveProfileId),
-          reportsRepo.listReports(effectiveUserId),
+          reportsRepo.listReports(effectiveProfileId),
         ]);
 
         setProfile(p);

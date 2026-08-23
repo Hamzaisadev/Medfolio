@@ -2,10 +2,14 @@
  * Image Pre-Processing & Optimization Pipeline.
  *
  * Implements client-side image processing per 04-FEATURES.md & 01-ARCHITECTURE.md:
- * - Orientation correction & EXIF strip
  * - Resize longest edge to max 2000px
- * - High-efficiency WebP compression at 0.82 quality
+ * - Compress to WebP where supported, JPEG otherwise
  * - Typical photo lands under 300 KB
+ *
+ * EXIF note: drawing through a canvas strips metadata. Browsers apply EXIF
+ * orientation to `HTMLImageElement` before it is drawn, so the output is upright
+ * without an explicit rotation step — but the reported `mimeType` must match the
+ * bytes actually produced, which is what `pickOutputType` guarantees.
  */
 
 export interface ProcessedImage {
@@ -16,6 +20,9 @@ export interface ProcessedImage {
   height: number;
   byteSize: number;
 }
+
+const MAX_DIMENSION = 2000;
+const QUALITY = 0.82;
 
 /**
  * Loads an image file or blob into an HTMLImageElement safely.
@@ -37,21 +44,41 @@ function loadImage(file: Blob | File): Promise<HTMLImageElement> {
 }
 
 /**
- * Compresses and scales an image to maximum 2000px longest edge and WebP q0.82.
+ * Returns an output type the canvas can genuinely encode.
+ *
+ * `toDataURL('image/webp')` silently falls back to PNG where WebP encoding is
+ * unsupported (older Safari), which previously produced PNG bytes labelled as
+ * WebP and sent a mismatched mimeType to the extraction API.
+ */
+function pickOutputType(canvas: HTMLCanvasElement): string {
+  for (const type of ['image/webp', 'image/jpeg']) {
+    if (canvas.toDataURL(type, QUALITY).startsWith(`data:${type}`)) {
+      return type;
+    }
+  }
+  return 'image/png';
+}
+
+/**
+ * Compresses and scales an image to a maximum 2000px longest edge.
  */
 export async function optimizeMedicalImage(file: Blob | File): Promise<ProcessedImage> {
   const img = await loadImage(file);
-  const maxDimension = 2000;
 
-  let { width, height } = img;
+  let width = img.naturalWidth || img.width;
+  let height = img.naturalHeight || img.height;
 
-  if (width > maxDimension || height > maxDimension) {
+  if (!width || !height) {
+    throw new Error('Image has no readable dimensions');
+  }
+
+  if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
     if (width > height) {
-      height = Math.round((height * maxDimension) / width);
-      width = maxDimension;
+      height = Math.max(1, Math.round((height * MAX_DIMENSION) / width));
+      width = MAX_DIMENSION;
     } else {
-      width = Math.round((width * maxDimension) / height);
-      height = maxDimension;
+      width = Math.max(1, Math.round((width * MAX_DIMENSION) / height));
+      height = MAX_DIMENSION;
     }
   }
 
@@ -64,28 +91,23 @@ export async function optimizeMedicalImage(file: Blob | File): Promise<Processed
     throw new Error('Canvas 2D context unavailable');
   }
 
-  // Draw image to canvas (naturally strips EXIF metadata)
   ctx.drawImage(img, 0, 0, width, height);
 
-  // Convert to WebP format (or JPEG fallback)
-  const mimeType = 'image/webp';
-  const dataUrl = canvas.toDataURL(mimeType, 0.82);
-  const base64Data = dataUrl.replace(/^data:image\/\w+;base64,/, '');
+  const mimeType = pickOutputType(canvas);
 
+  // Encode once and derive both representations from the same bytes; encoding
+  // separately via toDataURL and toBlob doubled the work and could disagree.
   const blob: Blob = await new Promise((resolve, reject) => {
     canvas.toBlob(
-      (b) => {
-        if (b) resolve(b);
-        else reject(new Error('Failed to generate image blob'));
-      },
+      (b) => (b ? resolve(b) : reject(new Error('Failed to generate image blob'))),
       mimeType,
-      0.82
+      QUALITY
     );
   });
 
   return {
     blob,
-    dataBase64: base64Data,
+    dataBase64: await blobToBase64(blob),
     mimeType,
     width,
     height,
@@ -93,18 +115,21 @@ export async function optimizeMedicalImage(file: Blob | File): Promise<Processed
   };
 }
 
-/**
- * Converts a file directly into a base64 string for AI extraction.
- */
-export function fileToBase64(file: Blob | File): Promise<string> {
+function blobToBase64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
       const result = reader.result as string;
-      const base64 = result.split(',')[1] || '';
-      resolve(base64);
+      resolve(result.split(',')[1] || '');
     };
-    reader.onerror = () => reject(new Error('Failed reading file to base64'));
-    reader.readAsDataURL(file);
+    reader.onerror = () => reject(new Error('Failed encoding image to base64'));
+    reader.readAsDataURL(blob);
   });
+}
+
+/**
+ * Converts a file directly into a base64 string for AI extraction.
+ */
+export function fileToBase64(file: Blob | File): Promise<string> {
+  return blobToBase64(file);
 }

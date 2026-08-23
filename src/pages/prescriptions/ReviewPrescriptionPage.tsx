@@ -9,7 +9,6 @@ import { Input } from '../../components/ui/Input';
 import { Textarea } from '../../components/ui/Textarea';
 import { Badge } from '../../components/ui/Badge';
 import { Disclaimer } from '../../components/ui/Disclaimer';
-import { Toast } from '../../components/ui/Toast';
 import { useAuth } from '../../lib/auth/AuthContext';
 import { parseFrequency, defaultDoseTimes, frequencyDescription } from '../../domain/frequency';
 import { parseDuration, computeEndDate } from '../../domain/duration';
@@ -17,6 +16,8 @@ import { buildSchedule } from '../../domain/schedule';
 import { todayInAppTz, formatMinutesTo24h } from '../../lib/time';
 import { EXTRACTION_DISCLAIMER } from '../../lib/disclaimer';
 import { visitsRepo, medicinesRepo, dosesRepo, testOrdersRepo, extractionAuditRepo } from '../../lib/db';
+import { readInventory, writeInventory } from '../../lib/inventory';
+import { newId } from '../../lib/db/localStore';
 import type { Json } from '../../lib/supabase/types';
 import type { ExtractPrescriptionResponse } from '../../../api/_lib/schemas';
 import type { ProcessedImage } from '../../lib/files/imagePipeline';
@@ -30,7 +31,8 @@ interface MedicineDraft {
   frequency_raw?: string;
   duration_raw?: string;
   instructions?: string;
-  with_food?: boolean;
+  /** null = the prescription did not state a meal relation. */
+  with_food?: boolean | null;
   is_ongoing?: boolean;
   confidence?: 'high' | 'low';
 }
@@ -55,6 +57,10 @@ export function ReviewPrescriptionPage() {
 
   const initialDraft = state?.draft;
   const images = state?.images || [];
+
+  // Stable per-mount id so the initial draft rows get unique React keys without
+  // relying on Date.now(), which collides for rows created in the same tick.
+  const draftSessionId = useRef(newId()).current;
 
   // Form State
   const [doctorName, setDoctorName] = useState(initialDraft?.doctor_name || '');
@@ -89,15 +95,19 @@ export function ReviewPrescriptionPage() {
   // Medicines List
   const [medicines, setMedicines] = useState<MedicineDraft[]>(
     (initialDraft?.medicines || []).map((m, idx) => ({
-      id: `med-${idx}-${Date.now()}`,
+      id: `draft-${idx}-${draftSessionId}`,
       medicine_name: m.medicine_name || '',
       strength: m.strength || '',
       form: m.form || 'tablet',
-      dose_amount: m.dose_amount || '1 tablet',
+      // Left blank rather than defaulted: an invented dose amount is a clinical
+      // error, and a blank field prompts the patient to fill in what was written.
+      dose_amount: m.dose_amount || '',
       frequency_raw: m.frequency_raw || '',
       duration_raw: m.duration_raw || '',
       instructions: m.instructions || '',
-      with_food: true,
+      // The prescription's meal relation is unknown until the patient sets it;
+      // hardcoding `true` here silently discarded that information.
+      with_food: null,
       is_ongoing: false,
       confidence: m.confidence || 'high',
     }))
@@ -106,14 +116,13 @@ export function ReviewPrescriptionPage() {
   // Ordered Diagnostic Tests List
   const [tests, setTests] = useState<TestOrderDraft[]>(
     (initialDraft?.tests_ordered || []).map((t, idx) => ({
-      id: `test-${idx}-${Date.now()}`,
+      id: `test-${idx}-${draftSessionId}`,
       test_name: typeof t === 'string' ? t : (t as { test_name?: string }).test_name || '',
       confidence: 'high',
     }))
   );
 
   const [isSaving, setIsSaving] = useState(false);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Medicine Actions
@@ -121,14 +130,14 @@ export function ReviewPrescriptionPage() {
     setMedicines((prev) => [
       ...prev,
       {
-        id: `med-${Date.now()}`,
+        id: newId(),
         medicine_name: '',
         strength: '',
         form: 'tablet',
-        dose_amount: '1 tablet',
-        frequency_raw: 'OD',
-        duration_raw: '5 days',
-        with_food: true,
+        dose_amount: '',
+        frequency_raw: '',
+        duration_raw: '',
+        with_food: null,
         is_ongoing: false,
         confidence: 'high',
       },
@@ -150,7 +159,7 @@ export function ReviewPrescriptionPage() {
     setTests((prev) => [
       ...prev,
       {
-        id: `test-${Date.now()}`,
+        id: newId(),
         test_name: '',
         confidence: 'high',
       },
@@ -167,12 +176,39 @@ export function ReviewPrescriptionPage() {
     setTests((prev) => prev.filter((t) => t.id !== id));
   };
 
-  // Atomic Database Transaction
+  /**
+   * Saves the visit, its medicines and their generated dose schedule.
+   *
+   * Not a single transaction: Supabase is reached over separate REST calls, so a
+   * failure part-way leaves earlier rows saved. Frequency and duration are
+   * therefore validated up front, before anything is written, and the error
+   * message tells the patient that partial records may exist.
+   */
   const handleSave = async () => {
     setErrorMessage(null);
 
     // Filter out completely empty medicine drafts
     const validMedicines = medicines.filter((m) => m.medicine_name && m.medicine_name.trim().length > 0);
+
+    // A frequency or duration we cannot interpret must be corrected by the
+    // patient, never guessed. Silently defaulting to OD / 5 days turned an
+    // unreadable "TDS" into a third of the prescribed dose.
+    const unresolved = validMedicines.filter((m) => {
+      const freq = parseFrequency(m.frequency_raw);
+      if (!freq) return true;
+      if (freq === 'PRN' || freq === 'SOS' || m.is_ongoing) return false;
+      return parseDuration(m.duration_raw).kind !== 'days';
+    });
+
+    if (unresolved.length > 0) {
+      const names = unresolved.map((m) => m.medicine_name.trim()).join(', ');
+      setErrorMessage(
+        `Please set a frequency and duration we can read for: ${names}. ` +
+          'Use a form like "1+0+1", "BD", "TDS" or "PRN", and a duration like "5 days" or "2 weeks" ' +
+          '(or tick Ongoing). Nothing is saved until these are resolved.'
+      );
+      return;
+    }
 
     const effectiveVisitDate = visitDate || todayInAppTz();
     const effectiveUserId = user?.id || profile?.user_id || '';
@@ -196,35 +232,22 @@ export function ReviewPrescriptionPage() {
       });
 
       // Step 2: Insert Medicines & Generate Schedules
-      const pillInventoryMap: Record<string, number> = {};
-      try {
-        const savedInv = localStorage.getItem('medfolio_pill_inventory_v1');
-        if (savedInv) Object.assign(pillInventoryMap, JSON.parse(savedInv));
-      } catch {
-        // ignore
-      }
+      const pillInventoryMap = readInventory(effectiveProfileId);
 
       for (const med of validMedicines) {
-        // Robust frequency resolution
-        const freqCode = parseFrequency(med.frequency_raw) || (med.is_ongoing ? 'OD' : 'OD');
+        // Validated above, so this cannot be null.
+        const freqCode = parseFrequency(med.frequency_raw)!;
         const dur = parseDuration(med.duration_raw);
-        
-        let durationDays: number | null = null;
-        if (dur.kind === 'days') {
-          durationDays = dur.days;
-        } else if (dur.kind === 'ongoing' || med.is_ongoing) {
-          durationDays = null;
-        } else {
-          // Graceful fallback for unstated duration on prescriptions
-          durationDays = 5;
-        }
+
+        const isOngoing = med.is_ongoing ?? dur.kind === 'ongoing';
+        const durationDays = dur.kind === 'days' ? dur.days : null;
 
         const endDate =
-          durationDays && !med.is_ongoing
+          durationDays !== null && !isOngoing
             ? computeEndDate(effectiveVisitDate, durationDays)
             : null;
 
-        const defaultTimes = defaultDoseTimes(freqCode, med.with_food, med.frequency_raw || 'OD');
+        const defaultTimes = defaultDoseTimes(freqCode, med.with_food, med.frequency_raw);
 
         const createdMed = await medicinesRepo.createMedicine({
           user_id: effectiveUserId,
@@ -233,58 +256,54 @@ export function ReviewPrescriptionPage() {
           medicine_name: med.medicine_name.trim(),
           strength: med.strength?.trim() || null,
           form: med.form || 'tablet',
-          dose_amount: med.dose_amount || '1 tablet',
+          dose_amount: med.dose_amount?.trim() || null,
           frequency_code: freqCode,
-          frequency_raw: med.frequency_raw || 'OD',
-          with_food: med.with_food ?? true,
+          frequency_raw: med.frequency_raw?.trim() || null,
+          with_food: med.with_food ?? null,
           duration_days: durationDays,
           start_date: effectiveVisitDate,
           end_date: endDate,
-          is_ongoing: med.is_ongoing ?? false,
+          is_ongoing: isOngoing,
           instructions: med.instructions || null,
         });
 
         // Initialize pill inventory count (e.g. standard pack of 20 pills)
         if (createdMed.id && !pillInventoryMap[createdMed.id]) {
-          pillInventoryMap[createdMed.id] = durationDays ? durationDays * (defaultTimes.length || 1) + 4 : 20;
+          pillInventoryMap[createdMed.id] = durationDays
+            ? durationDays * (defaultTimes.length || 1) + 4
+            : 20;
         }
 
         // Generate automated deterministic dose rows if not PRN
-        if (freqCode !== 'PRN' && freqCode !== 'SOS' && defaultTimes.length > 0) {
+        if (defaultTimes.length > 0) {
           const doseRows = buildSchedule({
             medicineId: createdMed.id,
             startDate: effectiveVisitDate,
-            durationDays: med.is_ongoing ? 30 : durationDays || 5,
-            isOngoing: med.is_ongoing ?? false,
+            durationDays,
+            isOngoing,
             doseTimes: defaultTimes,
             now: new Date(),
+            // Drives the repeat interval: WEEKLY every 7 days, STAT once.
+            frequencyCode: freqCode,
           });
 
           if (doseRows.length > 0) {
-            try {
-              await dosesRepo.createDoses(
-                doseRows.map((d) => ({
-                  user_id: effectiveUserId,
-                  profile_id: effectiveProfileId,
-                  medicine_id: createdMed.id,
-                  scheduled_date: d.scheduled_date,
-                  scheduled_minutes: d.scheduled_minutes,
-                  status: 'pending',
-                }))
-              );
-            } catch (doseErr) {
-              console.warn('Dose schedule generation notice:', doseErr);
-            }
+            await dosesRepo.createDoses(
+              doseRows.map((d) => ({
+                user_id: effectiveUserId,
+                profile_id: effectiveProfileId,
+                medicine_id: createdMed.id,
+                scheduled_date: d.scheduled_date,
+                scheduled_minutes: d.scheduled_minutes,
+                status: 'pending',
+              }))
+            );
           }
         }
       }
 
       // Save pill inventory
-      try {
-        localStorage.setItem('medfolio_pill_inventory_v1', JSON.stringify(pillInventoryMap));
-      } catch {
-        // ignore
-      }
+      writeInventory(effectiveProfileId, pillInventoryMap);
 
       // Step 3: Insert Ordered Tests
       for (const t of tests) {
@@ -327,12 +346,18 @@ export function ReviewPrescriptionPage() {
         }
       }
 
-      setToastMessage('Prescription and schedule saved successfully!');
-      navigate('/medicines');
+      // Navigate straight to the cabinet and let it own the confirmation: a toast
+      // set immediately before navigating never renders.
+      navigate('/medicines', {
+        replace: true,
+        state: { flash: 'Prescription and schedule saved successfully.' },
+      });
     } catch (err: unknown) {
       console.error('Save prescription error:', err);
       const msg = err instanceof Error ? err.message : 'Failed to save prescription. Please check fields.';
-      setErrorMessage(msg);
+      setErrorMessage(
+        `${msg} Some records may already have been saved — check your medicine cabinet before retrying.`
+      );
     } finally {
       setIsSaving(false);
     }
@@ -355,13 +380,6 @@ export function ReviewPrescriptionPage() {
             </Button>
           </div>
         }
-      />
-
-      <Toast
-        open={Boolean(toastMessage)}
-        onClose={() => setToastMessage(null)}
-        message={toastMessage || ''}
-        tone="ok"
       />
 
       {errorMessage && (
@@ -641,14 +659,25 @@ export function ReviewPrescriptionPage() {
                               placeholder="e.g. 1+0+1, BD, TDS, PRN"
                             />
                           </Field>
-                          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-ink-500">
-                            <span>Interpreted:</span>
-                            <span className={`font-semibold ${freqCode ? 'text-teal-700' : 'text-amber-700'}`}>
-                              {freqDesc}
-                            </span>
-                            {doseTimes.length > 0 && (
-                              <span className="text-ink-400">
-                                ({doseTimes.map((t) => formatMinutesTo24h(t)).join(', ')})
+                          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
+                            <span className="text-ink-500">Interpreted:</span>
+                            {freqCode ? (
+                              <>
+                                <span className="font-semibold text-teal-700">{freqDesc}</span>
+                                {doseTimes.length > 0 && (
+                                  <span className="text-ink-400">
+                                    ({doseTimes.map((t) => formatMinutesTo24h(t)).join(', ')})
+                                  </span>
+                                )}
+                              </>
+                            ) : (
+                              // Says exactly what will happen: nothing is saved
+                              // until this is readable. Previously it displayed
+                              // "Custom / As needed" and then silently saved OD.
+                              <span className="font-semibold text-amber-700">
+                                {m.frequency_raw?.trim()
+                                  ? 'Not recognised — please rewrite it (e.g. 1+0+1, BD, TDS, PRN)'
+                                  : 'Required — enter the frequency as written'}
                               </span>
                             )}
                           </div>
@@ -663,13 +692,23 @@ export function ReviewPrescriptionPage() {
                               disabled={m.is_ongoing}
                             />
                           </Field>
-                          <div className="mt-1 flex items-center justify-between text-xs">
-                            <span className="text-ink-500">
-                              {durResult?.kind === 'days'
+                          <div className="mt-1 flex items-center justify-between gap-2 text-xs">
+                            <span
+                              className={
+                                durResult.kind === 'days'
+                                  ? 'text-ink-500'
+                                  : m.is_ongoing
+                                    ? 'text-ink-500'
+                                    : 'text-amber-700 font-semibold'
+                              }
+                            >
+                              {durResult.kind === 'days'
                                 ? `Interpreted: ${durResult.days} days`
-                                : m.is_ongoing
+                                : m.is_ongoing || durResult.kind === 'ongoing'
                                   ? 'Ongoing'
-                                  : ''}
+                                  : m.duration_raw?.trim()
+                                    ? 'Not recognised — try "5 days" or "2 weeks"'
+                                    : 'Required — or tick Ongoing'}
                             </span>
                             <label className="flex items-center gap-1.5 cursor-pointer text-ink-600 font-medium">
                               <input
@@ -700,10 +739,25 @@ export function ReviewPrescriptionPage() {
 
                         <Field id={`med-food-${m.id}`} label="Meal Timing">
                           <select
-                            value={m.with_food ? 'with' : 'empty'}
-                            onChange={(e) => handleUpdateMedicine(m.id, { with_food: e.target.value === 'with' })}
+                            value={
+                              m.with_food === true ? 'with' : m.with_food === false ? 'empty' : 'unknown'
+                            }
+                            onChange={(e) =>
+                              handleUpdateMedicine(m.id, {
+                                with_food:
+                                  e.target.value === 'with'
+                                    ? true
+                                    : e.target.value === 'empty'
+                                      ? false
+                                      : null,
+                              })
+                            }
                             className="w-full h-11 px-3.5 py-2 text-sm bg-surface-primary border border-ink-200 rounded-[var(--radius-md)] text-ink-900 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600"
                           >
+                            {/* "Not specified" is a real option: recording a meal
+                                relation the prescription never stated invents
+                                clinical guidance. */}
+                            <option value="unknown">Not specified</option>
                             <option value="with">After / With Food</option>
                             <option value="empty">Empty Stomach (07:00 AM)</option>
                           </select>

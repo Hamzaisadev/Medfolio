@@ -6,8 +6,10 @@ import { listMedicines, Medicine } from '../../lib/db/medicines';
 import { listVisits, Visit } from '../../lib/db/visits';
 import { listReports, getReportResults, Report, LabResult } from '../../lib/db/reports';
 import { listGlucoseReadings, listBloodPressureReadings } from '../../lib/db/vitals';
+import type { GlucoseReading, BloodPressureReading } from '../../domain/vitals';
 import { generateWatermarkMetadata, WatermarkMetadata } from '../../lib/security/watermark';
 import { Button } from '../../components/ui/Button';
+import { PrinterIcon, ShieldIcon } from '../../components/ui/icons';
 
 export function SecondOpinionPage() {
   const { user, profile } = useAuth();
@@ -20,8 +22,8 @@ export function SecondOpinionPage() {
   const [visits, setVisits] = useState<Visit[]>([]);
   const [_reports, setReports] = useState<Report[]>([]);
   const [labResults, setLabResults] = useState<LabResult[]>([]);
-  const [glucose, setGlucose] = useState<any[]>([]);
-  const [bp, setBp] = useState<any[]>([]);
+  const [glucose, setGlucose] = useState<GlucoseReading[]>([]);
+  const [bp, setBp] = useState<BloodPressureReading[]>([]);
   const [watermark, setWatermark] = useState<WatermarkMetadata | null>(null);
   const [_isLoading, setIsLoading] = useState(true);
 
@@ -113,8 +115,8 @@ export function SecondOpinionPage() {
           </div>
 
           <div className="flex items-center gap-2 print:hidden">
-            <Button variant="primary" size="sm" onClick={handlePrint}>
-              🖨️ Print / Save PDF
+            <Button variant="primary" size="sm" onClick={handlePrint} leftIcon={<PrinterIcon size={14} />}>
+              Print / Save PDF
             </Button>
           </div>
         </div>
@@ -136,8 +138,8 @@ export function SecondOpinionPage() {
             </div>
           </label>
 
-          <div className="text-right text-xs font-mono text-ink-500">
-            Security Status: <span className="text-emerald-700 font-bold">SHA-256 Watermarked ✓</span>
+          <div className="text-right text-xs font-mono text-ink-500 flex items-center gap-1">
+            Security Status: <span className="text-emerald-700 font-bold flex items-center gap-1"><ShieldIcon size={13} /> SHA-256 Watermarked</span>
           </div>
         </div>
 

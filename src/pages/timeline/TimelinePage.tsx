@@ -15,6 +15,8 @@ import {
   MedicineIcon,
   LabFlaskIcon,
   StethoscopeIcon,
+  AlertTriangleIcon,
+  PrinterIcon,
 } from '../../components/ui/icons';
 import { visitsRepo, reportsRepo, medicinesRepo, sideEffectsRepo } from '../../lib/db';
 import { todayInAppTz } from '../../lib/time';
@@ -54,9 +56,9 @@ export function TimelinePage() {
     try {
       const [visits, reports, medicines, sideEffects] = await Promise.all([
         visitsRepo.listVisits(effectiveProfileId),
-        reportsRepo.listReports(effectiveUserId),
-        medicinesRepo.listMedicines(effectiveUserId),
-        sideEffectsRepo.listSideEffects(effectiveUserId),
+        reportsRepo.listReports(effectiveProfileId),
+        medicinesRepo.listMedicines(effectiveProfileId),
+        sideEffectsRepo.listSideEffects(effectiveProfileId),
       ]);
 
       const timelineList: TimelineItem[] = [];
@@ -210,7 +212,7 @@ export function TimelinePage() {
       case 'medicine':
         return <MedicineIcon size={18} className="text-purple-700" />;
       case 'side_effect':
-        return <span className="text-sm font-bold text-amber-700">⚠️</span>;
+        return <AlertTriangleIcon size={18} className="text-amber-700" />;
     }
   };
 
@@ -235,8 +237,8 @@ export function TimelinePage() {
         action={
           <div className="flex flex-wrap items-center gap-2">
             <Link to="/doctor">
-              <Button variant="secondary" size="sm" className="font-bold">
-                🖨️ Export Clinical Dossier PDF
+              <Button variant="secondary" size="sm" className="font-bold" leftIcon={<PrinterIcon size={16} />}>
+                Export Clinical Dossier PDF
               </Button>
             </Link>
             <Link to="/prescriptions/new">

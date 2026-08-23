@@ -1,5 +1,6 @@
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { InfoIcon } from './icons';
 
 export interface DisclaimerProps {
   text: string;
@@ -11,16 +12,15 @@ export function Disclaimer({ text, className }: DisclaimerProps) {
     <aside
       className={twMerge(
         clsx(
-          'flex items-start gap-2 p-3 rounded-[var(--radius-md)] border border-ink-200 bg-ink-50/70 text-xs text-ink-600',
+          'flex items-start gap-2.5 p-3.5 rounded-[var(--radius-md)]',
+          'border border-line bg-surface-sunken text-xs text-content-muted',
           className
         )
       )}
       role="note"
       aria-label="Medical disclaimer"
     >
-      <svg className="w-4 h-4 shrink-0 text-ink-400 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
+      <InfoIcon size={16} className="shrink-0 text-content-subtle mt-px" />
       <p className="leading-relaxed">{text}</p>
     </aside>
   );
