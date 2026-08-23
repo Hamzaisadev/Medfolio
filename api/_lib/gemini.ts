@@ -4,18 +4,21 @@ import path from 'node:path';
 
 function loadEnvFile() {
   try {
-    const envPath = path.resolve(process.cwd(), '.env');
-    if (fs.existsSync(envPath)) {
-      const content = fs.readFileSync(envPath, 'utf-8');
-      for (const line of content.split('\n')) {
-        const trimmed = line.trim();
-        if (!trimmed || trimmed.startsWith('#')) continue;
-        const eqIdx = trimmed.indexOf('=');
-        if (eqIdx !== -1) {
-          const key = trimmed.slice(0, eqIdx).trim();
-          const val = trimmed.slice(eqIdx + 1).trim();
-          if (!process.env[key]) {
-            process.env[key] = val;
+    const envFiles = ['.env.local', '.env.development', '.env'];
+    for (const file of envFiles) {
+      const envPath = path.resolve(process.cwd(), file);
+      if (fs.existsSync(envPath)) {
+        const content = fs.readFileSync(envPath, 'utf-8');
+        for (const line of content.split('\n')) {
+          const trimmed = line.trim();
+          if (!trimmed || trimmed.startsWith('#')) continue;
+          const eqIdx = trimmed.indexOf('=');
+          if (eqIdx !== -1) {
+            const key = trimmed.slice(0, eqIdx).trim();
+            const val = trimmed.slice(eqIdx + 1).trim();
+            if (!process.env[key]) {
+              process.env[key] = val;
+            }
           }
         }
       }
@@ -44,11 +47,15 @@ export interface GenerateStructuredResult<T> {
 }
 
 /** Default model. Override with GEMINI_MODEL. */
-export const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash';
+export const DEFAULT_GEMINI_MODEL = 'gemini-3.6-flash';
 
 export function getGeminiModel(): string {
   loadEnvFile();
-  return process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL;
+  const configured = process.env.GEMINI_MODEL?.trim();
+  if (configured && !configured.includes('2.5-flash') && !configured.includes('1.5-flash')) {
+    return configured;
+  }
+  return DEFAULT_GEMINI_MODEL;
 }
 
 export function getGeminiClient(): GoogleGenAI {

@@ -34,24 +34,33 @@ self.addEventListener('activate', (event) => {
 
 // Network-first for navigation, Cache-first for assets
 self.addEventListener('fetch', (event) => {
+  // Only handle GET requests
+  if (event.request.method !== 'GET') {
+    return;
+  }
+
   const url = new URL(event.request.url);
 
-  // Never intercept API routes
-  if (url.pathname.startsWith('/api/') || url.hostname.includes('supabase.co')) {
+  // Never intercept API routes, supabase, vite HMR, or dev assets
+  if (
+    url.pathname.startsWith('/api/') ||
+    url.hostname.includes('supabase.co') ||
+    url.pathname.startsWith('/@') ||
+    url.pathname.startsWith('/src/') ||
+    url.pathname.includes('node_modules') ||
+    url.protocol.startsWith('chrome-extension')
+  ) {
     return;
   }
 
   // Navigation requests: Network first, fallback to cached shell.
-  // `caches.match()` returns a Promise (always truthy), so the previous
-  // `match('/index.html') || match('/')` fallback was dead code and an uncached
-  // shell resolved `undefined` into respondWith, failing the navigation.
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request).catch(async () => {
         const cached = (await caches.match('/index.html')) || (await caches.match('/'));
         return (
           cached ||
-          new Response('<h1>Offline</h1><p>Reconnect to load Medfolio.</p>', {
+          new Response('<!DOCTYPE html><html><body><h1>Offline</h1><p>Reconnect to load Medfolio.</p></body></html>', {
             status: 503,
             headers: { 'Content-Type': 'text/html; charset=utf-8' },
           })
@@ -61,10 +70,25 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Static assets (CSS, JS, Fonts, Images): Stale-While-Revalidate
+  // Static assets (CSS, JS, Fonts, Images): Network with cache fallback
   event.respondWith(
     caches.match(event.request).then((cached) => {
-      const networked = fetch(event.request)
+      if (cached) {
+        // Revalidate in background
+        fetch(event.request)
+          .then((response) => {
+            if (response && response.status === 200 && response.type === 'basic') {
+              const copy = response.clone();
+              caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+            }
+          })
+          .catch(() => {
+            // Ignore network errors in background revalidation
+          });
+        return cached;
+      }
+
+      return fetch(event.request)
         .then((response) => {
           if (response && response.status === 200 && response.type === 'basic') {
             const copy = response.clone();
@@ -72,9 +96,10 @@ self.addEventListener('fetch', (event) => {
           }
           return response;
         })
-        .catch(() => null);
-
-      return cached || networked;
+        .catch(() => {
+          // If offline and not in cache, return an empty 404 response rather than rejecting
+          return new Response(null, { status: 404, statusText: 'Not Found' });
+        });
     })
   );
 });

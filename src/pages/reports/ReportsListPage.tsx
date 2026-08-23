@@ -20,7 +20,7 @@ import { Skeleton } from '../../components/ui/Skeleton';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { Disclaimer } from '../../components/ui/Disclaimer';
-import { LabFlaskIcon } from '../../components/ui/icons';
+import { LabFlaskIcon, AlertTriangleIcon } from '../../components/ui/icons';
 import { reportsRepo, testOrdersRepo } from '../../lib/db';
 import type { Tables } from '../../lib/supabase/types';
 import { REPORT_OUT_OF_RANGE_NOTE } from '../../lib/disclaimer';
@@ -293,7 +293,8 @@ export function ReportsListPage() {
                   {/* Unit Mismatch Check */}
                   {trendData.units.size > 1 && (
                     <div className="p-2.5 rounded-md border border-warn-border bg-warn-bg text-xs text-warn-text flex items-center gap-2">
-                      <span className="font-bold">⚠️ Different Units Detected:</span>
+                      <AlertTriangleIcon size={16} className="text-amber-700 shrink-0" />
+                      <span className="font-bold">Different Units Detected:</span>
                       <span>Results use multiple units ({Array.from(trendData.units).join(', ')}). Comparing across different units may not be linear.</span>
                     </div>
                   )}

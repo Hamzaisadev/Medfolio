@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
+import { PrescriptionIcon, CheckIcon, XIcon, PlusIcon } from '../ui/icons';
 import { medicinesRepo, dosesRepo } from '../../lib/db';
 import { parseFrequency, defaultDoseTimes } from '../../domain/frequency';
 import { buildSchedule } from '../../domain/schedule';
@@ -177,12 +178,16 @@ export function EditablePrescriptionWidget({
     <div className="my-3 p-3.5 bg-white border border-teal-200 rounded-2xl shadow-xs space-y-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-teal-900 font-bold text-xs">📋 Detected Prescribed Medicines</span>
+          <span className="text-teal-900 font-bold text-xs flex items-center gap-1.5">
+            <PrescriptionIcon size={16} /> Detected Prescribed Medicines
+          </span>
           <Badge tone="ok" size="sm">{items.length} detected</Badge>
         </div>
 
         {isSaved ? (
-          <span className="text-xs font-bold text-teal-700">✅ Added to Cabinet & Timetable</span>
+          <span className="text-xs font-bold text-teal-700 flex items-center gap-1">
+            <CheckIcon size={14} className="text-emerald-600" /> Added to Cabinet & Timetable
+          </span>
         ) : (
           <span className="text-[11px] text-ink-500">Edit fields before adding to timetable</span>
         )}
@@ -198,12 +203,12 @@ export function EditablePrescriptionWidget({
         <table className="w-full text-left text-xs border-collapse">
           <thead>
             <tr className="border-b border-ink-200 text-ink-500 text-[11px]">
-              <th className="pb-1.5 font-bold">Medicine</th>
-              <th className="pb-1.5 font-bold">Strength</th>
-              <th className="pb-1.5 font-bold">Frequency</th>
-              <th className="pb-1.5 font-bold">Days</th>
-              <th className="pb-1.5 font-bold">Timing</th>
-              <th className="pb-1.5 font-bold"></th>
+              <th className="py-1.5 font-semibold">Medicine</th>
+              <th className="py-1.5 font-semibold">Strength</th>
+              <th className="py-1.5 font-semibold">Dosage / Freq</th>
+              <th className="py-1.5 font-semibold">Days</th>
+              <th className="py-1.5 font-semibold">Meal Relation</th>
+              <th className="py-1.5"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-ink-100">
@@ -212,73 +217,65 @@ export function EditablePrescriptionWidget({
                 <td className="py-1.5 pr-2">
                   <input
                     type="text"
-                    value={med.medicine_name}
                     disabled={isSaved}
-                    placeholder="Medicine name"
+                    value={med.medicine_name}
                     onChange={(e) => handleFieldChange(med.rowId, 'medicine_name', e.target.value)}
-                    className="w-full font-bold text-ink-900 bg-transparent border-b border-transparent focus:border-teal-500 focus:outline-none"
+                    className="w-full h-8 px-2 border border-ink-200 rounded-lg text-xs font-bold text-ink-900 focus:outline-teal-600 disabled:bg-transparent disabled:border-transparent"
                   />
                 </td>
-                <td className="py-1.5 pr-2">
+                <td className="py-1.5 pr-2 w-20">
                   <input
                     type="text"
-                    value={med.strength || ''}
                     disabled={isSaved}
                     placeholder="e.g. 500mg"
+                    value={med.strength || ''}
                     onChange={(e) => handleFieldChange(med.rowId, 'strength', e.target.value)}
-                    className="w-20 text-ink-700 bg-transparent border-b border-transparent focus:border-teal-500 focus:outline-none"
+                    className="w-full h-8 px-2 border border-ink-200 rounded-lg text-xs text-ink-800 focus:outline-teal-600 disabled:bg-transparent disabled:border-transparent"
                   />
                 </td>
-                <td className="py-1.5 pr-2">
+                <td className="py-1.5 pr-2 w-28">
                   <input
                     type="text"
-                    value={med.frequency_raw || ''}
                     disabled={isSaved}
-                    placeholder="e.g. 1-0-1"
+                    placeholder="1-0-1 / BD"
+                    value={med.frequency_raw}
                     onChange={(e) => handleFieldChange(med.rowId, 'frequency_raw', e.target.value)}
-                    className={`w-20 bg-transparent border-b focus:border-teal-500 focus:outline-none ${
-                      med.frequency_raw && !parseFrequency(med.frequency_raw)
-                        ? 'border-amber-500 text-amber-800'
-                        : 'border-transparent text-ink-700'
-                    }`}
+                    className="w-full h-8 px-2 border border-ink-200 rounded-lg text-xs font-mono text-ink-800 focus:outline-teal-600 disabled:bg-transparent disabled:border-transparent"
                   />
                 </td>
-                <td className="py-1.5 pr-2">
+                <td className="py-1.5 pr-2 w-16">
                   <input
                     type="number"
-                    min={1}
-                    // Shows the same number that will be saved; the UI previously
-                    // displayed 5 while the save path used 7.
-                    value={med.duration_days ?? DEFAULT_DURATION_DAYS}
                     disabled={isSaved}
+                    min="1"
+                    max="365"
+                    value={med.duration_days ?? DEFAULT_DURATION_DAYS}
                     onChange={(e) =>
                       handleFieldChange(
                         med.rowId,
                         'duration_days',
-                        Math.max(1, parseInt(e.target.value, 10) || DEFAULT_DURATION_DAYS)
+                        e.target.value === '' ? DEFAULT_DURATION_DAYS : parseInt(e.target.value, 10) || DEFAULT_DURATION_DAYS,
                       )
                     }
-                    className="w-12 text-ink-700 bg-transparent border-b border-transparent focus:border-teal-500 focus:outline-none"
+                    className="w-full h-8 px-2 border border-ink-200 rounded-lg text-xs text-center font-bold text-ink-800 focus:outline-teal-600 disabled:bg-transparent disabled:border-transparent"
                   />
                 </td>
-                <td className="py-1.5 pr-2">
+                <td className="py-1.5 pr-2 w-32">
                   <select
-                    value={
-                      med.with_food === true ? 'after' : med.with_food === false ? 'before' : 'unknown'
-                    }
                     disabled={isSaved}
+                    value={med.with_food === true ? 'after' : med.with_food === false ? 'before' : 'unknown'}
                     onChange={(e) =>
                       handleFieldChange(
                         med.rowId,
                         'with_food',
-                        e.target.value === 'after' ? true : e.target.value === 'before' ? false : null
+                        e.target.value === 'after' ? true : e.target.value === 'before' ? false : null,
                       )
                     }
-                    className="text-[11px] bg-transparent border border-ink-200 rounded px-1 py-0.5 focus:outline-none focus:border-teal-500"
+                    className="w-full h-8 px-2 border border-ink-200 rounded-lg text-xs text-ink-800 focus:outline-teal-600 disabled:bg-transparent disabled:border-transparent"
                   >
-                    <option value="unknown">Not specified</option>
-                    <option value="after">After Food</option>
+                    <option value="after">With Food</option>
                     <option value="before">Empty Stomach</option>
+                    <option value="unknown">Not Specified</option>
                   </select>
                 </td>
                 <td className="py-1.5 text-right">
@@ -286,10 +283,10 @@ export function EditablePrescriptionWidget({
                     <button
                       type="button"
                       onClick={() => handleRemoveRow(med.rowId)}
-                      className="text-ink-400 hover:text-red-600 text-xs px-1 font-bold"
+                      className="text-ink-400 hover:text-red-600 p-1"
                       title="Remove medicine"
                     >
-                      ✕
+                      <XIcon size={14} />
                     </button>
                   )}
                 </td>
@@ -315,8 +312,9 @@ export function EditablePrescriptionWidget({
               loading={isSaving}
               onClick={handleSaveToTimetable}
               className="font-bold text-xs shadow-xs"
+              leftIcon={<PlusIcon size={14} />}
             >
-              ➕ Add all to Medication Cabinet & Timetable
+              Add all to Medication Cabinet & Timetable
             </Button>
           </>
         ) : (

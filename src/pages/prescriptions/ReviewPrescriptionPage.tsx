@@ -9,8 +9,18 @@ import { Input } from '../../components/ui/Input';
 import { Textarea } from '../../components/ui/Textarea';
 import { Badge } from '../../components/ui/Badge';
 import { Disclaimer } from '../../components/ui/Disclaimer';
+import {
+  ClockIcon,
+  PlusIcon,
+  MedicineIcon,
+  SearchIcon,
+} from '../../components/ui/icons';
 import { useAuth } from '../../lib/auth/AuthContext';
-import { parseFrequency, defaultDoseTimes, frequencyDescription } from '../../domain/frequency';
+import {
+  parseFrequency,
+  defaultDoseTimes,
+  formatDoseSlotSummary,
+} from '../../domain/frequency';
 import { parseDuration, computeEndDate } from '../../domain/duration';
 import { buildSchedule } from '../../domain/schedule';
 import { todayInAppTz, formatMinutesTo24h } from '../../lib/time';
@@ -66,7 +76,7 @@ export function ReviewPrescriptionPage() {
   const [doctorName, setDoctorName] = useState(initialDraft?.doctor_name || '');
   const [clinicName, setClinicName] = useState(initialDraft?.clinic_name || '');
   const [visitDate, setVisitDate] = useState(
-    initialDraft?.visit_date || todayInAppTz()
+    initialDraft?.visit_date?.trim() || todayInAppTz()
   );
   const [diagnosis, setDiagnosis] = useState(initialDraft?.diagnosis || '');
   const [doctorAdvice, setDoctorAdvice] = useState(initialDraft?.doctor_advice || '');
@@ -94,23 +104,31 @@ export function ReviewPrescriptionPage() {
 
   // Medicines List
   const [medicines, setMedicines] = useState<MedicineDraft[]>(
-    (initialDraft?.medicines || []).map((m, idx) => ({
-      id: `draft-${idx}-${draftSessionId}`,
-      medicine_name: m.medicine_name || '',
-      strength: m.strength || '',
-      form: m.form || 'tablet',
-      // Left blank rather than defaulted: an invented dose amount is a clinical
-      // error, and a blank field prompts the patient to fill in what was written.
-      dose_amount: m.dose_amount || '',
-      frequency_raw: m.frequency_raw || '',
-      duration_raw: m.duration_raw || '',
-      instructions: m.instructions || '',
-      // The prescription's meal relation is unknown until the patient sets it;
-      // hardcoding `true` here silently discarded that information.
-      with_food: null,
-      is_ongoing: false,
-      confidence: m.confidence || 'high',
-    }))
+    (initialDraft?.medicines || []).map((m, idx) => {
+      let withFood = m.with_food ?? null;
+      if (withFood === null && m.instructions) {
+        const inst = m.instructions.toLowerCase();
+        if (inst.includes('after') || inst.includes('with meal') || inst.includes('with food')) {
+          withFood = true;
+        } else if (inst.includes('before') || inst.includes('empty stomach')) {
+          withFood = false;
+        }
+      }
+
+      return {
+        id: `draft-${idx}-${draftSessionId}`,
+        medicine_name: m.medicine_name || '',
+        strength: m.strength || '',
+        form: m.form || 'tablet',
+        dose_amount: m.dose_amount || '',
+        frequency_raw: m.frequency_raw || '',
+        duration_raw: m.duration_raw || '',
+        instructions: m.instructions || '',
+        with_food: withFood,
+        is_ongoing: false,
+        confidence: m.confidence || 'high',
+      };
+    })
   );
 
   // Ordered Diagnostic Tests List
@@ -399,23 +417,25 @@ export function ReviewPrescriptionPage() {
           {activeImg && (
             <Card
               header={
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
                   <div className="flex items-center gap-2">
-                    <h2 className="text-base font-bold text-ink-900">Original Prescription</h2>
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 font-semibold border border-teal-200">
+                    <h2 className="text-base font-bold text-content">Original Prescription</h2>
+                    <span className="text-2xs px-2.5 py-0.5 rounded-full bg-accent-subtle text-accent font-bold border border-line">
                       Page {activeImageIndex + 1}/{images.length}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
                     {/* Zoom multiplier chips */}
-                    <div className="flex items-center bg-ink-100 p-0.5 rounded-md text-xs font-semibold text-ink-600">
+                    <div className="flex items-center bg-surface-sunken p-1 rounded-xl border border-line text-xs font-semibold text-content-muted">
                       {[2, 2.5, 3.5].map((level) => (
                         <button
                           key={level}
                           type="button"
                           onClick={() => setZoomLevel(level)}
-                          className={`px-1.5 py-0.5 rounded transition-colors ${
-                            zoomLevel === level ? 'bg-white text-teal-800 shadow-xs' : 'hover:text-ink-900'
+                          className={`px-2 py-0.5 rounded-lg text-xs font-bold transition-all ${
+                            zoomLevel === level
+                              ? 'bg-surface-raised text-accent shadow-xs border border-line'
+                              : 'hover:text-content'
                           }`}
                         >
                           {level}x
@@ -425,7 +445,7 @@ export function ReviewPrescriptionPage() {
                     <button
                       type="button"
                       onClick={() => setIsModalOpen(true)}
-                      className="text-xs text-teal-700 hover:text-teal-900 font-medium underline ml-1"
+                      className="text-xs text-accent hover:underline font-bold px-2 py-1"
                     >
                       Fullscreen
                     </button>
@@ -440,7 +460,7 @@ export function ReviewPrescriptionPage() {
                   onMouseEnter={() => setIsHoverZooming(true)}
                   onMouseLeave={() => setIsHoverZooming(false)}
                   onMouseMove={handleImageMouseMove}
-                  className="relative w-full h-[420px] rounded-[var(--radius-md)] border border-ink-200 bg-ink-900/5 overflow-hidden flex items-center justify-center cursor-crosshair select-none group"
+                  className="relative w-full h-[420px] rounded-[var(--radius-md)] border border-line bg-surface-sunken overflow-hidden flex items-center justify-center cursor-crosshair select-none group"
                 >
                   <img
                     src={`data:${activeImg.mimeType};base64,${activeImg.dataBase64}`}
@@ -454,19 +474,14 @@ export function ReviewPrescriptionPage() {
 
                   {/* Subtle hover helper badge */}
                   {!isHoverZooming && (
-                    <div className="absolute bottom-2 right-2 bg-ink-900/75 backdrop-blur-xs text-white text-[11px] font-medium px-2.5 py-1 rounded-full pointer-events-none flex items-center gap-1.5 shadow-sm">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                        <circle cx="11" cy="11" r="8" />
-                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                        <line x1="11" y1="8" x2="11" y2="14" />
-                        <line x1="8" y1="11" x2="14" y2="11" />
-                      </svg>
+                    <div className="absolute bottom-2 right-2 bg-surface-raised/90 backdrop-blur-xs text-content-muted text-2xs font-semibold px-3 py-1.5 rounded-full pointer-events-none flex items-center gap-1.5 shadow-card border border-line">
+                      <SearchIcon size={13} className="text-accent" />
                       Hover to magnify handwriting
                     </div>
                   )}
 
                   {isHoverZooming && (
-                    <div className="absolute top-2 left-2 bg-teal-800/85 backdrop-blur-xs text-white text-[10px] font-bold px-2 py-0.5 rounded pointer-events-none">
+                    <div className="absolute top-2 left-2 bg-accent text-content-onaccent text-2xs font-bold px-2.5 py-1 rounded-lg shadow-card pointer-events-none">
                       {zoomLevel}x Magnified
                     </div>
                   )}
@@ -480,10 +495,10 @@ export function ReviewPrescriptionPage() {
                         key={idx}
                         type="button"
                         onClick={() => setActiveImageIndex(idx)}
-                        className={`relative rounded-md border-2 overflow-hidden w-14 h-14 shrink-0 transition-all ${
+                        className={`relative rounded-xl border-2 overflow-hidden w-14 h-14 shrink-0 transition-all ${
                           activeImageIndex === idx
-                            ? 'border-teal-600 ring-2 ring-teal-200 scale-105'
-                            : 'border-ink-200 opacity-60 hover:opacity-100'
+                            ? 'border-accent ring-2 ring-accent-subtle scale-105 shadow-sm'
+                            : 'border-line opacity-60 hover:opacity-100'
                         }`}
                       >
                         <img
@@ -500,7 +515,7 @@ export function ReviewPrescriptionPage() {
           )}
 
           {/* Doctor & Visit Summary Card */}
-          <Card header={<h2 className="text-base font-bold text-ink-900">Visit Information</h2>}>
+          <Card header={<h2 className="text-base font-bold text-content">Visit Information</h2>}>
             <div className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Field id="rev-doctor" label="Doctor Name">
@@ -533,7 +548,7 @@ export function ReviewPrescriptionPage() {
                   <Input
                     value={diagnosis}
                     onChange={(e) => setDiagnosis(e.target.value)}
-                    placeholder="e.g. Pain Rt knee"
+                    placeholder="e.g. Right knee pain, Hypertension"
                   />
                 </Field>
               </div>
@@ -542,7 +557,7 @@ export function ReviewPrescriptionPage() {
                 <Textarea
                   value={doctorAdvice}
                   onChange={(e) => setDoctorAdvice(e.target.value)}
-                  placeholder="e.g. Steam inhalation, rest"
+                  placeholder="e.g. Steam inhalation, rest, avoid cold drinks"
                   rows={2}
                 />
               </Field>
@@ -576,18 +591,18 @@ export function ReviewPrescriptionPage() {
             header={
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-base font-bold text-ink-900">Prescribed Medicines ({medicines.length})</h2>
-                  <p className="text-xs text-ink-500">Each medicine will generate automated dose times.</p>
+                  <h2 className="text-base font-bold text-content">Prescribed Medicines ({medicines.length})</h2>
+                  <p className="text-xs text-content-muted">Each medicine generates clear daily dose times.</p>
                 </div>
-                <Button variant="secondary" size="sm" onClick={handleAddMedicine}>
-                  + Add Medicine
+                <Button variant="secondary" size="sm" onClick={handleAddMedicine} leftIcon={<PlusIcon size={14} />}>
+                  Add Medicine
                 </Button>
               </div>
             }
           >
             <div className="space-y-5">
               {medicines.length === 0 ? (
-                <div className="text-center py-8 text-sm text-ink-500">
+                <div className="text-center py-8 text-sm text-content-muted">
                   No medicines added yet. Click "+ Add Medicine" above.
                 </div>
               ) : (
@@ -595,28 +610,28 @@ export function ReviewPrescriptionPage() {
                   const isLowConf = m.confidence === 'low';
                   const freqCode = parseFrequency(m.frequency_raw);
                   const durResult = parseDuration(m.duration_raw);
-                  const freqDesc = frequencyDescription(freqCode);
                   const doseTimes = defaultDoseTimes(freqCode, m.with_food, m.frequency_raw);
+                  const friendlySummary = formatDoseSlotSummary(m.frequency_raw, freqCode);
 
                   return (
                     <div
                       key={m.id}
-                      className={`p-4 rounded-[var(--radius-lg)] border ${
+                      className={`p-5 rounded-2xl border ${
                         isLowConf
                           ? 'border-warn-border bg-warn-bg/20'
-                          : 'border-ink-200 bg-white'
-                      } space-y-4 shadow-[var(--shadow-card)]`}
+                          : 'border-line bg-surface-raised'
+                      } space-y-4 shadow-card hover:border-line-strong transition-all`}
                     >
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-ink-500 uppercase tracking-wider">
-                          Medicine #{idx + 1}
+                        <span className="text-xs font-bold text-content-muted uppercase tracking-wider flex items-center gap-1.5">
+                          <MedicineIcon size={14} className="text-accent" /> Medicine #{idx + 1}
                         </span>
                         <div className="flex items-center gap-2">
-                          {isLowConf && <Badge tone="warn" size="sm">Check this</Badge>}
+                          {isLowConf && <Badge tone="warn" size="sm">Verify details</Badge>}
                           <button
                             type="button"
                             onClick={() => handleRemoveMedicine(m.id)}
-                            className="text-xs text-red-600 hover:text-red-800 font-medium p-1"
+                            className="text-xs text-risk-text hover:underline font-bold px-2 py-1"
                           >
                             Remove
                           </button>
@@ -644,7 +659,7 @@ export function ReviewPrescriptionPage() {
                             <Input
                               value={m.form || ''}
                               onChange={(e) => handleUpdateMedicine(m.id, { form: e.target.value })}
-                              placeholder="e.g. Tab"
+                              placeholder="e.g. Tab, Cap, Syrup"
                             />
                           </Field>
                         </div>
@@ -652,32 +667,45 @@ export function ReviewPrescriptionPage() {
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                          <Field id={`med-freq-${m.id}`} label="Frequency (as written)" required>
+                          <Field id={`med-freq-${m.id}`} label="Frequency (When to take)" required>
                             <Input
                               value={m.frequency_raw || ''}
                               onChange={(e) => handleUpdateMedicine(m.id, { frequency_raw: e.target.value })}
-                              placeholder="e.g. 1+0+1, BD, TDS, PRN"
+                              placeholder="e.g. Morning & Night, 1+0+1, Once daily"
                             />
                           </Field>
-                          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
-                            <span className="text-ink-500">Interpreted:</span>
-                            {freqCode ? (
-                              <>
-                                <span className="font-semibold text-teal-700">{freqDesc}</span>
-                                {doseTimes.length > 0 && (
-                                  <span className="text-ink-400">
-                                    ({doseTimes.map((t) => formatMinutesTo24h(t)).join(', ')})
-                                  </span>
-                                )}
-                              </>
-                            ) : (
-                              // Says exactly what will happen: nothing is saved
-                              // until this is readable. Previously it displayed
-                              // "Custom / As needed" and then silently saved OD.
-                              <span className="font-semibold text-amber-700">
-                                {m.frequency_raw?.trim()
-                                  ? 'Not recognised — please rewrite it (e.g. 1+0+1, BD, TDS, PRN)'
-                                  : 'Required — enter the frequency as written'}
+
+                          {/* Quick Preset Chips for Easy Selection */}
+                          <div className="mt-1.5 flex flex-wrap gap-1">
+                            {[
+                              { label: 'Morning & Night', value: 'Morning & Night (Twice daily)' },
+                              { label: 'Once Daily (Morning)', value: 'Once daily (Morning)' },
+                              { label: '3 Times Daily', value: '3 times daily (Morning, Afternoon & Night)' },
+                              { label: 'Bedtime', value: 'Night at bedtime' },
+                              { label: 'As Needed', value: 'As needed (PRN)' },
+                            ].map((preset) => (
+                              <button
+                                key={preset.label}
+                                type="button"
+                                onClick={() => handleUpdateMedicine(m.id, { frequency_raw: preset.value })}
+                                className="text-2xs font-semibold px-2 py-0.5 rounded-md bg-surface-sunken hover:bg-accent-subtle hover:text-accent border border-line transition-colors text-content-muted"
+                              >
+                                {preset.label}
+                              </button>
+                            ))}
+                          </div>
+
+                          {/* Human-Friendly Dose Timing Summary Box */}
+                          <div className="mt-2 p-2.5 rounded-xl bg-surface-sunken border border-line text-xs flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-1.5">
+                              <ClockIcon size={14} className="text-accent shrink-0" />
+                              <span className="font-bold text-content">
+                                {friendlySummary}
+                              </span>
+                            </div>
+                            {doseTimes.length > 0 && (
+                              <span className="text-content-muted font-mono text-2xs font-bold bg-surface-raised px-2 py-0.5 rounded-md border border-line shrink-0">
+                                {doseTimes.map((t) => formatMinutesTo24h(t)).join(', ')}
                               </span>
                             )}
                           </div>
@@ -688,7 +716,7 @@ export function ReviewPrescriptionPage() {
                             <Input
                               value={m.duration_raw || ''}
                               onChange={(e) => handleUpdateMedicine(m.id, { duration_raw: e.target.value })}
-                              placeholder="e.g. 2 wks, 5 days"
+                              placeholder="e.g. 5 days, 2 weeks, 1 month"
                               disabled={m.is_ongoing}
                             />
                           </Field>
@@ -696,21 +724,21 @@ export function ReviewPrescriptionPage() {
                             <span
                               className={
                                 durResult.kind === 'days'
-                                  ? 'text-ink-500'
+                                  ? 'text-content-muted font-semibold'
                                   : m.is_ongoing
-                                    ? 'text-ink-500'
-                                    : 'text-amber-700 font-semibold'
+                                    ? 'text-content-muted font-semibold'
+                                    : 'text-warn-text font-semibold'
                               }
                             >
                               {durResult.kind === 'days'
                                 ? `Interpreted: ${durResult.days} days`
                                 : m.is_ongoing || durResult.kind === 'ongoing'
-                                  ? 'Ongoing'
+                                  ? 'Ongoing medication'
                                   : m.duration_raw?.trim()
                                     ? 'Not recognised — try "5 days" or "2 weeks"'
                                     : 'Required — or tick Ongoing'}
                             </span>
-                            <label className="flex items-center gap-1.5 cursor-pointer text-ink-600 font-medium">
+                            <label className="flex items-center gap-1.5 cursor-pointer text-content font-semibold text-xs">
                               <input
                                 type="checkbox"
                                 checked={m.is_ongoing || false}
@@ -720,7 +748,7 @@ export function ReviewPrescriptionPage() {
                                     duration_raw: e.target.checked ? 'Ongoing' : '',
                                   })
                                 }
-                                className="rounded text-teal-600 focus:ring-teal-500"
+                                className="rounded text-accent focus:ring-accent"
                               />
                               Ongoing
                             </label>
@@ -729,11 +757,11 @@ export function ReviewPrescriptionPage() {
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <Field id={`med-inst-${m.id}`} label="Instructions / Meal relation">
+                        <Field id={`med-inst-${m.id}`} label="Instructions / Directions">
                           <Input
                             value={m.instructions || ''}
                             onChange={(e) => handleUpdateMedicine(m.id, { instructions: e.target.value })}
-                            placeholder="e.g. after food, with milk"
+                            placeholder="e.g. After meals with water"
                           />
                         </Field>
 
@@ -752,14 +780,11 @@ export function ReviewPrescriptionPage() {
                                       : null,
                               })
                             }
-                            className="w-full h-11 px-3.5 py-2 text-sm bg-surface-primary border border-ink-200 rounded-[var(--radius-md)] text-ink-900 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600"
+                            className="w-full h-12 px-3.5 text-base sm:text-sm bg-surface-raised border border-line-strong rounded-[var(--radius-md)] text-content focus:border-accent focus:outline-2 focus:outline-offset-2 focus:outline-accent"
                           >
-                            {/* "Not specified" is a real option: recording a meal
-                                relation the prescription never stated invents
-                                clinical guidance. */}
                             <option value="unknown">Not specified</option>
                             <option value="with">After / With Food</option>
-                            <option value="empty">Empty Stomach (07:00 AM)</option>
+                            <option value="empty">Empty Stomach (Before Food)</option>
                           </select>
                         </Field>
                       </div>
@@ -775,40 +800,41 @@ export function ReviewPrescriptionPage() {
             header={
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-base font-bold text-ink-900">
+                  <h2 className="text-base font-bold text-content">
                     Ordered Lab Tests / Investigations ({tests.length})
                   </h2>
-                  <p className="text-xs text-ink-500">Creates pending test orders linked to this visit.</p>
+                  <p className="text-xs text-content-muted">Diagnostic lab tests prescribed during this visit.</p>
                 </div>
-                <Button variant="secondary" size="sm" onClick={handleAddTest}>
-                  + Add Test
+                <Button variant="secondary" size="sm" onClick={handleAddTest} leftIcon={<PlusIcon size={14} />}>
+                  Add Test
                 </Button>
               </div>
             }
           >
             <div className="space-y-3">
               {tests.length === 0 ? (
-                <div className="text-center py-6 text-sm text-ink-500">
-                  No tests ordered on this prescription.
+                <div className="text-center py-6 text-xs text-content-subtle">
+                  No diagnostic tests were detected or added.
                 </div>
               ) : (
                 tests.map((t, idx) => (
                   <div
                     key={t.id}
-                    className="flex items-center gap-3 p-3 rounded-[var(--radius-md)] border border-ink-200 bg-white"
+                    className="p-3 rounded-xl border border-line bg-surface-raised flex items-center justify-between gap-3 shadow-xs"
                   >
-                    <span className="text-xs font-bold text-ink-400 w-6">#{idx + 1}</span>
-                    <Input
-                      value={t.test_name}
-                      onChange={(e) => handleUpdateTest(t.id, e.target.value)}
-                      placeholder="e.g. CBC, Serum Creatinine, X-Ray Knee"
-                    />
+                    <div className="flex-1">
+                      <Input
+                        value={t.test_name}
+                        onChange={(e) => handleUpdateTest(t.id, e.target.value)}
+                        placeholder={`Test #${idx + 1} (e.g. CBC, Serum Creatinine)`}
+                      />
+                    </div>
                     <button
                       type="button"
                       onClick={() => handleRemoveTest(t.id)}
-                      className="text-xs text-red-600 hover:text-red-800 font-medium px-2 py-1"
+                      className="text-xs text-risk-text hover:underline font-bold px-2 py-1 shrink-0"
                     >
-                      Delete
+                      Remove
                     </button>
                   </div>
                 ))

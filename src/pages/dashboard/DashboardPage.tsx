@@ -23,6 +23,7 @@ import {
   EmergencyAmbulanceIcon,
   ArrowRightIcon,
   ClockIcon,
+  SparklesIcon,
 } from '../../components/ui/icons';
 import { useAuth } from '../../lib/auth/AuthContext';
 import { medicinesRepo, dosesRepo, testOrdersRepo, reportsRepo, visitsRepo } from '../../lib/db';
@@ -200,8 +201,8 @@ export function DashboardPage() {
             </Button>
           </Link>
           <Link to="/assistant">
-            <Button variant="secondary" className="tap-spring">
-              ✨ Assistant
+            <Button variant="secondary" className="tap-spring" leftIcon={<SparklesIcon size={16} />}>
+              Assistant
             </Button>
           </Link>
         </div>

@@ -21,7 +21,7 @@ Medfolio is a privacy-first personal health management web application and PWA d
 
 - **Frontend**: React 19, TypeScript, Tailwind CSS v4, Custom SVG Icons, Recharts
 - **Backend / API**: Vercel Serverless Functions (`/api/extract-prescription`, `/api/extract-lab-report`, `/api/explain-medicine`)
-- **AI Model**: Google Gemini API (`gemini-3.5-flash`)
+- **AI Model**: Google Gemini API (`gemini-3.6-flash`)
 - **Database & Auth**: Supabase PostgreSQL with tenant-isolated Row-Level Security (RLS)
 - **Testing & Quality**: Vitest, strict TypeScript mode, zero-warnings ESLint rule
 
@@ -56,7 +56,7 @@ VITE_SUPABASE_ANON_KEY=<your-anon-key>
 SUPABASE_URL=https://<your-project>.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=<your-service-role-key>
 GEMINI_API_KEY=<your-gemini-api-key>
-GEMINI_MODEL=gemini-3.5-flash
+GEMINI_MODEL=gemini-3.6-flash
 ```
 
 ### 4. Run Locally

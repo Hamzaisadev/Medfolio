@@ -10,6 +10,7 @@ import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Dialog } from '../../components/ui/Dialog';
 import { Toast } from '../../components/ui/Toast';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { ErrorState } from '../../components/ui/ErrorState';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { SectionHeader } from '../../components/ui/SectionHeader';
 import { PackageIcon, PlusIcon, CheckIcon, MedicineIcon } from '../../components/ui/icons';
@@ -47,6 +48,7 @@ export function MedicineCabinetPage() {
   const { user, profile } = useAuth();
   const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Pill supply inventory (medicine_id -> remaining count), scoped per profile.
   const [inventory, setInventory] = useState<Record<string, number>>({});
@@ -76,6 +78,7 @@ export function MedicineCabinetPage() {
   const loadMedicines = useCallback(async () => {
     if (!effectiveProfileId) return;
     setIsLoading(true);
+    setLoadError(null);
     try {
       const list = await medicinesRepo.listMedicines(effectiveProfileId);
       setMedicines(list);
@@ -95,8 +98,9 @@ export function MedicineCabinetPage() {
       setInventory(stored);
     } catch (err) {
       console.error('Failed to load medicines:', err);
-      setMedicines([]);
-      setToast({ message: 'Could not load your medicine cabinet.', tone: 'risk' });
+      // A toast disappears after a few seconds; a failed load must remain a
+      // visible, retryable state instead of posing as an empty cabinet.
+      setLoadError('Your medicine cabinet could not be loaded. Check your connection and try again.');
     } finally {
       setIsLoading(false);
     }
@@ -210,7 +214,7 @@ export function MedicineCabinetPage() {
         <Toast open onClose={() => setToast(null)} message={toast.message} tone={toast.tone} />
       )}
 
-      {lowStockMeds.length > 0 && (
+      {!loadError && lowStockMeds.length > 0 && (
         <Card accent="warn" className="mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center gap-4">
             <span className="shrink-0 flex items-center justify-center w-11 h-11 rounded-[var(--radius-md)] bg-warn-bg text-warn-text">
@@ -244,6 +248,12 @@ export function MedicineCabinetPage() {
             <Skeleton key={i} className="h-52 w-full rounded-[var(--radius-lg)]" />
           ))}
         </div>
+      ) : loadError ? (
+        <ErrorState
+          title="Cabinet didn't load"
+          message={loadError}
+          onRetry={loadMedicines}
+        />
       ) : (
         <Tabs defaultValue="active">
           <TabsList className="mb-2">

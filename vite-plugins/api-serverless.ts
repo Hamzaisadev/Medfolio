@@ -26,7 +26,18 @@ export function devApiServerlessPlugin(): Plugin {
             chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
           }
           const rawBody = Buffer.concat(chunks).toString('utf-8');
-          (req as any).body = rawBody ? JSON.parse(rawBody) : {};
+          let parsedBody: unknown = {};
+          if (rawBody) {
+            try {
+              parsedBody = JSON.parse(rawBody);
+            } catch {
+              res.statusCode = 400;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ error: 'Invalid JSON body in API request' }));
+              return;
+            }
+          }
+          (req as any).body = parsedBody;
 
           if (pathname === '/api/extract-prescription') {
             await extractPrescriptionHandler(req as any, res as any);

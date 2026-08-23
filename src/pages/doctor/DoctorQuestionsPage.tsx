@@ -4,6 +4,7 @@ import { AppShell } from '../../components/layout/AppShell';
 import { useAuth } from '../../lib/auth/AuthContext';
 import { listMedicines } from '../../lib/db/medicines';
 import { listReports, getReportResults } from '../../lib/db/reports';
+import { listGlucoseReadings, listBloodPressureReadings } from '../../lib/db/vitals';
 import { generateDoctorQuestions, DoctorQuestion } from '../../domain/doctorQuestions';
 import { Button } from '../../components/ui/Button';
 import { CopyIcon, PrinterIcon, SparklesIcon, CheckIcon } from '../../components/ui/icons';

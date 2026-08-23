@@ -5,6 +5,18 @@ import { Badge } from '../../components/ui/Badge';
 import { Toast } from '../../components/ui/Toast';
 import { Dialog } from '../../components/ui/Dialog';
 import { Disclaimer } from '../../components/ui/Disclaimer';
+import {
+  MedicineIcon,
+  BarChartIcon,
+  DoctorIcon,
+  ShieldIcon,
+  FolderIcon,
+  MessageSquareIcon,
+  XIcon,
+  AlertTriangleIcon,
+  SparklesIcon,
+  CheckIcon,
+} from '../../components/ui/icons';
 import { MEDICINE_INFO_DISCLAIMER } from '../../lib/disclaimer';
 import { medicinesRepo, visitsRepo, reportsRepo, profilesRepo, sideEffectsRepo } from '../../lib/db';
 import { activeMedicines, type MedicineRecord } from '../../domain/activeMedicines';
@@ -36,19 +48,19 @@ interface Message {
 
 const DEEP_CLINICAL_PROMPTS = [
   {
-    title: '💊 Drug Interaction Check',
+    title: 'Drug Interaction Check',
     prompt: 'Check all my active medicines for potential interactions and food timing conflicts.',
   },
   {
-    title: '📊 Synthesize Lab Trends',
+    title: 'Synthesize Lab Trends',
     prompt: 'Correlate my recent lab report results with my prescribed medicines.',
   },
   {
-    title: '👨‍⚕️ Doctor Action Plan',
+    title: 'Doctor Action Plan',
     prompt: 'Review advice from my last visit and give me follow-up questions for my next checkup.',
   },
   {
-    title: '🍲 Daily Meal & Dose Timetable',
+    title: 'Daily Meal & Dose Timetable',
     prompt: 'Generate an exact daily timetable showing what time to take each medicine relative to food.',
   },
 ];
@@ -404,7 +416,7 @@ export function AssistantPage() {
                 className="px-2.5 py-1 rounded-lg border border-line bg-surface-raised text-content-muted hover:bg-surface-hover text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs"
                 title="View safety and reliability information"
               >
-                <span>🛡️</span>
+                <ShieldIcon size={14} />
                 <span className="hidden sm:inline">Safety & Oversight</span>
                 <span className="sm:hidden">Safety</span>
               </button>
@@ -418,7 +430,7 @@ export function AssistantPage() {
                     : 'bg-surface-raised text-content-muted border-line hover:bg-surface-hover'
                 }`}
               >
-                <span>📁</span>
+                <FolderIcon size={14} />
                 <span>Active Context ({activeMedsList.length})</span>
               </button>
 
@@ -453,49 +465,53 @@ export function AssistantPage() {
             <button
               type="button"
               onClick={() => setActiveTab('chat')}
-              className={`flex-1 py-1.5 px-3 text-xs font-bold rounded-lg transition-all whitespace-nowrap tap-spring ${
+              className={`flex-1 py-1.5 px-3 text-xs font-bold rounded-lg transition-all whitespace-nowrap tap-spring flex items-center justify-center gap-1.5 ${
                 activeTab === 'chat'
                   ? 'bg-surface-raised text-accent font-black shadow-xs border border-line'
                   : 'text-content-muted hover:text-content hover:bg-surface-hover'
               }`}
             >
-              💬 Consultation Chat
+              <MessageSquareIcon size={14} />
+              <span>Consultation Chat</span>
             </button>
 
             <button
               type="button"
               onClick={() => setActiveTab('radar')}
-              className={`flex-1 py-1.5 px-3 text-xs font-bold rounded-lg transition-all whitespace-nowrap tap-spring ${
+              className={`flex-1 py-1.5 px-3 text-xs font-bold rounded-lg transition-all whitespace-nowrap tap-spring flex items-center justify-center gap-1.5 ${
                 activeTab === 'radar'
                   ? 'bg-surface-raised text-accent font-black shadow-xs border border-line'
                   : 'text-content-muted hover:text-content hover:bg-surface-hover'
               }`}
             >
-              🔬 Interaction Radar
+              <MedicineIcon size={14} />
+              <span>Interaction Radar</span>
             </button>
 
             <button
               type="button"
               onClick={() => setActiveTab('doctor-prep')}
-              className={`flex-1 py-1.5 px-3 text-xs font-bold rounded-lg transition-all whitespace-nowrap tap-spring ${
+              className={`flex-1 py-1.5 px-3 text-xs font-bold rounded-lg transition-all whitespace-nowrap tap-spring flex items-center justify-center gap-1.5 ${
                 activeTab === 'doctor-prep'
                   ? 'bg-surface-raised text-accent font-black shadow-xs border border-line'
                   : 'text-content-muted hover:text-content hover:bg-surface-hover'
               }`}
             >
-              👨‍⚕️ Doctor Visit Prep
+              <DoctorIcon size={14} />
+              <span>Doctor Visit Prep</span>
             </button>
 
             <button
               type="button"
               onClick={() => setActiveTab('biomarkers')}
-              className={`flex-1 py-1.5 px-3 text-xs font-bold rounded-lg transition-all whitespace-nowrap tap-spring ${
+              className={`flex-1 py-1.5 px-3 text-xs font-bold rounded-lg transition-all whitespace-nowrap tap-spring flex items-center justify-center gap-1.5 ${
                 activeTab === 'biomarkers'
                   ? 'bg-surface-raised text-accent font-black shadow-xs border border-line'
                   : 'text-content-muted hover:text-content hover:bg-surface-hover'
               }`}
             >
-              📈 Biomarker Trends
+              <BarChartIcon size={14} />
+              <span>Biomarker Trends</span>
             </button>
           </div>
         </div>
@@ -515,9 +531,9 @@ export function AssistantPage() {
               <button
                 type="button"
                 onClick={() => setShowContextDrawer(false)}
-                className="text-content-muted hover:text-content text-xs font-bold"
+                className="text-content-muted hover:text-content p-1"
               >
-                ✕ Close
+                <XIcon size={14} />
               </button>
             </div>
 
@@ -622,7 +638,9 @@ export function AssistantPage() {
                       {/* 5. Safety & Interaction Alerts */}
                       {m.safetyAlerts && m.safetyAlerts.length > 0 && (
                         <div className="mt-3 p-3 rounded-xl border border-warn-border bg-warn-bg text-xs space-y-1">
-                          <span className="font-bold text-warn-text block text-xs">⚠️ Critical Safety Radar:</span>
+                          <span className="font-bold text-warn-text flex items-center gap-1.5 text-xs">
+                            <AlertTriangleIcon size={14} className="text-amber-700 shrink-0" /> Critical Safety Radar:
+                          </span>
                           <ul className="list-disc list-inside space-y-0.5 text-warn-text text-xs">
                             {m.safetyAlerts.map((alert, aIdx) => (
                               <li key={aIdx}>{alert}</li>
@@ -641,7 +659,7 @@ export function AssistantPage() {
                               className="text-content-muted hover:text-content font-bold flex items-center gap-1"
                               title="Listen to audio response"
                             >
-                              <span>{speakingMsgId === m.id ? '⏹️ Stop' : '🔊 Listen'}</span>
+                              <span>{speakingMsgId === m.id ? 'Stop Audio' : 'Listen'}</span>
                             </button>
                           </div>
                         </div>
@@ -658,7 +676,7 @@ export function AssistantPage() {
                             onClick={() => handleSendMessage(s)}
                             className="px-3 py-1.5 rounded-full bg-accent-subtle border border-line text-accent font-semibold hover:bg-surface-hover transition-all text-xs text-left shadow-xs flex items-center gap-1.5 active:scale-95"
                           >
-                            <span className="text-accent">💡</span>
+                            <SparklesIcon size={12} className="text-accent shrink-0" />
                             <span>{s}</span>
                           </button>
                         ))}
@@ -683,7 +701,9 @@ export function AssistantPage() {
             {/* Attached Image Preview */}
             {attachedImage && (
               <div className="px-4 py-1.5 bg-accent-subtle border-t border-line flex items-center justify-between text-xs text-content shrink-0 max-w-4xl mx-auto w-full">
-                <span className="font-semibold truncate">📷 Image attached for clinical inspection</span>
+                <span className="font-semibold truncate flex items-center gap-1.5">
+                  <FolderIcon size={14} className="text-accent" /> Image attached for clinical inspection
+                </span>
                 <button
                   type="button"
                   onClick={() => setAttachedImage(null)}
@@ -733,10 +753,10 @@ export function AssistantPage() {
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     aria-label="Attach photo of medicine strip, prescription, or lab slip"
-                    className="h-11 px-3 rounded-xl border border-line text-content-muted hover:bg-surface-hover transition-colors flex items-center gap-1 text-xs font-bold shrink-0 shadow-2xs"
+                    className="h-11 px-3 rounded-xl border border-line text-content-muted hover:bg-surface-hover transition-colors flex items-center gap-1.5 text-xs font-bold shrink-0 shadow-2xs"
                     title="Attach photo of medicine strip, prescription, or lab slip"
                   >
-                    <span>📷</span>
+                    <FolderIcon size={16} />
                     <span className="hidden sm:inline">Attach</span>
                   </button>
 
@@ -745,15 +765,14 @@ export function AssistantPage() {
                     type="button"
                     onClick={toggleSpeechRecognition}
                     aria-label={isRecording ? 'Stop voice input' : 'Start voice input'}
-                    className={`h-11 px-3 rounded-xl border transition-all flex items-center gap-1 text-xs font-bold shrink-0 shadow-2xs ${
+                    className={`h-11 px-3 rounded-xl border transition-all flex items-center gap-1.5 text-xs font-bold shrink-0 shadow-2xs ${
                       isRecording
                         ? 'bg-warn-bg border-warn-border text-warn-text animate-pulse'
                         : 'border-line text-content-muted hover:bg-surface-hover'
                     }`}
                     title={isRecording ? 'Listening... click to stop' : 'Voice input'}
                   >
-                    <span>{isRecording ? '🎙️ Listening...' : '🎙️'}</span>
-                    <span className="hidden sm:inline">{!isRecording && 'Speak'}</span>
+                    <span>{isRecording ? 'Listening...' : 'Voice'}</span>
                   </button>
 
                   <input
@@ -860,15 +879,15 @@ export function AssistantPage() {
             {/* Safety Rules */}
             <div className="space-y-2 text-2xs">
               <div className="flex items-start gap-2">
-                <span className="text-ok-text font-bold">✓</span>
+                <CheckIcon size={14} className="text-ok-text shrink-0 mt-0.5" />
                 <p><strong>Assist — Do Not Diagnose:</strong> The assistant helps organize regimens, explains terminology, and detects drug interactions, but never makes unilateral diagnostic claims.</p>
               </div>
               <div className="flex items-start gap-2">
-                <span className="text-ok-text font-bold">✓</span>
+                <CheckIcon size={14} className="text-ok-text shrink-0 mt-0.5" />
                 <p><strong>Zero Silent Commits:</strong> No medical records, prescriptions, or schedule updates are saved without your explicit confirmation.</p>
               </div>
               <div className="flex items-start gap-2">
-                <span className="text-ok-text font-bold">✓</span>
+                <CheckIcon size={14} className="text-ok-text shrink-0 mt-0.5" />
                 <p><strong>Domain Isolation:</strong> Responses are bounded strictly to personal health and pharmacology, refusing off-topic generation.</p>
               </div>
             </div>

@@ -5,6 +5,7 @@ import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { ErrorState } from '../../components/ui/ErrorState';
+import { Disclaimer } from '../../components/ui/Disclaimer';
 import { LabFlaskIcon, SparklesIcon, XIcon } from '../../components/ui/icons';
 import { optimizeMedicalImage, type ProcessedImage } from '../../lib/files/imagePipeline';
 import { extractLabReport } from '../../lib/ai/client';
@@ -256,7 +257,7 @@ export function CaptureReportPage() {
                       : 'bg-ink-100 border-ink-200 text-ink-600'
                   }`}
                 >
-                  <span>✨</span>
+                  <SparklesIcon size={14} className={useEnhancedContrast ? 'text-teal-700' : 'text-ink-500'} />
                   <span>{useEnhancedContrast ? 'Handwriting Contrast: Enhanced' : 'Handwriting Contrast: Original'}</span>
                 </button>
               </div>
@@ -276,8 +277,8 @@ export function CaptureReportPage() {
                     Page {idx + 1}
                   </span>
                   {useEnhancedContrast && (
-                    <div className="absolute top-1 left-1 bg-teal-800/90 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">
-                      ✨ Enhanced
+                    <div className="absolute top-1 left-1 bg-teal-800/90 text-white text-[9px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1">
+                      <SparklesIcon size={10} /> Enhanced
                     </div>
                   )}
                   <button
@@ -285,7 +286,7 @@ export function CaptureReportPage() {
                     onClick={() => handleRemoveImage(idx)}
                     className="absolute top-1 right-1 bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shadow-sm opacity-90 hover:opacity-100"
                   >
-                    ×
+                    <XIcon size={12} />
                   </button>
                 </div>
               ))}

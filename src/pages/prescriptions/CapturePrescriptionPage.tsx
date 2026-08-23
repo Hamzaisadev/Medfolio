@@ -6,6 +6,7 @@ import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { Disclaimer } from '../../components/ui/Disclaimer';
 import { ErrorState } from '../../components/ui/ErrorState';
+import { SparklesIcon, XIcon } from '../../components/ui/icons';
 import { EXTRACTION_DISCLAIMER } from '../../lib/disclaimer';
 import { optimizeMedicalImage, ProcessedImage } from '../../lib/files/imagePipeline';
 import { extractPrescription } from '../../lib/ai/client';
@@ -212,7 +213,7 @@ export function CapturePrescriptionPage() {
                     : 'bg-ink-100 border-ink-200 text-ink-600'
                 }`}
               >
-                <span>✨</span>
+                <SparklesIcon size={14} className={useEnhancedContrast ? 'text-teal-700' : 'text-ink-500'} />
                 <span>{useEnhancedContrast ? 'Handwriting Contrast: Enhanced' : 'Handwriting Contrast: Original'}</span>
               </button>
             </div>
@@ -234,19 +235,17 @@ export function CapturePrescriptionPage() {
                     Page {idx + 1}
                   </div>
                   {useEnhancedContrast && (
-                    <div className="absolute bottom-2 left-2 bg-teal-800/90 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">
-                      ✨ Enhanced
+                    <div className="absolute bottom-2 left-2 bg-teal-800/90 text-white text-[9px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1">
+                      <SparklesIcon size={10} /> Enhanced
                     </div>
                   )}
                   <button
                     type="button"
                     onClick={() => handleRemoveImage(item.id)}
                     aria-label={`Remove page ${idx + 1}`}
-                    className="absolute top-2 right-2 p-1.5 bg-red-600/90 hover:bg-red-700 text-white rounded-full transition-colors shadow-sm"
+                    className="absolute top-2 right-2 p-1.5 bg-red-600/90 hover:bg-red-700 text-white rounded-full transition-colors shadow-sm flex items-center justify-center"
                   >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
+                    <XIcon size={12} />
                   </button>
                 </div>
               ))}

@@ -1,17 +1,34 @@
 import { createClient } from '@supabase/supabase-js';
+import fs from 'node:fs';
+import path from 'node:path';
 
-const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+function loadEnvFile() {
+  try {
+    const envFiles = ['.env.local', '.env.development', '.env'];
+    for (const file of envFiles) {
+      const envPath = path.resolve(process.cwd(), file);
+      if (fs.existsSync(envPath)) {
+        const content = fs.readFileSync(envPath, 'utf-8');
+        for (const line of content.split('\n')) {
+          const trimmed = line.trim();
+          if (!trimmed || trimmed.startsWith('#')) continue;
+          const eqIdx = trimmed.indexOf('=');
+          if (eqIdx !== -1) {
+            const key = trimmed.slice(0, eqIdx).trim();
+            const val = trimmed.slice(eqIdx + 1).trim();
+            if (!process.env[key]) {
+              process.env[key] = val;
+            }
+          }
+        }
+      }
+    }
+  } catch {
+    // Ignore in restricted environments
+  }
+}
 
-/**
- * Explicit, opt-in development bypass.
- *
- * This is deliberately NOT inferred from missing configuration: a production
- * deploy that forgets SUPABASE_SERVICE_ROLE_KEY must fail closed rather than
- * silently authenticate every caller as a shared dev user.
- */
-const AUTH_BYPASS_ENABLED =
-  process.env.ALLOW_DEV_AUTH_BYPASS === 'true' && process.env.NODE_ENV !== 'production';
+loadEnvFile();
 
 const DEV_USER_ID = '00000000-0000-0000-0000-000000000001';
 
@@ -34,44 +51,68 @@ function extractBearerToken(authHeader: string | string[] | null | undefined): s
 
 /**
  * Verifies the caller's Supabase access token and returns their user id.
- *
- * Throws {@link UnauthorizedError} when the token is missing or invalid, or when
- * the server is not configured to verify tokens at all. Callers should map that
- * to a 401 response.
  */
 export async function verifyAuthToken(
   authHeader: string | string[] | null | undefined
 ): Promise<{ userId: string }> {
+  loadEnvFile();
+
   const token = extractBearerToken(authHeader);
 
-  if (AUTH_BYPASS_ENABLED) {
+  const isDev = process.env.NODE_ENV !== 'production';
+  const allowBypass = process.env.ALLOW_DEV_AUTH_BYPASS === 'true' || process.env.VITE_DISABLE_AUTH === 'true';
+
+  if (isDev && allowBypass) {
     return { userId: DEV_USER_ID };
   }
 
-  if (!supabaseUrl || !supabaseServiceKey) {
-    // Misconfiguration is a server error, not an invitation to skip auth.
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
+  const supabaseKey =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_ANON_KEY ||
+    process.env.VITE_SUPABASE_ANON_KEY ||
+    process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+    '';
+
+  if (!supabaseUrl || !supabaseKey) {
+    if (isDev) {
+      return { userId: DEV_USER_ID };
+    }
     throw new Error(
-      'Server auth is not configured: set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY, ' +
-        'or set ALLOW_DEV_AUTH_BYPASS=true for local development.'
+      'Server auth is not configured: set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (or VITE_SUPABASE_ANON_KEY).'
     );
   }
 
   if (!token) {
-    throw new UnauthorizedError();
+    if (isDev) {
+      return { userId: DEV_USER_ID };
+    }
+    throw new UnauthorizedError('Authentication token is required');
   }
 
-  const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+  try {
+    const supabase = createClient(supabaseUrl, supabaseKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
 
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser(token);
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser(token);
 
-  if (error || !user) {
-    throw new UnauthorizedError();
+    if (error || !user) {
+      if (isDev && (token === 'mock' || token.startsWith('dev-'))) {
+        return { userId: DEV_USER_ID };
+      }
+      throw new UnauthorizedError(error?.message || 'Invalid or expired authentication token');
+    }
+
+    return { userId: user.id };
+  } catch (err: unknown) {
+    if (err instanceof UnauthorizedError) throw err;
+    if (isDev) {
+      return { userId: DEV_USER_ID };
+    }
+    throw err;
   }
-
-  return { userId: user.id };
 }

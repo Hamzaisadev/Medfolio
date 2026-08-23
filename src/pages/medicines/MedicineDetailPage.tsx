@@ -11,6 +11,7 @@ import { Dialog } from '../../components/ui/Dialog';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Toast } from '../../components/ui/Toast';
 import { Skeleton } from '../../components/ui/Skeleton';
+import { ErrorState } from '../../components/ui/ErrorState';
 import { Disclaimer } from '../../components/ui/Disclaimer';
 import { MedicineIcon } from '../../components/ui/icons';
 import { useAuth } from '../../lib/auth/AuthContext';
@@ -30,6 +31,7 @@ export function MedicineDetailPage() {
   const [visit, setVisit] = useState<Tables<'visits'> | null>(null);
   const [sideEffects, setSideEffects] = useState<Tables<'side_effects'>[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Plain-Language Explainer state
   const [explainer, setExplainer] = useState<{
@@ -55,6 +57,7 @@ export function MedicineDetailPage() {
   const loadData = useCallback(async () => {
     if (!id) return;
     setIsLoading(true);
+    setLoadError(null);
     try {
       const med = await medicinesRepo.getMedicineById(id);
       if (!med) {
@@ -85,6 +88,8 @@ export function MedicineDetailPage() {
       }
     } catch (err) {
       console.error('Failed to load medicine details:', err);
+      // Without this, a failed fetch spun the skeleton forever.
+      setLoadError('This medicine could not be loaded. Check your connection and try again.');
     } finally {
       setIsLoading(false);
     }
@@ -135,7 +140,7 @@ export function MedicineDetailPage() {
     }
   };
 
-  if (isLoading || !medicine) {
+  if (isLoading) {
     return (
       <AppShell>
         <div className="space-y-6">
@@ -143,6 +148,23 @@ export function MedicineDetailPage() {
           <Skeleton className="h-40 w-full" />
           <Skeleton className="h-40 w-full" />
         </div>
+      </AppShell>
+    );
+  }
+
+  if (loadError || !medicine) {
+    return (
+      <AppShell>
+        <ErrorState
+          title="Medicine didn't load"
+          message={loadError ?? 'This record could not be found. It may have been removed.'}
+          onRetry={loadData}
+          fallbackAction={
+            <Button variant="secondary" onClick={() => navigate('/medicines/cabinet')}>
+              Back to cabinet
+            </Button>
+          }
+        />
       </AppShell>
     );
   }
@@ -192,12 +214,12 @@ export function MedicineDetailPage() {
           <Card>
             <div className="flex items-center justify-between p-2">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-teal-50 text-teal-700 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-full bg-accent-subtle text-accent flex items-center justify-center">
                   <MedicineIcon size={22} />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-lg text-ink-900">{medicine.medicine_name}</span>
+                    <span className="font-bold text-lg text-content">{medicine.medicine_name}</span>
                     {isDiscontinued ? (
                       <Badge tone="risk">Discontinued</Badge>
                     ) : (
@@ -205,7 +227,7 @@ export function MedicineDetailPage() {
                     )}
                     {medicine.is_ongoing && <Badge tone="info">Ongoing</Badge>}
                   </div>
-                  <p className="text-xs text-ink-500 mt-0.5">
+                  <p className="text-xs text-content-subtle mt-0.5">
                     Start Date: {medicine.start_date}
                     {medicine.end_date ? ` • End Date: ${medicine.end_date}` : ''}
                   </p>
@@ -213,24 +235,24 @@ export function MedicineDetailPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-5 pt-4 border-t border-ink-100 text-xs">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-5 pt-4 border-t border-line text-xs">
               <div>
-                <span className="text-ink-500 block">Dose Amount</span>
-                <span className="font-bold text-ink-900 text-sm mt-0.5 block">{medicine.dose_amount || '1 tablet'}</span>
+                <span className="text-content-subtle block">Dose Amount</span>
+                <span className="font-bold text-content text-sm mt-0.5 block">{medicine.dose_amount || '1 tablet'}</span>
               </div>
               <div>
-                <span className="text-ink-500 block">Frequency</span>
-                <span className="font-bold text-ink-900 text-sm mt-0.5 block">{medicine.frequency_code || medicine.frequency_raw || 'OD'}</span>
+                <span className="text-content-subtle block">Frequency</span>
+                <span className="font-bold text-content text-sm mt-0.5 block">{medicine.frequency_code || medicine.frequency_raw || 'OD'}</span>
               </div>
               <div>
-                <span className="text-ink-500 block">Meal Relation</span>
-                <span className="font-bold text-ink-900 text-sm mt-0.5 block">
+                <span className="text-content-subtle block">Meal Relation</span>
+                <span className="font-bold text-content text-sm mt-0.5 block">
                   {medicine.with_food ? 'With / After Food' : 'Empty Stomach'}
                 </span>
               </div>
               <div>
-                <span className="text-ink-500 block">Duration</span>
-                <span className="font-bold text-ink-900 text-sm mt-0.5 block">
+                <span className="text-content-subtle block">Duration</span>
+                <span className="font-bold text-content text-sm mt-0.5 block">
                   {medicine.is_ongoing ? 'Ongoing' : medicine.duration_days ? `${medicine.duration_days} days` : 'As directed'}
                 </span>
               </div>
@@ -238,11 +260,11 @@ export function MedicineDetailPage() {
 
             {/* Dose Times Bar */}
             {doseTimes.length > 0 && (
-              <div className="mt-4 pt-3 border-t border-ink-100 flex items-center gap-2 text-xs">
-                <span className="text-ink-500 font-semibold">Scheduled Dose Times:</span>
+              <div className="mt-4 pt-3 border-t border-line flex items-center gap-2 text-xs">
+                <span className="text-content-subtle font-semibold">Scheduled Dose Times:</span>
                 <div className="flex flex-wrap gap-1.5">
                   {doseTimes.map((mins, idx) => (
-                    <span key={idx} className="px-2 py-0.5 rounded bg-teal-50 border border-teal-200 font-bold text-teal-800">
+                    <span key={idx} className="px-2 py-0.5 rounded bg-accent-subtle border border-line font-bold text-accent">
                       {formatMinutesTo24h(mins)}
                     </span>
                   ))}
@@ -251,15 +273,15 @@ export function MedicineDetailPage() {
             )}
 
             {medicine.instructions && (
-              <div className="mt-4 pt-3 border-t border-ink-100 text-xs text-ink-700">
-                <span className="font-semibold text-ink-900">Doctor's Special Instructions: </span>
+              <div className="mt-4 pt-3 border-t border-line text-xs text-content-muted">
+                <span className="font-semibold text-content">Doctor's Special Instructions: </span>
                 <span>{medicine.instructions}</span>
               </div>
             )}
           </Card>
 
           {/* Plain-Language Medication Guide */}
-          <Card header={<h2 className="text-base font-bold text-ink-900">Medication Overview & Purpose</h2>}>
+          <Card header={<h2 className="text-base font-bold text-content">Medication Overview & Purpose</h2>}>
             {isLoadingExplainer ? (
               <div className="space-y-3">
                 <Skeleton className="h-4 w-full" />
@@ -267,29 +289,29 @@ export function MedicineDetailPage() {
                 <Skeleton className="h-4 w-5/6" />
               </div>
             ) : explainer ? (
-              <div className="space-y-4 text-xs text-ink-700 leading-relaxed">
+              <div className="space-y-4 text-xs text-content-muted leading-relaxed">
                 <div>
-                  <h3 className="font-bold text-ink-900 text-sm mb-1">What this medicine does</h3>
+                  <h3 className="font-bold text-content text-sm mb-1">What this medicine does</h3>
                   <p>{explainer.summary}</p>
                 </div>
 
                 <div>
-                  <h3 className="font-bold text-ink-900 text-sm mb-1">Common Medical Purpose</h3>
+                  <h3 className="font-bold text-content text-sm mb-1">Common Medical Purpose</h3>
                   <p>{explainer.purpose}</p>
                 </div>
 
                 <div>
-                  <h3 className="font-bold text-ink-900 text-sm mb-1">Key Usage Tips</h3>
+                  <h3 className="font-bold text-content text-sm mb-1">Key Usage Tips</h3>
                   <p>{explainer.common_instructions}</p>
                 </div>
               </div>
             ) : (
-              <p className="text-xs text-ink-500">
+              <p className="text-xs text-content-subtle">
                 No plain-language summary available for this specific formulation. Always follow your doctor's instructions.
               </p>
             )}
 
-            <div className="mt-5 pt-3 border-t border-ink-100">
+            <div className="mt-5 pt-3 border-t border-line">
               <Disclaimer text={MEDICINE_INFO_DISCLAIMER} />
             </div>
           </Card>
@@ -299,8 +321,8 @@ export function MedicineDetailPage() {
             header={
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-base font-bold text-ink-900">Logged Symptoms & Side Effects ({sideEffects.length})</h2>
-                  <p className="text-xs text-ink-500">Keep track of any adverse reactions to share with your physician.</p>
+                  <h2 className="text-base font-bold text-content">Logged Symptoms & Side Effects ({sideEffects.length})</h2>
+                  <p className="text-xs text-content-subtle">Keep track of any adverse reactions to share with your physician.</p>
                 </div>
                 <Button variant="secondary" size="sm" onClick={() => setIsSideEffectModalOpen(true)}>
                   + Log Symptom
@@ -309,16 +331,16 @@ export function MedicineDetailPage() {
             }
           >
             {sideEffects.length === 0 ? (
-              <p className="text-xs text-ink-500 py-4 text-center">
+              <p className="text-xs text-content-subtle py-4 text-center">
                 No side effects or adverse reactions logged for this medicine.
               </p>
             ) : (
               <div className="space-y-3">
                 {sideEffects.map((se) => (
-                  <div key={se.id} className="p-3 rounded-md border border-ink-200 bg-ink-50/50 flex items-start justify-between">
+                  <div key={se.id} className="p-3 rounded-md border border-line bg-surface-sunken/50 flex items-start justify-between">
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-xs text-ink-900">{se.note}</span>
+                        <span className="font-bold text-xs text-content">{se.note}</span>
                         <Badge
                           tone={se.severity === 'severe' ? 'risk' : se.severity === 'moderate' ? 'warn' : 'neutral'}
                           size="sm"
@@ -326,7 +348,7 @@ export function MedicineDetailPage() {
                           {se.severity}
                         </Badge>
                       </div>
-                      <span className="text-[10px] text-ink-500 mt-1 block">
+                      <span className="text-2xs text-content-subtle mt-1 block">
                         Logged on {se.occurred_at ? se.occurred_at.split('T')[0] : se.created_at.split('T')[0]}
                       </span>
                     </div>
@@ -339,38 +361,38 @@ export function MedicineDetailPage() {
 
         {/* Right Column (1/3): Linked Doctor Consultation Context */}
         <div className="space-y-6">
-          <Card header={<h2 className="text-base font-bold text-ink-900">Prescribing Doctor Visit</h2>}>
+          <Card header={<h2 className="text-base font-bold text-content">Prescribing Doctor Visit</h2>}>
             {visit ? (
               <div className="space-y-3 text-xs">
                 <div>
-                  <span className="text-ink-500 block">Doctor</span>
-                  <span className="font-bold text-ink-900 text-sm">{visit.doctor_name || 'Doctor'}</span>
+                  <span className="text-content-subtle block">Doctor</span>
+                  <span className="font-bold text-content text-sm">{visit.doctor_name || 'Doctor'}</span>
                 </div>
                 {visit.clinic_name && (
                   <div>
-                    <span className="text-ink-500 block">Clinic / Hospital</span>
-                    <span className="font-semibold text-ink-900">{visit.clinic_name}</span>
+                    <span className="text-content-subtle block">Clinic / Hospital</span>
+                    <span className="font-semibold text-content">{visit.clinic_name}</span>
                   </div>
                 )}
                 <div>
-                  <span className="text-ink-500 block">Consultation Date</span>
-                  <span className="font-semibold text-ink-900">{visit.visit_date}</span>
+                  <span className="text-content-subtle block">Consultation Date</span>
+                  <span className="font-semibold text-content">{visit.visit_date}</span>
                 </div>
                 {visit.diagnosis && (
                   <div>
-                    <span className="text-ink-500 block">Diagnosis</span>
-                    <span className="font-semibold text-ink-900">{visit.diagnosis}</span>
+                    <span className="text-content-subtle block">Diagnosis</span>
+                    <span className="font-semibold text-content">{visit.diagnosis}</span>
                   </div>
                 )}
                 {visit.doctor_advice && (
                   <div>
-                    <span className="text-ink-500 block">Doctor's Advice</span>
-                    <p className="text-ink-700 mt-0.5">{visit.doctor_advice}</p>
+                    <span className="text-content-subtle block">Doctor's Advice</span>
+                    <p className="text-content-muted mt-0.5">{visit.doctor_advice}</p>
                   </div>
                 )}
               </div>
             ) : (
-              <p className="text-xs text-ink-500">
+              <p className="text-xs text-content-subtle">
                 This medicine was self-logged or has no linked doctor visit record.
               </p>
             )}
@@ -397,9 +419,10 @@ export function MedicineDetailPage() {
 
           <Field id="se-sev" label="Severity">
             <select
+              id="se-sev"
               value={severity}
               onChange={(e) => setSeverity(e.target.value as 'mild' | 'moderate' | 'severe')}
-              className="w-full h-11 px-3.5 py-2 text-sm bg-surface-primary border border-ink-200 rounded-[var(--radius-md)] text-ink-900 focus:outline-none focus:ring-2 focus:ring-teal-500"
+              className="w-full h-11 px-3.5 py-2 text-sm bg-surface border border-line rounded-[var(--radius-md)] text-content focus:outline-none focus:ring-2 focus:ring-accent"
             >
               <option value="mild">Mild — Slight discomfort, manageable</option>
               <option value="moderate">Moderate — Noticeable impairment or discomfort</option>

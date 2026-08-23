@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { sharesRepo } from '../../lib/db';
 import { activeMedicines } from '../../domain/activeMedicines';
 import { mealRelationLabel } from '../../domain/mealRelation';
+import { todayInAppTz } from '../../lib/time';
 import { MedicineIcon, StethoscopeIcon, AlertTriangleIcon } from '../../components/ui/icons';
 import type { Tables } from '../../lib/supabase/types';
 

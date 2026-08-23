@@ -6,7 +6,7 @@ import { devApiServerlessPlugin } from './vite-plugins/api-serverless';
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
-  // Load .env variables into process.env for local API serverless handlers
+  // Load .env and .env.local variables into process.env for local API serverless handlers
   const env = loadEnv(mode, process.cwd(), '');
   Object.assign(process.env, env);
 

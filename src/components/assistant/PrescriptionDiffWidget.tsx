@@ -1,4 +1,5 @@
 import { Badge } from '../ui/Badge';
+import { PrescriptionIcon } from '../ui/icons';
 
 export interface PrescriptionDiffItem {
   name: string;
@@ -19,7 +20,9 @@ export function PrescriptionDiffWidget({ diffs }: PrescriptionDiffWidgetProps) {
     <div className="my-3 p-4 bg-white border border-teal-200 rounded-2xl shadow-xs space-y-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-teal-900 font-bold text-xs">🔄 Prescription Differential ("What Changed?")</span>
+          <span className="text-teal-900 font-bold text-xs flex items-center gap-1.5">
+            <PrescriptionIcon size={16} /> Prescription Differential ("What Changed?")
+          </span>
           <Badge tone="info" size="sm">{diffs.length} Modifications</Badge>
         </div>
         <span className="text-[11px] text-ink-400">vs Active Cabinet</span>
@@ -28,7 +31,7 @@ export function PrescriptionDiffWidget({ diffs }: PrescriptionDiffWidgetProps) {
       <div className="space-y-2">
         {diffs.map((d, idx) => {
           const tone = d.changeType === 'added' ? 'ok' : d.changeType === 'adjusted' ? 'warn' : 'neutral';
-          const label = d.changeType === 'added' ? '➕ New' : d.changeType === 'adjusted' ? '⚡ Changed' : '🛑 Discontinued';
+          const label = d.changeType === 'added' ? 'New' : d.changeType === 'adjusted' ? 'Changed' : 'Discontinued';
 
           return (
             <div

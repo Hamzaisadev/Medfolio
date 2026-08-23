@@ -7,6 +7,7 @@ import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Textarea } from '../../components/ui/Textarea';
 import { Toast } from '../../components/ui/Toast';
+import { Disclaimer } from '../../components/ui/Disclaimer';
 import { EmergencyAmbulanceIcon, AlertTriangleIcon, PhoneIcon } from '../../components/ui/icons';
 import { checkRedFlags, EMERGENCY_HELPLINES } from '../../domain/redFlags';
 import { sideEffectsRepo } from '../../lib/db';

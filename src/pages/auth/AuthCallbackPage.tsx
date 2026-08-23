@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase/client';
 import { AppShell } from '../../components/layout/AppShell';
 import { Card } from '../../components/ui/Card';
 import { Logo } from '../../components/ui/Logo';
 import { Button } from '../../components/ui/Button';
+import { CheckIcon, AlertTriangleIcon } from '../../components/ui/icons';
 
 /**
  * Auth Callback Page — handles redirects from Supabase email links:
@@ -17,66 +18,81 @@ export function AuthCallbackPage() {
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [callbackType, setCallbackType] = useState<'signup' | 'recovery' | 'unknown'>('unknown');
+  const processedRef = useRef(false);
 
   useEffect(() => {
+    if (processedRef.current) return;
+    processedRef.current = true;
+
     let timeout: ReturnType<typeof setTimeout>;
 
     async function handleCallback() {
       try {
         const url = new URL(window.location.href);
         const code = url.searchParams.get('code');
-        const type = url.searchParams.get('type');
+        const type = url.searchParams.get('type') || (url.pathname.includes('recovery') ? 'recovery' : 'signup');
+        const isRecovery = type === 'recovery' || url.searchParams.get('next')?.includes('settings');
 
-        if (type === 'recovery') {
-          setCallbackType('recovery');
-        } else {
-          setCallbackType('signup');
-        }
+        setCallbackType(isRecovery ? 'recovery' : 'signup');
 
-        if (code) {
-          const { error } = await supabase.auth.exchangeCodeForSession(code);
-          if (error) {
-            console.error('Code exchange error:', error);
-            setErrorMessage(error.message);
-            setStatus('error');
-            return;
+        // 1. First check if Supabase's detectSessionInUrl already established an active session
+        const { data: initialSessionData } = await supabase.auth.getSession();
+        let session = initialSessionData.session;
+
+        // 2. If no session yet and a PKCE authorization code is present in URL, exchange it
+        if (!session && code) {
+          const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+          if (exchangeError) {
+            console.warn('Direct code exchange attempt:', exchangeError.message);
+            // Double check if session was established concurrently
+            const { data: retryCheck } = await supabase.auth.getSession();
+            if (retryCheck.session) {
+              session = retryCheck.session;
+            } else {
+              // Only fail if there really is no active session
+              console.error('Code exchange failed with no session:', exchangeError);
+              setErrorMessage(exchangeError.message);
+              setStatus('error');
+              return;
+            }
+          } else {
+            const { data: newSessionData } = await supabase.auth.getSession();
+            session = newSessionData.session;
           }
         }
 
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        // 3. Fallback brief retry if session is propagating
+        if (!session) {
+          await new Promise((resolve) => setTimeout(resolve, 800));
+          const { data: finalRetry } = await supabase.auth.getSession();
+          session = finalRetry.session;
+        }
 
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-
-        if (sessionError) {
-          console.error('Session retrieval error:', sessionError);
-          setErrorMessage(sessionError.message);
+        if (!session) {
+          setErrorMessage('Verification link may have expired or is already used. Please try signing in.');
           setStatus('error');
           return;
         }
 
-        if (!session) {
-          await new Promise((resolve) => setTimeout(resolve, 1500));
-          const retry = await supabase.auth.getSession();
-
-          if (!retry.data.session) {
-            setErrorMessage('Verification link may have expired. Please try signing up again.');
-            setStatus('error');
-            return;
-          }
+        // Clean up code from browser URL without triggering a page reload
+        try {
+          window.history.replaceState({}, document.title, window.location.pathname);
+        } catch {
+          // Ignore history state errors if restricted
         }
 
         setStatus('success');
 
         timeout = setTimeout(() => {
-          if (callbackType === 'recovery' || type === 'recovery') {
+          if (isRecovery) {
             navigate('/settings', { replace: true });
           } else {
             navigate('/', { replace: true });
           }
-        }, 1500);
+        }, 1200);
       } catch (err) {
-        console.error('Auth callback error:', err);
-        setErrorMessage('Something went wrong during verification. Please try again.');
+        console.error('Auth callback processing error:', err);
+        setErrorMessage('Something went wrong during verification. Please try signing in.');
         setStatus('error');
       }
     }
@@ -86,7 +102,7 @@ export function AuthCallbackPage() {
     return () => {
       if (timeout) clearTimeout(timeout);
     };
-  }, [navigate, callbackType]);
+  }, [navigate]);
 
   return (
     <AppShell>
@@ -115,7 +131,9 @@ export function AuthCallbackPage() {
 
             {status === 'success' && (
               <>
-                <div className="text-5xl">✅</div>
+                <div className="w-16 h-16 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center mx-auto">
+                  <CheckIcon size={32} />
+                </div>
                 <h2 className="text-xl font-black text-content">
                   {callbackType === 'recovery' ? 'Password Reset Ready' : 'Email Verified!'}
                 </h2>
@@ -132,7 +150,9 @@ export function AuthCallbackPage() {
 
             {status === 'error' && (
               <>
-                <div className="text-5xl">⚠️</div>
+                <div className="w-16 h-16 rounded-full bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center mx-auto">
+                  <AlertTriangleIcon size={32} />
+                </div>
                 <h2 className="text-xl font-black text-content">
                   Verification Failed
                 </h2>

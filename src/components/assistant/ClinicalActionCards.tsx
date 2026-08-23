@@ -3,6 +3,18 @@ import { Link } from 'react-router-dom';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 import { Toast } from '../ui/Toast';
+import {
+  CheckIcon,
+  AlertTriangleIcon,
+  CopyIcon,
+  MedicineIcon,
+  CalendarDaysIcon,
+  StethoscopeIcon,
+  EmergencyAmbulanceIcon,
+  HospitalIcon,
+  SparklesIcon,
+  ClockIcon,
+} from '../ui/icons';
 import { sideEffectsRepo, testOrdersRepo, visitsRepo } from '../../lib/db';
 import { todayInAppTz, addDaysAppTz } from '../../lib/time';
 
@@ -98,10 +110,16 @@ export function ClinicalActionCards({ action, profileId, onExecuted }: ClinicalA
       <div className="my-3 p-3.5 bg-white border border-teal-200 rounded-2xl shadow-xs space-y-2.5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-teal-900 font-bold text-xs">🩺 Autonomous Symptom Logger</span>
+            <span className="text-teal-900 font-bold text-xs flex items-center gap-1.5">
+              <StethoscopeIcon size={16} /> Autonomous Symptom Logger
+            </span>
             <Badge tone="warn" size="sm">Triage</Badge>
           </div>
-          {isDone && <span className="text-[11px] text-teal-700 font-bold">✅ Logged to Timeline</span>}
+          {isDone && (
+            <span className="text-[11px] text-teal-700 font-bold flex items-center gap-1">
+              <CheckIcon size={13} className="text-emerald-600" /> Logged to Timeline
+            </span>
+          )}
         </div>
 
         <p className="text-xs text-ink-800">
@@ -140,7 +158,7 @@ export function ClinicalActionCards({ action, profileId, onExecuted }: ClinicalA
               onClick={handleLogSymptom}
               className="text-xs font-bold shrink-0"
             >
-              📌 Confirm Log to Timeline
+              Confirm Log to Timeline
             </Button>
           </div>
         )}
@@ -154,7 +172,9 @@ export function ClinicalActionCards({ action, profileId, onExecuted }: ClinicalA
       <div className="my-3 p-3.5 bg-amber-50/70 border border-amber-200 rounded-2xl shadow-xs space-y-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-amber-950 font-bold text-xs">⏰ Missed Dose Clinical Safety Protocol</span>
+            <span className="text-amber-950 font-bold text-xs flex items-center gap-1.5">
+              <ClockIcon size={16} /> Missed Dose Clinical Safety Protocol
+            </span>
             <Badge tone="warn" size="sm">Catch-up</Badge>
           </div>
         </div>
@@ -164,8 +184,9 @@ export function ClinicalActionCards({ action, profileId, onExecuted }: ClinicalA
         </p>
 
         {action.data.do_not_double && (
-          <div className="p-2 rounded-lg bg-red-100 border border-red-200 text-red-950 text-[11px] font-bold">
-            ⚠️ DO NOT DOUBLE UP: Never take two doses together to make up for a missed pill.
+          <div className="p-2 rounded-lg bg-red-100 border border-red-200 text-red-950 text-[11px] font-bold flex items-center gap-1.5">
+            <AlertTriangleIcon size={14} className="text-red-700 shrink-0" />
+            <span>DO NOT DOUBLE UP: Never take two doses together to make up for a missed pill.</span>
           </div>
         )}
       </div>
@@ -182,7 +203,9 @@ export function ClinicalActionCards({ action, profileId, onExecuted }: ClinicalA
         <Toast open={Boolean(toastMsg)} onClose={() => setToastMsg(null)} message={toastMsg || ''} tone="ok" />
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-teal-900 font-bold text-xs">📲 Family Caregiver Health Dispatch</span>
+            <span className="text-teal-900 font-bold text-xs flex items-center gap-1.5">
+              <SparklesIcon size={16} /> Family Caregiver Health Dispatch
+            </span>
             <Badge tone="info" size="sm">WhatsApp</Badge>
           </div>
         </div>
@@ -198,9 +221,9 @@ export function ClinicalActionCards({ action, profileId, onExecuted }: ClinicalA
               navigator.clipboard.writeText(rawMsg);
               setToastMsg('Message copied to clipboard.');
             }}
-            className="text-xs text-ink-600 hover:text-ink-900 font-bold px-2 py-1"
+            className="text-xs text-ink-600 hover:text-ink-900 font-bold px-2 py-1 flex items-center gap-1"
           >
-            📋 Copy
+            <CopyIcon size={13} /> Copy
           </button>
           <a
             href={waUrl}
@@ -208,7 +231,7 @@ export function ClinicalActionCards({ action, profileId, onExecuted }: ClinicalA
             rel="noopener noreferrer"
             className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-2xs transition-all"
           >
-            <span>💬 Send via WhatsApp</span>
+            <span>Send via WhatsApp</span>
           </a>
         </div>
       </div>
@@ -225,10 +248,12 @@ export function ClinicalActionCards({ action, profileId, onExecuted }: ClinicalA
       }`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="font-bold text-ink-900">💊 Pharmacy Generic Substitution Audit</span>
+            <span className="font-bold text-ink-900 flex items-center gap-1.5">
+              <MedicineIcon size={16} className="text-purple-700" /> Pharmacy Generic Substitution Audit
+            </span>
           </div>
           <Badge tone={isEq ? 'ok' : 'warn'} size="sm">
-            {isEq ? '✅ Bioequivalent Match' : '⚠️ Review Formulation'}
+            {isEq ? 'Bioequivalent Match' : 'Review Formulation'}
           </Badge>
         </div>
 
@@ -256,7 +281,9 @@ export function ClinicalActionCards({ action, profileId, onExecuted }: ClinicalA
       <div className="my-3 p-3.5 bg-red-50/60 border border-red-200 rounded-2xl shadow-xs space-y-2.5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-red-950 font-bold text-xs">🔪 Pre-Procedure Medication Cessation Audit</span>
+            <span className="text-red-950 font-bold text-xs flex items-center gap-1.5">
+              <AlertTriangleIcon size={16} className="text-red-700" /> Pre-Procedure Medication Cessation Audit
+            </span>
             <Badge tone="risk" size="sm">Pre-Op</Badge>
           </div>
         </div>
@@ -294,7 +321,9 @@ export function ClinicalActionCards({ action, profileId, onExecuted }: ClinicalA
       }`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="font-bold text-ink-900">🤰 Maternal & Fetal Safety: {action.data.medicine_name}</span>
+            <span className="font-bold text-ink-900 flex items-center gap-1.5">
+              <MedicineIcon size={16} className="text-purple-700" /> Maternal & Fetal Safety: {action.data.medicine_name}
+            </span>
           </div>
           <Badge tone={isSafe ? 'ok' : 'risk'} size="sm">{cat}</Badge>
         </div>
@@ -302,7 +331,7 @@ export function ClinicalActionCards({ action, profileId, onExecuted }: ClinicalA
         <div className="text-[11px] space-y-1 text-ink-800 leading-relaxed">
           <p>{action.data.fetal_risk_summary}</p>
           {action.data.lactation_safety && (
-            <p className="text-teal-900 font-medium">🤱 LactMed / Nursing: {action.data.lactation_safety}</p>
+            <p className="text-teal-900 font-medium">LactMed / Nursing: {action.data.lactation_safety}</p>
           )}
         </div>
       </div>
@@ -315,7 +344,9 @@ export function ClinicalActionCards({ action, profileId, onExecuted }: ClinicalA
       <div className="my-3 p-3.5 bg-white border border-teal-200 rounded-2xl shadow-xs space-y-2.5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-teal-900 font-bold text-xs">✈️ Flight Timezone Chrono-Shift Planner</span>
+            <span className="text-teal-900 font-bold text-xs flex items-center gap-1.5">
+              <ClockIcon size={16} /> Flight Timezone Chrono-Shift Planner
+            </span>
             <Badge tone="info" size="sm">{action.data.destination_city || 'Travel'}</Badge>
           </div>
         </div>
@@ -372,10 +403,16 @@ export function ClinicalActionCards({ action, profileId, onExecuted }: ClinicalA
       <div className="my-3 p-3.5 bg-white border border-teal-200 rounded-2xl shadow-xs space-y-2.5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-teal-900 font-bold text-xs">📅 Clinical Follow-up Tracker</span>
+            <span className="text-teal-900 font-bold text-xs flex items-center gap-1.5">
+              <CalendarDaysIcon size={16} /> Clinical Follow-up Tracker
+            </span>
             <Badge tone="info" size="sm">Calendar</Badge>
           </div>
-          {isDone && <span className="text-[11px] text-teal-700 font-bold">✅ Scheduled</span>}
+          {isDone && (
+            <span className="text-[11px] text-teal-700 font-bold flex items-center gap-1">
+              <CheckIcon size={13} className="text-emerald-600" /> Scheduled
+            </span>
+          )}
         </div>
 
         <p className="text-xs text-ink-800">
@@ -397,8 +434,9 @@ export function ClinicalActionCards({ action, profileId, onExecuted }: ClinicalA
               loading={isExecuting}
               onClick={handleSchedule}
               className="text-xs font-bold"
+              leftIcon={<CalendarDaysIcon size={14} />}
             >
-              📅 Set Follow-up Reminder
+              Set Follow-up Reminder
             </Button>
           </div>
         )}
@@ -414,7 +452,9 @@ export function ClinicalActionCards({ action, profileId, onExecuted }: ClinicalA
       <div className="my-3 p-3.5 bg-white border border-teal-200 rounded-2xl shadow-xs space-y-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-teal-900 font-bold text-xs">📦 Pill Supply & Refill Predictor</span>
+            <span className="text-teal-900 font-bold text-xs flex items-center gap-1.5">
+              <MedicineIcon size={16} className="text-teal-700" /> Pill Supply & Refill Predictor
+            </span>
             <Badge tone={days <= 3 ? 'risk' : 'ok'} size="sm">
               {days} Days Left
             </Badge>
@@ -427,8 +467,6 @@ export function ClinicalActionCards({ action, profileId, onExecuted }: ClinicalA
 
         <div className="pt-1 flex items-center justify-between text-xs">
           <span className="text-[11px] text-ink-500">Refill Reminder Alert active</span>
-          {/* `/cabinet` was not a registered route (404); the cabinet lives at
-              /medicines/cabinet. Link, not <a>, to avoid a full page reload. */}
           <Link to="/medicines/cabinet" className="text-xs text-teal-800 font-bold hover:underline">
             Manage Cabinet &rarr;
           </Link>
@@ -441,7 +479,7 @@ export function ClinicalActionCards({ action, profileId, onExecuted }: ClinicalA
   if (action.type === 'otc_compatibility') {
     const grade = action.data.safety_grade || 'caution';
     const badgeTone = grade === 'safe' ? 'ok' : grade === 'prohibited' ? 'risk' : 'warn';
-    const gradeText = grade === 'safe' ? '🟢 Compatible' : grade === 'prohibited' ? '🔴 Contraindicated (Dangerous)' : '🟡 Caution Required';
+    const gradeText = grade === 'safe' ? 'Compatible' : grade === 'prohibited' ? 'Contraindicated (Dangerous)' : 'Caution Required';
 
     return (
       <div className={`my-3 p-3.5 rounded-2xl border text-xs space-y-2 ${
@@ -453,7 +491,9 @@ export function ClinicalActionCards({ action, profileId, onExecuted }: ClinicalA
       }`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="font-bold text-ink-900">🔍 OTC Safety Checker: {action.data.otc_name}</span>
+            <span className="font-bold text-ink-900 flex items-center gap-1.5">
+              <MedicineIcon size={16} /> OTC Safety Checker: {action.data.otc_name}
+            </span>
           </div>
           <Badge tone={badgeTone} size="sm">{gradeText}</Badge>
         </div>
@@ -465,9 +505,12 @@ export function ClinicalActionCards({ action, profileId, onExecuted }: ClinicalA
         )}
 
         {action.data.safe_alternative && (
-          <div className="p-2 rounded-lg bg-white border border-ink-200/80 text-[11px]">
-            <span className="font-bold text-teal-900">💡 Recommended Safe Alternative: </span>
-            <span className="text-ink-800">{action.data.safe_alternative}</span>
+          <div className="p-2 rounded-lg bg-white border border-ink-200/80 text-[11px] flex items-center gap-1.5">
+            <SparklesIcon size={14} className="text-teal-700 shrink-0" />
+            <div>
+              <span className="font-bold text-teal-900">Recommended Safe Alternative: </span>
+              <span className="text-ink-800">{action.data.safe_alternative}</span>
+            </div>
           </div>
         )}
       </div>
@@ -479,7 +522,9 @@ export function ClinicalActionCards({ action, profileId, onExecuted }: ClinicalA
     return (
       <div className="my-3 p-4 bg-red-900 text-white rounded-2xl shadow-lg space-y-3">
         <div className="flex items-center gap-2">
-          <span className="text-xl">🚨</span>
+          <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+            <EmergencyAmbulanceIcon size={24} />
+          </div>
           <div>
             <h4 className="font-black text-sm text-red-100">EMERGENCY CLINICAL RED FLAG DETECTED</h4>
             <p className="text-xs text-red-200">Immediate emergency evaluation required. Do not delay.</p>
@@ -497,24 +542,24 @@ export function ClinicalActionCards({ action, profileId, onExecuted }: ClinicalA
         <div className="pt-2 border-t border-red-700/80 grid grid-cols-3 gap-2">
           <a
             href="tel:1122"
-            className="p-2 rounded-xl bg-red-800 hover:bg-red-700 text-center font-bold text-xs text-white border border-red-500 transition-all flex flex-col items-center"
+            className="p-2 rounded-xl bg-red-800 hover:bg-red-700 text-center font-bold text-xs text-white border border-red-500 transition-all flex flex-col items-center gap-1"
           >
-            <span>🚑 Rescue</span>
-            <span className="text-sm font-black">1122</span>
+            <EmergencyAmbulanceIcon size={18} />
+            <span>Rescue 1122</span>
           </a>
           <a
             href="tel:115"
-            className="p-2 rounded-xl bg-red-800 hover:bg-red-700 text-center font-bold text-xs text-white border border-red-500 transition-all flex flex-col items-center"
+            className="p-2 rounded-xl bg-red-800 hover:bg-red-700 text-center font-bold text-xs text-white border border-red-500 transition-all flex flex-col items-center gap-1"
           >
-            <span>🏥 Edhi</span>
-            <span className="text-sm font-black">115</span>
+            <HospitalIcon size={18} />
+            <span>Edhi 115</span>
           </a>
           <a
             href="tel:1020"
-            className="p-2 rounded-xl bg-red-800 hover:bg-red-700 text-center font-bold text-xs text-white border border-red-500 transition-all flex flex-col items-center"
+            className="p-2 rounded-xl bg-red-800 hover:bg-red-700 text-center font-bold text-xs text-white border border-red-500 transition-all flex flex-col items-center gap-1"
           >
-            <span>🚐 Chhipa</span>
-            <span className="text-sm font-black">1020</span>
+            <EmergencyAmbulanceIcon size={18} />
+            <span>Chhipa 1020</span>
           </a>
         </div>
       </div>

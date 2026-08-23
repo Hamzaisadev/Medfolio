@@ -339,23 +339,62 @@ export function frequencyDescription(code: FrequencyCode | null): string {
   if (!code) return 'Custom / As needed';
   switch (code) {
     case 'OD':
-      return 'Once daily (OD)';
+      return 'Once daily (Morning)';
     case 'BD':
-      return 'Twice daily (BD)';
+      return 'Twice daily (Morning & Night)';
     case 'TDS':
-      return 'Three times daily (TDS)';
+      return 'Three times daily (Morning, Afternoon & Night)';
     case 'QID':
-      return 'Four times daily (QID)';
+      return 'Four times daily (Morning, Noon, Evening & Night)';
     case 'QHS':
-      return 'Night at bedtime (QHS)';
+      return 'Night at bedtime';
     case 'PRN':
     case 'SOS':
-      return 'As needed (PRN)';
+      return 'As needed (When required)';
     case 'STAT':
-      return 'Immediately (STAT)';
+      return 'Immediately (Once)';
     case 'WEEKLY':
       return 'Once weekly';
     case 'CUSTOM':
-      return 'Custom frequency';
+      return 'Custom routine';
   }
+}
+
+/**
+ * Explains numeric doctor shorthand (e.g. 1+0+1, 1+1+1) in simple, friendly words.
+ */
+export function formatDoseSlotSummary(raw: string | null | undefined, code: FrequencyCode | null): string {
+  if (raw) {
+    const norm = normalizeDigits(raw.trim()).replace(/[><|]/g, '1');
+    const slot3 = norm.match(/^(\d+)\s*[+\-x/\\.]\s*(\d+)\s*[+\-x/\\.]\s*(\d+)$/);
+    if (slot3) {
+      const d1 = parseInt(slot3[1] || '0', 10);
+      const d2 = parseInt(slot3[2] || '0', 10);
+      const d3 = parseInt(slot3[3] || '0', 10);
+
+      if (d1 > 0 && d2 === 0 && d3 > 0) {
+        return 'Morning & Night (2 times daily)';
+      }
+      if (d1 > 0 && d2 > 0 && d3 > 0) {
+        return 'Morning, Afternoon & Night (3 times daily)';
+      }
+      if (d1 > 0 && d2 === 0 && d3 === 0) {
+        return 'Morning only (Once daily)';
+      }
+      if (d1 === 0 && d2 === 0 && d3 > 0) {
+        return 'Night only (Once daily at bedtime)';
+      }
+      if (d1 === 0 && d2 > 0 && d3 === 0) {
+        return 'Afternoon only (Once daily)';
+      }
+      if (d1 > 0 && d2 > 0 && d3 === 0) {
+        return 'Morning & Afternoon (2 times daily)';
+      }
+      if (d1 === 0 && d2 > 0 && d3 > 0) {
+        return 'Afternoon & Night (2 times daily)';
+      }
+    }
+  }
+
+  return frequencyDescription(code);
 }

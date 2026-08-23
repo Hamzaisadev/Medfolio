@@ -6,6 +6,7 @@ import { Input } from '../../components/ui/Input';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { XIcon } from '../../components/ui/icons';
 import { visitsRepo, reportsRepo, medicinesRepo, sideEffectsRepo } from '../../lib/db';
 import type { Tables } from '../../lib/supabase/types';
 
@@ -197,9 +198,9 @@ export function SearchRecordsPage() {
             <button
               type="button"
               onClick={() => setQuery('')}
-              className="absolute right-4 top-4 text-ink-400 hover:text-ink-700 text-sm font-bold"
+              className="absolute right-4 top-4 text-ink-400 hover:text-ink-700 p-1"
             >
-              ✕
+              <XIcon size={16} />
             </button>
           )}
         </div>

@@ -3,6 +3,7 @@ import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 import { Toast } from '../ui/Toast';
+import { CopyIcon, PrinterIcon } from '../ui/icons';
 import type { MedicineRecord } from '../../domain/activeMedicines';
 import type { Tables } from '../../lib/supabase/types';
 
@@ -83,11 +84,11 @@ ${suggestedQuestions.map((q, idx) => `${idx + 1}. ${q}`).join('\n')}
         </div>
 
         <div className="flex items-center gap-2">
-          <Button variant="secondary" size="sm" onClick={handleCopySummary}>
-            📋 Copy Summary
+          <Button variant="secondary" size="sm" onClick={handleCopySummary} leftIcon={<CopyIcon size={14} />}>
+            Copy Summary
           </Button>
-          <Button variant="secondary" size="sm" onClick={() => window.print()}>
-            🖨️ Print
+          <Button variant="secondary" size="sm" onClick={() => window.print()} leftIcon={<PrinterIcon size={14} />}>
+            Print
           </Button>
         </div>
       </div>

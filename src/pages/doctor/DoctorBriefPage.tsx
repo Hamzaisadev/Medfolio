@@ -9,6 +9,8 @@ import {
   MedicineIcon,
   StethoscopeIcon,
   LabFlaskIcon,
+  PrinterIcon,
+  AlertTriangleIcon,
 } from '../../components/ui/icons';
 import { activeMedicines, recentlyFinishedMedicines } from '../../domain/activeMedicines';
 import { todayInAppTz } from '../../lib/time';
@@ -111,8 +113,8 @@ export function DoctorBriefPage() {
               <Link to="/share">
                 <Button variant="secondary">Digital Share Link</Button>
               </Link>
-              <Button variant="primary" onClick={handlePrint} className="font-bold shadow-xs">
-                🖨️ Export Clinical Dossier (PDF / Print)
+              <Button variant="primary" onClick={handlePrint} className="font-bold shadow-xs" leftIcon={<PrinterIcon size={16} />}>
+                Export Clinical Dossier (PDF / Print)
               </Button>
             </div>
           }
@@ -161,7 +163,8 @@ export function DoctorBriefPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-xl border border-red-200 bg-red-50/50 print:p-3">
           <div>
             <span className="text-xs font-bold uppercase tracking-wider text-red-900 block mb-1.5 flex items-center gap-1.5">
-              <span>⚠️ Known Drug & Food Allergies</span>
+              <AlertTriangleIcon size={14} className="text-red-700" />
+              <span>Known Drug & Food Allergies</span>
             </span>
             <div className="flex flex-wrap gap-1.5">
               {allergies.map((all, idx) => (
