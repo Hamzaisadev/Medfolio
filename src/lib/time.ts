@@ -182,6 +182,11 @@ export function formatDateMedium(dateStr: string): string {
   return formatWith(dateStr, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+/** "August 2026" */
+export function formatMonthYear(dateStr: string): string {
+  return formatWith(dateStr, { month: 'long', year: 'numeric' });
+}
+
 /** "16 Aug" — for dense lists where the year is implied by context. */
 export function formatDateShort(dateStr: string): string {
   return formatWith(dateStr, { day: 'numeric', month: 'short' });

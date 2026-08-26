@@ -80,6 +80,7 @@ export function ReviewPrescriptionPage() {
   const [visitDate, setVisitDate] = useState(
     initialDraft?.visit_date?.trim() || todayInAppTz()
   );
+  const [scheduleStartDate, setScheduleStartDate] = useState(todayInAppTz());
   const [diagnosis, setDiagnosis] = useState(initialDraft?.diagnosis || '');
   const [doctorAdvice, setDoctorAdvice] = useState(initialDraft?.doctor_advice || '');
   const [followUpDate, setFollowUpDate] = useState(initialDraft?.follow_up || '');
@@ -87,6 +88,18 @@ export function ReviewPrescriptionPage() {
 
   // Discard Confirmation Modal State
   const [isDiscardDialogOpen, setIsDiscardDialogOpen] = useState(false);
+
+  // Set of medicine IDs currently expanded for editing (collapsed by default for compact view)
+  const [editingMedIds, setEditingMedIds] = useState<Set<string>>(new Set());
+
+  const toggleEditMed = (id: string) => {
+    setEditingMedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   // Image Viewer & Hover Zoom State
   const [activeImageIndex, setActiveImageIndex] = useState(0);
@@ -150,10 +163,11 @@ export function ReviewPrescriptionPage() {
 
   // Medicine Actions
   const handleAddMedicine = () => {
+    const nid = newId();
     setMedicines((prev) => [
       ...prev,
       {
-        id: newId(),
+        id: nid,
         medicine_name: '',
         strength: '',
         form: 'tablet',
@@ -165,6 +179,7 @@ export function ReviewPrescriptionPage() {
         confidence: 'high',
       },
     ]);
+    setEditingMedIds((prev) => new Set(prev).add(nid));
   };
 
   const handleUpdateMedicine = (id: string, updates: Partial<MedicineDraft>) => {
@@ -256,6 +271,7 @@ export function ReviewPrescriptionPage() {
 
       // Step 2: Insert Medicines & Generate Schedules
       const pillInventoryMap = readInventory(effectiveProfileId);
+      const effectiveStartDate = scheduleStartDate || todayInAppTz();
 
       for (const med of validMedicines) {
         // Validated above, so this cannot be null.
@@ -267,7 +283,7 @@ export function ReviewPrescriptionPage() {
 
         const endDate =
           durationDays !== null && !isOngoing
-            ? computeEndDate(effectiveVisitDate, durationDays)
+            ? computeEndDate(effectiveStartDate, durationDays)
             : null;
 
         const defaultTimes = defaultDoseTimes(freqCode, med.with_food, med.frequency_raw);
@@ -284,7 +300,7 @@ export function ReviewPrescriptionPage() {
           frequency_raw: med.frequency_raw?.trim() || null,
           with_food: med.with_food ?? null,
           duration_days: durationDays,
-          start_date: effectiveVisitDate,
+          start_date: effectiveStartDate,
           end_date: endDate,
           is_ongoing: isOngoing,
           instructions: med.instructions || null,
@@ -301,7 +317,7 @@ export function ReviewPrescriptionPage() {
         if (defaultTimes.length > 0) {
           const doseRows = buildSchedule({
             medicineId: createdMed.id,
-            startDate: effectiveVisitDate,
+            startDate: effectiveStartDate,
             durationDays,
             isOngoing,
             doseTimes: defaultTimes,
@@ -550,6 +566,17 @@ export function ReviewPrescriptionPage() {
                   />
                 </Field>
 
+                <Field id="rev-sched-start" label="Schedule Starts On" required>
+                  <MedicalDatePicker
+                    id="rev-sched-start"
+                    value={scheduleStartDate}
+                    onChange={setScheduleStartDate}
+                    mode="recent"
+                  />
+                </Field>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Field id="rev-diag" label="Diagnosis">
                   <Input
                     value={diagnosis}
@@ -557,24 +584,24 @@ export function ReviewPrescriptionPage() {
                     placeholder="e.g. Right knee pain, Hypertension"
                   />
                 </Field>
-              </div>
 
-              <Field id="rev-advice" label="Doctor's Advice / Notes">
-                <Textarea
-                  value={doctorAdvice}
-                  onChange={(e) => setDoctorAdvice(e.target.value)}
-                  placeholder="e.g. Steam inhalation, rest, avoid cold drinks"
-                  rows={2}
-                />
-              </Field>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Field id="rev-followup" label="Follow-up Date">
                   <MedicalDatePicker
                     id="rev-followup"
                     value={followUpDate}
                     onChange={setFollowUpDate}
                     mode="recent"
+                  />
+                </Field>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Field id="rev-advice" label="Doctor's Advice / Notes">
+                  <Textarea
+                    value={doctorAdvice}
+                    onChange={(e) => setDoctorAdvice(e.target.value)}
+                    placeholder="e.g. Steam inhalation, rest, avoid cold drinks"
+                    rows={2}
                   />
                 </Field>
 
@@ -599,7 +626,7 @@ export function ReviewPrescriptionPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-base font-bold text-content">Prescribed Medicines ({medicines.length})</h2>
-                  <p className="text-xs text-content-muted">Each medicine generates clear daily dose times.</p>
+                  <p className="text-xs text-content-muted">Review extracted routines and dosing schedule.</p>
                 </div>
                 <Button variant="secondary" size="sm" onClick={handleAddMedicine} leftIcon={<PlusIcon size={14} />}>
                   Add Medicine
@@ -607,50 +634,133 @@ export function ReviewPrescriptionPage() {
               </div>
             }
           >
-            <div className="space-y-5">
+            <div className="space-y-3">
               {medicines.length === 0 ? (
                 <div className="text-center py-8 text-sm text-content-muted">
                   No medicines added yet. Click "+ Add Medicine" above.
                 </div>
               ) : (
                 medicines.map((m, idx) => {
+                  const isEditing = editingMedIds.has(m.id);
                   const isLowConf = m.confidence === 'low';
                   const freqCode = parseFrequency(m.frequency_raw);
                   const durResult = parseDuration(m.duration_raw);
                   const doseTimes = defaultDoseTimes(freqCode, m.with_food, m.frequency_raw);
 
+                  if (!isEditing) {
+                    // Sleek, compact summary card (Concept 1) - ~60px height
+                    return (
+                      <div
+                        key={m.id}
+                        className={`p-3.5 rounded-2xl border ${
+                          isLowConf
+                            ? 'border-warn-border bg-warn-bg/15'
+                            : 'border-line bg-surface-raised'
+                        } flex items-center justify-between gap-3 shadow-xs hover:border-line-strong transition-all`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <span className="w-6 h-6 rounded-lg bg-accent-subtle text-accent flex items-center justify-center font-bold text-xs shrink-0">
+                            {idx + 1}
+                          </span>
+                          <div className="min-w-0 flex-1 space-y-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-bold text-sm text-content truncate">
+                                {m.medicine_name.trim() || `Medicine #${idx + 1}`}
+                              </span>
+                              {m.strength && (
+                                <span className="text-xs font-semibold text-content-muted">
+                                  {m.strength}
+                                </span>
+                              )}
+                              <span className="px-2 py-0.5 rounded-md bg-surface-sunken border border-line text-2xs font-bold text-accent capitalize">
+                                {m.form || 'Tablet'}
+                              </span>
+                              {isLowConf && (
+                                <Badge tone="warn" size="sm">
+                                  Verify
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 text-2xs text-content-muted flex-wrap">
+                              <span className="font-medium text-accent">
+                                {m.frequency_raw?.trim() || (freqCode ? freqCode : 'PRN')}
+                              </span>
+                              <span>•</span>
+                              <span>
+                                {durResult.kind === 'days'
+                                  ? `${durResult.days} days`
+                                  : m.is_ongoing
+                                    ? 'Ongoing'
+                                    : m.duration_raw?.trim() || '5 days'}
+                              </span>
+                              <span>•</span>
+                              <span>
+                                {m.with_food === true
+                                  ? 'After meals'
+                                  : m.with_food === false
+                                    ? 'Before meals'
+                                    : m.instructions
+                                      ? m.instructions
+                                      : 'Anytime'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => toggleEditMed(m.id)}
+                            className="px-2.5 py-1 rounded-lg text-xs font-bold text-accent hover:bg-accent-subtle transition-colors"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveMedicine(m.id)}
+                            className="p-1.5 rounded-lg text-content-muted hover:text-risk-text hover:bg-risk-bg transition-colors"
+                            title="Remove medicine"
+                          >
+                            <TrashIcon size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  // Expanded Editor for this medicine
                   return (
                     <div
                       key={m.id}
-                      className={`p-5 rounded-2xl border ${
-                        isLowConf
-                          ? 'border-warn-border bg-warn-bg/15'
-                          : 'border-line bg-surface-raised'
-                      } space-y-5 shadow-card hover:border-line-strong transition-all`}
+                      className={`p-5 rounded-2xl border-2 border-accent/60 bg-surface-raised space-y-4 shadow-card transition-all`}
                     >
                       {/* Medicine Card Top Header */}
                       <div className="flex items-center justify-between pb-3 border-b border-line">
                         <div className="flex items-center gap-2">
-                          <span className="w-7 h-7 rounded-lg bg-accent-subtle text-accent flex items-center justify-center font-bold text-xs">
+                          <span className="w-7 h-7 rounded-lg bg-accent text-content-onaccent flex items-center justify-center font-bold text-xs">
                             {idx + 1}
                           </span>
                           <span className="text-sm font-bold text-content">
-                            {m.medicine_name.trim() || `Prescribed Medicine #${idx + 1}`}
+                            Editing {m.medicine_name.trim() || `Medicine #${idx + 1}`}
                           </span>
-                          {isLowConf && (
-                            <Badge tone="warn" size="sm" className="ml-1">
-                              Verify details
-                            </Badge>
-                          )}
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveMedicine(m.id)}
-                          className="text-xs text-risk-text hover:bg-risk-bg px-2.5 py-1 rounded-lg font-bold flex items-center gap-1 transition-colors"
-                        >
-                          <TrashIcon size={13} />
-                          Remove
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => toggleEditMed(m.id)}
+                            leftIcon={<CheckIcon size={12} />}
+                          >
+                            Done
+                          </Button>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveMedicine(m.id)}
+                            className="text-xs text-risk-text hover:bg-risk-bg px-2 py-1 rounded-lg font-bold flex items-center gap-1 transition-colors"
+                          >
+                            <TrashIcon size={13} />
+                          </button>
+                        </div>
                       </div>
 
                       {/* Medicine Name & Strength */}
@@ -660,7 +770,7 @@ export function ReviewPrescriptionPage() {
                             <Input
                               value={m.medicine_name}
                               onChange={(e) => handleUpdateMedicine(m.id, { medicine_name: e.target.value })}
-                              placeholder="e.g. Ultrafen-plus, Panadol, Omeprazole"
+                              placeholder="e.g. Augmentin, Panadol, Omeprazole"
                             />
                           </Field>
                         </div>
@@ -669,7 +779,7 @@ export function ReviewPrescriptionPage() {
                             <Input
                               value={m.strength || ''}
                               onChange={(e) => handleUpdateMedicine(m.id, { strength: e.target.value })}
-                              placeholder="e.g. 50mg, 500mg, 10ml"
+                              placeholder="e.g. 50mg, 625mg, 10ml"
                             />
                           </Field>
                         </div>
