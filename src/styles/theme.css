@@ -1,13 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-/* ---------------------------------------------------------------------------
-   Dark mode is class-based, driven by ThemeProvider toggling `.dark` on <html>.
-   `:where()` keeps the variant at zero specificity so it never out-ranks a
-   utility the way a bare `.dark &` selector would.
-   --------------------------------------------------------------------------- */
-@custom-variant dark (&:where(.dark, .dark *));
-
 @theme {
   /* ---------- Raw palette ----------
      These are the pigments. Screens should not reach for them directly — they
@@ -221,74 +214,6 @@
                         0 2px 4px -2px oklch(0.212 0.020 66 / 0.06);
   --shadow-over-value:  0 20px 25px -5px oklch(0.212 0.020 66 / 0.12),
                         0 8px 10px -6px oklch(0.212 0.020 66 / 0.08);
-}
-
-/* ------------------------------------------------------------------- dark ---- */
-.dark {
-  color-scheme: dark;
-
-  /* Not pure black: a warm near-black keeps the same character as the light
-     theme and avoids the halo effect OLED black produces around light text. */
-  --surface:        oklch(0.223 0.012 68);
-  --surface-sunken: oklch(0.181 0.010 66);
-  --surface-raised: oklch(0.264 0.013 70);
-  --surface-hover:  oklch(0.305 0.015 70);
-  --surface-accent: oklch(0.300 0.045 190);
-
-  --line:        oklch(0.325 0.014 70);
-  --line-strong: oklch(0.408 0.018 72);
-
-  --content:          oklch(0.962 0.005 75);
-  --content-muted:    oklch(0.788 0.016 74);
-  --content-subtle:   oklch(0.681 0.020 74);
-  --content-onaccent: oklch(0.165 0.020 190);
-
-  /* Lighter accent on dark: brand-600 on a dark surface fails contrast. */
-  --accent:          var(--color-brand-400);
-  --accent-hover:    var(--color-brand-300);
-  --accent-active:   var(--color-brand-200);
-  --accent-subtle:   oklch(0.300 0.048 190);
-  --accent-onsubtle: var(--color-brand-200);
-
-  --ok-bg:     oklch(0.288 0.048 165);
-  --ok-border: oklch(0.400 0.072 163);
-  --ok-text:   oklch(0.868 0.088 165);
-  --warn-bg:     oklch(0.300 0.048 85);
-  --warn-border: oklch(0.418 0.072 82);
-  --warn-text:   oklch(0.888 0.092 92);
-  --risk-bg:     oklch(0.302 0.062 22);
-  --risk-border: oklch(0.428 0.098 24);
-  --risk-text:   oklch(0.868 0.078 24);
-  --info-bg:     oklch(0.296 0.054 258);
-  --info-border: oklch(0.412 0.084 258);
-  --info-text:   oklch(0.868 0.070 255);
-
-  --slot-morning-bg:      oklch(0.298 0.046 82);
-  --slot-morning-border:  oklch(0.412 0.070 80);
-  --slot-morning-text:    oklch(0.882 0.088 88);
-  --slot-afternoon-bg:     oklch(0.292 0.048 235);
-  --slot-afternoon-border: oklch(0.405 0.074 235);
-  --slot-afternoon-text:   oklch(0.870 0.070 232);
-  --slot-evening-bg:       oklch(0.294 0.050 305);
-  --slot-evening-border:   oklch(0.408 0.078 305);
-  --slot-evening-text:     oklch(0.872 0.068 305);
-  --slot-night-bg:         oklch(0.286 0.046 275);
-  --slot-night-border:     oklch(0.398 0.074 275);
-  --slot-night-text:       oklch(0.864 0.066 275);
-
-  --tier-bronze:   oklch(0.720 0.108 58);
-  --tier-silver:   oklch(0.800 0.014 250);
-  --tier-gold:     oklch(0.848 0.140 88);
-  --tier-platinum: oklch(0.790 0.098 268);
-
-  /* Elevation on dark comes from surface lightness, not from shadow, so these
-     are near-invisible black rather than scaled-up light-theme values. */
-  --shadow-card-value:  0 1px 2px 0 oklch(0 0 0 / 0.30),
-                        0 1px 3px 0 oklch(0 0 0 / 0.24);
-  --shadow-raise-value: 0 4px 6px -1px oklch(0 0 0 / 0.38),
-                        0 2px 4px -2px oklch(0 0 0 / 0.30);
-  --shadow-over-value:  0 20px 25px -5px oklch(0 0 0 / 0.50),
-                        0 8px 10px -6px oklch(0 0 0 / 0.38);
 }
 
 /* Horizontally scrollable strips (tab bars, the schedule date strip) should not

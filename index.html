@@ -16,24 +16,14 @@
     <meta name="apple-mobile-web-app-title" content="Medfolio" />
     <link rel="apple-touch-icon" href="/logo.svg" />
 
-    <!--
-      Resolve the theme before first paint. Waiting for React to hydrate would
-      show a flash of the light theme to every dark-mode user on every load.
-      The storage key must match THEME_STORAGE_KEY in src/lib/theme/ThemeProvider.tsx.
-    -->
     <script>
       (function () {
         try {
-          var stored = localStorage.getItem('medfolio_theme');
-          var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-          var isDark = stored === 'dark' || ((!stored || stored === 'system') && prefersDark);
-          if (isDark) {
-            document.documentElement.classList.add('dark');
-            var meta = document.querySelector('meta[name="theme-color"]');
-            if (meta) meta.setAttribute('content', '#2b2724');
-          }
+          // Permanently clear any stored dark mode preference and guarantee light theme
+          localStorage.removeItem('medfolio_theme');
+          document.documentElement.classList.remove('dark');
         } catch (e) {
-          /* Blocked storage: fall back to the light theme. */
+          // ignore
         }
       })();
     </script>

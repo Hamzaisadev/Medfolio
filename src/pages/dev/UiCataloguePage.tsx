@@ -25,7 +25,6 @@ import { MetricCard } from '../../components/ui/MetricCard';
 import { StatusDot } from '../../components/ui/StatusDot';
 import { DoseCard } from '../../components/ui/DoseCard';
 import { DateStrip } from '../../components/ui/DateStrip';
-import { ThemeToggle } from '../../components/ui/ThemeToggle';
 import { MilestoneBadgeCard } from '../../components/ui/MilestoneBadgeCard';
 import { PlusIcon, MedicineIcon, LabFlaskIcon } from '../../components/ui/icons';
 import {
@@ -81,8 +80,7 @@ export function UiCataloguePage() {
       <PageHeader
         eyebrow="Development"
         title="Component catalogue"
-        description="Every primitive in its default, hover, focus, disabled, error and loading states. Toggle the theme to check both."
-        action={<ThemeToggle />}
+        description="Every primitive in its default, hover, focus, disabled, error and loading states across the clinical design system."
       />
 
       <Toast
