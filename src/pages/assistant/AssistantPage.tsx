@@ -15,7 +15,6 @@ import {
   XIcon,
   AlertTriangleIcon,
   SparklesIcon,
-  CheckIcon,
 } from '../../components/ui/icons';
 import { MEDICINE_INFO_DISCLAIMER } from '../../lib/disclaimer';
 import { medicinesRepo, visitsRepo, reportsRepo, profilesRepo, sideEffectsRepo } from '../../lib/db';
@@ -48,25 +47,24 @@ interface Message {
 
 const DEEP_CLINICAL_PROMPTS = [
   {
-    title: 'Drug Interaction Check',
+    title: 'Drug Interactions',
     prompt: 'Check all my active medicines for potential interactions and food timing conflicts.',
   },
   {
-    title: 'Synthesize Lab Trends',
+    title: 'Lab Trends',
     prompt: 'Correlate my recent lab report results with my prescribed medicines.',
   },
   {
-    title: 'Doctor Action Plan',
+    title: 'Doctor Prep Plan',
     prompt: 'Review advice from my last visit and give me follow-up questions for my next checkup.',
   },
   {
-    title: 'Daily Meal & Dose Timetable',
+    title: 'Daily Meal Schedule',
     prompt: 'Generate an exact daily timetable showing what time to take each medicine relative to food.',
   },
 ];
 
 const CHAT_STORAGE_KEY = 'medfolio_assistant_messages_v2';
-// History kept in localStorage is capped and never includes photo attachments.
 const PERSISTED_MESSAGE_LIMIT = 50;
 
 export function AssistantPage() {
@@ -75,14 +73,12 @@ export function AssistantPage() {
   const [showContextDrawer, setShowContextDrawer] = useState(false);
   const [showSafetyModal, setShowSafetyModal] = useState(false);
 
-  // Persist messages in localStorage across page refreshes
   const [messages, setMessages] = useState<Message[]>(() => {
     try {
       const saved = localStorage.getItem(CHAT_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          // Older builds persisted photo attachments; drop them on read.
           return parsed.map((m: Message) => ({ ...m, image_base64: null, image_mime: null }));
         }
       }
@@ -93,7 +89,7 @@ export function AssistantPage() {
       {
         id: 'welcome',
         role: 'assistant',
-        content: 'Welcome to your Medfolio Clinical Health Assistant. I am strictly specialized in managing your active prescriptions, dosage timings, lab reports, and health records. You can ask health questions, check drug interactions, or upload prescription photos.',
+        content: 'Welcome to your Clinical Health Assistant. I am specialized in managing your active prescriptions, dosage schedules, lab reports, and doctor consultations. How can I help you today?',
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       },
     ];
@@ -154,9 +150,6 @@ export function AssistantPage() {
     loadData();
   }, [loadData]);
 
-  // Save messages to localStorage whenever they change. Photos are never
-  // persisted: base64 attachments are megabytes of clinical imagery sitting
-  // unencrypted in browser storage, so they stay in memory for the session only.
   useEffect(() => {
     try {
       const persistable = messages.slice(-PERSISTED_MESSAGE_LIMIT).map((m) => ({
@@ -181,7 +174,7 @@ export function AssistantPage() {
     }
   }, [messages, activeTab]);
 
-  // Web Speech API - Speech Recognition
+  // Web Speech API
   const toggleSpeechRecognition = () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -401,118 +394,96 @@ export function AssistantPage() {
 
   return (
     <AppShell fullWidth noPadding fixedViewport>
-      <div className="flex-1 flex flex-col h-full min-h-0 overflow-hidden w-full">
-        {/* Top Header & Tab Controls */}
-        <div className="shrink-0 pb-2 pt-1 border-b border-line bg-surface-raised/90 px-3 sm:px-4 rounded-xl mb-1.5 shadow-2xs">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div className="flex items-center gap-2.5">
-              <h1 className="text-base sm:text-lg font-black text-content leading-tight">Clinical Health Assistant</h1>
-            </div>
-
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={() => setShowSafetyModal(true)}
-                className="px-2.5 py-1 rounded-lg border border-line bg-surface-raised text-content-muted hover:bg-surface-hover text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs"
-                title="View safety and reliability information"
-              >
-                <ShieldIcon size={14} />
-                <span className="hidden sm:inline">Safety & Oversight</span>
-                <span className="sm:hidden">Safety</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setShowContextDrawer(!showContextDrawer)}
-                className={`px-2.5 py-1 rounded-lg border text-xs font-bold transition-all flex items-center gap-1.5 ${
-                  showContextDrawer
-                    ? 'bg-accent text-content-onaccent border-accent shadow-2xs'
-                    : 'bg-surface-raised text-content-muted border-line hover:bg-surface-hover'
-                }`}
-              >
-                <FolderIcon size={14} />
-                <span>Active Context ({activeMedsList.length})</span>
-              </button>
-
-              <Button
-                variant="ghost"
-                size="sm"
-                className="py-1 px-2 text-xs h-7"
-                onClick={() => {
-                  const initial: Message[] = [
-                    {
-                      id: 'welcome',
-                      role: 'assistant',
-                      content: 'Conversation cleared. How can I assist you with your health records?',
-                      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                    },
-                  ];
-                  setMessages(initial);
-                  try {
-                    localStorage.removeItem(CHAT_STORAGE_KEY);
-                  } catch (err) {
-                    console.error('Failed to remove saved chat:', err);
-                  }
-                }}
-              >
-                Clear Chat
-              </Button>
+      <div className="flex-1 flex flex-col h-full min-h-0 overflow-hidden w-full max-w-6xl mx-auto px-2 sm:px-4 py-2">
+        {/* Sleek Top Header Bar */}
+        <div className="shrink-0 pb-2.5 pt-1 border-b border-line flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-3">
+            <div>
+              <h1 className="text-base sm:text-lg font-bold text-content leading-tight">
+                Clinical Health Assistant
+              </h1>
+              <p className="text-2xs text-content-muted">
+                Answers grounded in your active prescriptions and lab records.
+              </p>
             </div>
           </div>
 
-          {/* Tab Workspace Selector */}
-          <div className="flex items-center gap-1 p-1 bg-surface-sunken/80 border border-line rounded-xl mt-1.5 max-w-xl overflow-x-auto">
+          <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => setActiveTab('chat')}
-              className={`flex-1 py-1.5 px-3 text-xs font-bold rounded-lg transition-all whitespace-nowrap tap-spring flex items-center justify-center gap-1.5 ${
-                activeTab === 'chat'
-                  ? 'bg-surface-raised text-accent font-black shadow-xs border border-line'
-                  : 'text-content-muted hover:text-content hover:bg-surface-hover'
+              onClick={() => setShowContextDrawer(!showContextDrawer)}
+              className={`px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                showContextDrawer
+                  ? 'bg-accent text-content-onaccent border-accent'
+                  : 'bg-surface-raised text-content-muted border-line hover:border-line-strong hover:text-content'
               }`}
             >
-              <MessageSquareIcon size={14} />
-              <span>Consultation Chat</span>
+              <FolderIcon size={14} />
+              <span>Record Context ({activeMedsList.length} meds)</span>
             </button>
 
             <button
               type="button"
-              onClick={() => setActiveTab('radar')}
-              className={`flex-1 py-1.5 px-3 text-xs font-bold rounded-lg transition-all whitespace-nowrap tap-spring flex items-center justify-center gap-1.5 ${
-                activeTab === 'radar'
-                  ? 'bg-surface-raised text-accent font-black shadow-xs border border-line'
-                  : 'text-content-muted hover:text-content hover:bg-surface-hover'
-              }`}
+              onClick={() => setShowSafetyModal(true)}
+              className="px-2.5 py-1.5 rounded-xl border border-line bg-surface-raised text-content-muted hover:bg-surface-hover text-xs font-medium transition-colors flex items-center gap-1"
+              title="Clinical oversight & safety"
             >
-              <MedicineIcon size={14} />
-              <span>Interaction Radar</span>
+              <ShieldIcon size={13} />
+              <span className="hidden sm:inline">Safety</span>
             </button>
 
-            <button
-              type="button"
-              onClick={() => setActiveTab('doctor-prep')}
-              className={`flex-1 py-1.5 px-3 text-xs font-bold rounded-lg transition-all whitespace-nowrap tap-spring flex items-center justify-center gap-1.5 ${
-                activeTab === 'doctor-prep'
-                  ? 'bg-surface-raised text-accent font-black shadow-xs border border-line'
-                  : 'text-content-muted hover:text-content hover:bg-surface-hover'
-              }`}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="py-1 px-2.5 text-xs h-8 text-content-muted hover:text-risk-text"
+              onClick={() => {
+                const initial: Message[] = [
+                  {
+                    id: 'welcome',
+                    role: 'assistant',
+                    content: 'Conversation cleared. How can I assist you with your health records?',
+                    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                  },
+                ];
+                setMessages(initial);
+                try {
+                  localStorage.removeItem(CHAT_STORAGE_KEY);
+                } catch {
+                  // ignore
+                }
+              }}
             >
-              <DoctorIcon size={14} />
-              <span>Doctor Visit Prep</span>
-            </button>
+              Clear
+            </Button>
+          </div>
+        </div>
 
-            <button
-              type="button"
-              onClick={() => setActiveTab('biomarkers')}
-              className={`flex-1 py-1.5 px-3 text-xs font-bold rounded-lg transition-all whitespace-nowrap tap-spring flex items-center justify-center gap-1.5 ${
-                activeTab === 'biomarkers'
-                  ? 'bg-surface-raised text-accent font-black shadow-xs border border-line'
-                  : 'text-content-muted hover:text-content hover:bg-surface-hover'
-              }`}
-            >
-              <BarChartIcon size={14} />
-              <span>Biomarker Trends</span>
-            </button>
+        {/* Top Segmented Workspace Selector */}
+        <div className="shrink-0 py-2">
+          <div className="flex items-center gap-1.5 p-1 bg-surface-sunken border border-line rounded-xl overflow-x-auto scrollbar-none">
+            {[
+              { id: 'chat', label: 'Consultation Chat', icon: <MessageSquareIcon size={14} /> },
+              { id: 'radar', label: 'Drug Interactions', icon: <MedicineIcon size={14} /> },
+              { id: 'doctor-prep', label: 'Doctor Visit Prep', icon: <DoctorIcon size={14} /> },
+              { id: 'biomarkers', label: 'Biomarker Trends', icon: <BarChartIcon size={14} /> },
+            ].map((tab) => {
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id as typeof activeTab)}
+                  className={`flex-1 py-1.5 px-3 text-xs font-bold rounded-lg transition-all whitespace-nowrap flex items-center justify-center gap-1.5 ${
+                    isActive
+                      ? 'bg-surface-raised text-accent shadow-xs border border-line'
+                      : 'text-content-muted hover:text-content hover:bg-surface-hover'
+                  }`}
+                >
+                  {tab.icon}
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -523,23 +494,25 @@ export function AssistantPage() {
           tone="ok"
         />
 
-        {/* Collapsible Active Context Drawer */}
+        {/* Collapsible Record Grounding Context Drawer */}
         {showContextDrawer && (
           <div className="shrink-0 mb-2 p-3 bg-surface-raised border border-line rounded-2xl shadow-card animate-in fade-in slide-in-from-top-2 duration-150">
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-xs font-bold text-content">Patient Record Context Grounding</span>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-content">Patient Record Grounding</span>
               <button
                 type="button"
                 onClick={() => setShowContextDrawer(false)}
-                className="text-content-muted hover:text-content p-1"
+                className="text-content-muted hover:text-content p-1 rounded-md"
               >
                 <XIcon size={14} />
               </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-              <div className="p-2 bg-surface-sunken rounded-lg">
-                <span className="text-content-subtle font-semibold block text-2xs mb-0.5">Active Medications ({activeMedsList.length})</span>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+              <div className="p-2.5 bg-surface-sunken rounded-xl border border-line">
+                <span className="text-content-subtle font-semibold block text-2xs mb-1">
+                  Active Medications ({activeMedsList.length})
+                </span>
                 {activeMedsList.length === 0 ? (
                   <p className="text-content-subtle italic text-2xs">No active prescriptions.</p>
                 ) : (
@@ -553,93 +526,108 @@ export function AssistantPage() {
                 )}
               </div>
 
-              <div className="p-2 bg-surface-sunken rounded-lg">
-                <span className="text-content-subtle font-semibold block text-2xs mb-0.5">Allergies & Conditions</span>
+              <div className="p-2.5 bg-surface-sunken rounded-xl border border-line">
+                <span className="text-content-subtle font-semibold block text-2xs mb-1">
+                  Allergies & Conditions
+                </span>
                 <p className="text-content font-medium text-2xs">
                   {profile?.allergies ? String(profile.allergies) : 'None recorded'}
                 </p>
+                {profile?.chronic_conditions && (
+                  <p className="text-content-muted text-2xs mt-0.5">
+                    {String(profile.chronic_conditions)}
+                  </p>
+                )}
               </div>
 
-              <div className="p-2 bg-surface-sunken rounded-lg">
-                <span className="text-content-subtle font-semibold block text-2xs mb-0.5">Latest Consultation & Labs</span>
+              <div className="p-2.5 bg-surface-sunken rounded-xl border border-line">
+                <span className="text-content-subtle font-semibold block text-2xs mb-1">
+                  Recent Visits & Labs
+                </span>
                 <p className="text-content font-medium text-2xs truncate">
-                  {visits[0] ? `Dr. ${visits[0].doctor_name || 'Physician'} (${visits[0].visit_date})` : 'No recent visits'}
+                  {visits[0] ? `Dr. ${visits[0].doctor_name || 'Physician'} (${visits[0].visit_date})` : 'No recorded visits'}
                 </p>
                 {reports[0] && (
-                  <p className="text-accent text-2xs mt-0.5 truncate">{reports[0].title} ({reports[0].report_date})</p>
+                  <p className="text-accent text-2xs mt-0.5 truncate font-medium">
+                    {reports[0].title} ({reports[0].report_date})
+                  </p>
                 )}
               </div>
             </div>
           </div>
         )}
 
-        {/* Tab 1: Full-Height Single Internal Scroll Chat */}
+        {/* Tab 1: Clean, Focused Consultation Chat */}
         {activeTab === 'chat' && (
-          <div className="flex-1 flex flex-col bg-surface-raised/80 backdrop-blur-md border border-line rounded-2xl shadow-card overflow-hidden min-h-0">
-            {/* Scrollable Messages Feed — THE ONLY SCROLLBAR */}
-            <div ref={chatContainerRef} className="flex-1 p-3 sm:p-5 overflow-y-auto space-y-4 text-xs sm:text-sm">
-              <div className="max-w-4xl mx-auto space-y-4">
+          <div className="flex-1 flex flex-col bg-surface-raised border border-line rounded-2xl shadow-card overflow-hidden min-h-0">
+            {/* Scrollable Messages Stream */}
+            <div ref={chatContainerRef} className="flex-1 p-3.5 sm:p-5 overflow-y-auto space-y-4 text-xs sm:text-sm">
+              <div className="max-w-3xl mx-auto space-y-4">
                 {messages.map((m) => (
                   <div
                     key={m.id}
                     className={`flex flex-col ${m.role === 'user' ? 'items-end' : 'items-start'}`}
                   >
                     <div
-                      className={`p-4 sm:p-5 rounded-2xl leading-relaxed shadow-card transition-all ${
+                      className={`p-4 rounded-2xl leading-relaxed transition-all ${
                         m.role === 'user'
-                          ? 'bg-accent text-content-onaccent rounded-br-xs font-medium max-w-[85%] text-sm'
-                          : 'bg-surface-raised/95 backdrop-blur-md border border-line text-content rounded-bl-xs w-full max-w-3xl text-xs sm:text-sm'
+                          ? 'bg-accent text-content-onaccent rounded-br-xs font-medium max-w-[85%] text-sm shadow-xs'
+                          : 'bg-surface-sunken/60 border border-line text-content rounded-bl-xs w-full max-w-2xl text-xs sm:text-sm shadow-2xs'
                       }`}
                     >
                       {m.image_base64 && (
                         <img
                           src={m.image_base64}
                           alt="User attachment"
-                          className="w-full max-h-64 object-cover rounded-xl mb-3 border border-line shadow-xs"
+                          className="w-full max-h-56 object-cover rounded-xl mb-3 border border-line shadow-xs"
                         />
                       )}
-                      <p className="whitespace-pre-line leading-relaxed font-normal">{m.content}</p>
+                      <p className="whitespace-pre-line leading-relaxed">{m.content}</p>
 
-                      {/* 1. Interactive Editable Medicine Table if prescribed medicines were detected */}
+                      {/* Modular Interactive Widgets */}
                       {m.medicines && m.medicines.length > 0 && (
-                        <EditablePrescriptionWidget
-                          initialMedicines={m.medicines}
-                          profileId={effectiveProfileId}
-                          userId={effectiveUserId}
-                          onAddedSuccess={(count) => {
-                            setToastMessage(`Added ${count} medicines to your Cabinet & Timetable.`);
-                            loadData();
-                          }}
-                        />
+                        <div className="mt-3">
+                          <EditablePrescriptionWidget
+                            initialMedicines={m.medicines}
+                            profileId={effectiveProfileId}
+                            userId={effectiveUserId}
+                            onAddedSuccess={(count) => {
+                              setToastMessage(`Added ${count} medicines to your cabinet.`);
+                              loadData();
+                            }}
+                          />
+                        </div>
                       )}
 
-                      {/* 2. Visual Chronological Daily Schedule Clock */}
                       {m.dailySchedule && m.dailySchedule.length > 0 && (
-                        <DailyScheduleClockWidget slots={m.dailySchedule} />
+                        <div className="mt-3">
+                          <DailyScheduleClockWidget slots={m.dailySchedule} />
+                        </div>
                       )}
 
-                      {/* 3. Prescription Difference Analyzer ("What Changed?") */}
                       {m.diffAnalysis && m.diffAnalysis.length > 0 && (
-                        <PrescriptionDiffWidget diffs={m.diffAnalysis} />
+                        <div className="mt-3">
+                          <PrescriptionDiffWidget diffs={m.diffAnalysis} />
+                        </div>
                       )}
 
-                      {/* 4. Autonomous Clinical Action Cards */}
                       {m.actionCall && (
-                        <ClinicalActionCards
-                          action={m.actionCall}
-                          profileId={effectiveProfileId}
-                          onExecuted={(msg) => {
-                            setToastMessage(msg);
-                            loadData();
-                          }}
-                        />
+                        <div className="mt-3">
+                          <ClinicalActionCards
+                            action={m.actionCall}
+                            profileId={effectiveProfileId}
+                            onExecuted={(msg) => {
+                              setToastMessage(msg);
+                              loadData();
+                            }}
+                          />
+                        </div>
                       )}
 
-                      {/* 5. Safety & Interaction Alerts */}
                       {m.safetyAlerts && m.safetyAlerts.length > 0 && (
                         <div className="mt-3 p-3 rounded-xl border border-warn-border bg-warn-bg text-xs space-y-1">
                           <span className="font-bold text-warn-text flex items-center gap-1.5 text-xs">
-                            <AlertTriangleIcon size={14} className="text-amber-700 shrink-0" /> Critical Safety Radar:
+                            <AlertTriangleIcon size={14} className="shrink-0" /> Safety Note:
                           </span>
                           <ul className="list-disc list-inside space-y-0.5 text-warn-text text-xs">
                             {m.safetyAlerts.map((alert, aIdx) => (
@@ -650,31 +638,28 @@ export function AssistantPage() {
                       )}
 
                       {m.role === 'assistant' && m.id !== 'welcome' && (
-                        <div className="mt-3 pt-2 border-t border-line flex items-center justify-between text-xs text-content-subtle">
-                          <div className="flex items-center gap-3">
-                            <span>Based on your saved records</span>
-                            <button
-                              type="button"
-                              onClick={() => handleToggleSpeak(m.id, m.content)}
-                              className="text-content-muted hover:text-content font-bold flex items-center gap-1"
-                              title="Listen to audio response"
-                            >
-                              <span>{speakingMsgId === m.id ? 'Stop Audio' : 'Listen'}</span>
-                            </button>
-                          </div>
+                        <div className="mt-3 pt-2 border-t border-line flex items-center justify-between text-2xs text-content-subtle">
+                          <span>Grounded in patient health record</span>
+                          <button
+                            type="button"
+                            onClick={() => handleToggleSpeak(m.id, m.content)}
+                            className="text-accent hover:underline font-bold"
+                          >
+                            {speakingMsgId === m.id ? 'Stop audio' : 'Listen'}
+                          </button>
                         </div>
                       )}
                     </div>
 
-                    {/* Interactive Clickable Suggestion Chips */}
+                    {/* Clickable Follow-up Suggestions */}
                     {m.suggestions && m.suggestions.length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-1.5 max-w-3xl">
+                      <div className="mt-2 flex flex-wrap gap-1.5 max-w-2xl">
                         {m.suggestions.map((s, sIdx) => (
                           <button
                             key={sIdx}
                             type="button"
                             onClick={() => handleSendMessage(s)}
-                            className="px-3 py-1.5 rounded-full bg-accent-subtle border border-line text-accent font-semibold hover:bg-surface-hover transition-all text-xs text-left shadow-xs flex items-center gap-1.5 active:scale-95"
+                            className="px-3 py-1.5 rounded-full bg-surface-sunken border border-line text-content-muted hover:text-content hover:bg-surface-hover transition-colors text-xs text-left flex items-center gap-1.5"
                           >
                             <SparklesIcon size={12} className="text-accent shrink-0" />
                             <span>{s}</span>
@@ -688,8 +673,8 @@ export function AssistantPage() {
                 ))}
 
                 {isLoading && (
-                  <div className="flex items-center gap-2 p-3 bg-surface-raised border border-line rounded-2xl rounded-bl-none shadow-xs">
-                    <span className="text-xs text-content-muted font-semibold">Checking your records</span>
+                  <div className="flex items-center gap-2 p-3 bg-surface-sunken border border-line rounded-2xl rounded-bl-none max-w-xs text-xs text-content-muted font-medium">
+                    <span>Analyzing clinical records</span>
                     <div className="w-1.5 h-1.5 rounded-full bg-accent animate-bounce" />
                     <div className="w-1.5 h-1.5 rounded-full bg-accent animate-bounce [animation-delay:0.2s]" />
                     <div className="w-1.5 h-1.5 rounded-full bg-accent animate-bounce [animation-delay:0.4s]" />
@@ -698,11 +683,11 @@ export function AssistantPage() {
               </div>
             </div>
 
-            {/* Attached Image Preview */}
+            {/* Attached Photo Preview Pill */}
             {attachedImage && (
-              <div className="px-4 py-1.5 bg-accent-subtle border-t border-line flex items-center justify-between text-xs text-content shrink-0 max-w-4xl mx-auto w-full">
+              <div className="px-4 py-2 bg-accent-subtle border-t border-line flex items-center justify-between text-xs text-content shrink-0 max-w-3xl mx-auto w-full">
                 <span className="font-semibold truncate flex items-center gap-1.5">
-                  <FolderIcon size={14} className="text-accent" /> Image attached for clinical inspection
+                  <FolderIcon size={14} className="text-accent shrink-0" /> Photo attached for clinical review
                 </span>
                 <button
                   type="button"
@@ -714,24 +699,24 @@ export function AssistantPage() {
               </div>
             )}
 
-            {/* Pinned Input Dock with Quick Prompts Bar */}
-            <div className="p-2.5 sm:p-3 bg-surface-raised border-t border-line shrink-0 space-y-1.5">
-              <div className="max-w-4xl mx-auto space-y-1.5">
-                {/* Horizontal Quick Prompt Chips Bar */}
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none">
+            {/* Pinned Input Dock */}
+            <div className="p-3 bg-surface-raised border-t border-line shrink-0">
+              <div className="max-w-3xl mx-auto space-y-2">
+                {/* Horizontal Quick Prompt Pills */}
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
                   {DEEP_CLINICAL_PROMPTS.map((sq, idx) => (
                     <button
                       key={idx}
                       type="button"
                       onClick={() => handleSendMessage(sq.prompt)}
-                      className="px-2.5 py-1 rounded-lg border border-line bg-surface-sunken/60 hover:bg-accent-subtle transition-colors whitespace-nowrap text-2xs font-bold text-content shrink-0"
+                      className="px-2.5 py-1 rounded-lg border border-line bg-surface-sunken hover:bg-surface-hover hover:border-line-strong transition-colors whitespace-nowrap text-2xs font-semibold text-content-muted hover:text-content shrink-0"
                     >
                       {sq.title}
                     </button>
                   ))}
                 </div>
 
-                {/* Input Form with Microphone & Photo Attachment */}
+                {/* Input Form with Attachment & Mic */}
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
@@ -745,18 +730,18 @@ export function AssistantPage() {
                     accept="image/*"
                     className="hidden"
                     onChange={handleImagePick}
-                    aria-label="Attach a photo"
+                    aria-label="Attach prescription or lab slip"
                   />
 
                   {/* Photo Attachment */}
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    aria-label="Attach photo of medicine strip, prescription, or lab slip"
-                    className="h-11 px-3 rounded-xl border border-line text-content-muted hover:bg-surface-hover transition-colors flex items-center gap-1.5 text-xs font-bold shrink-0 shadow-2xs"
-                    title="Attach photo of medicine strip, prescription, or lab slip"
+                    aria-label="Attach photo"
+                    className="h-11 px-3 rounded-xl border border-line bg-surface-raised text-content-muted hover:text-content hover:bg-surface-hover transition-colors flex items-center gap-1 text-xs font-semibold shrink-0"
+                    title="Attach photo of prescription or medicine strip"
                   >
-                    <FolderIcon size={16} />
+                    <FolderIcon size={15} />
                     <span className="hidden sm:inline">Attach</span>
                   </button>
 
@@ -765,12 +750,12 @@ export function AssistantPage() {
                     type="button"
                     onClick={toggleSpeechRecognition}
                     aria-label={isRecording ? 'Stop voice input' : 'Start voice input'}
-                    className={`h-11 px-3 rounded-xl border transition-all flex items-center gap-1.5 text-xs font-bold shrink-0 shadow-2xs ${
+                    className={`h-11 px-3 rounded-xl border transition-all flex items-center gap-1 text-xs font-semibold shrink-0 ${
                       isRecording
                         ? 'bg-warn-bg border-warn-border text-warn-text animate-pulse'
-                        : 'border-line text-content-muted hover:bg-surface-hover'
+                        : 'border-line bg-surface-raised text-content-muted hover:text-content hover:bg-surface-hover'
                     }`}
-                    title={isRecording ? 'Listening... click to stop' : 'Voice input'}
+                    title={isRecording ? 'Listening... click to stop' : 'Dictate with voice'}
                   >
                     <span>{isRecording ? 'Listening...' : 'Voice'}</span>
                   </button>
@@ -779,13 +764,21 @@ export function AssistantPage() {
                     type="text"
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
-                    placeholder={isRecording ? 'Listening to your voice...' : 'Ask about medications, timing, symptoms, or attach photos...'}
+                    placeholder={isRecording ? 'Listening...' : 'Ask about medications, timing, or upload prescriptions...'}
                     aria-label="Message the assistant"
-                    className="flex-1 h-11 px-3.5 text-base sm:text-sm bg-surface-sunken border border-line rounded-xl text-content focus:outline-none focus:ring-2 focus:ring-accent shadow-2xs"
+                    className="flex-1 h-11 px-3.5 text-base sm:text-sm bg-surface-sunken border border-line rounded-xl text-content placeholder:text-content-subtle focus:outline-none focus:ring-2 focus:ring-accent"
                     disabled={isLoading}
                   />
-                  <Button type="submit" variant="primary" size="sm" loading={isLoading} disabled={!input.trim() && !attachedImage} className="h-11 px-5 font-bold shrink-0 text-xs shadow-xs">
-                    Send &rarr;
+
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    size="sm"
+                    loading={isLoading}
+                    disabled={!input.trim() && !attachedImage}
+                    className="h-11 px-4 font-bold shrink-0 text-xs shadow-xs"
+                  >
+                    Send
                   </Button>
                 </form>
 
@@ -797,11 +790,11 @@ export function AssistantPage() {
 
         {/* Tab 2: Drug Interaction Radar */}
         {activeTab === 'radar' && (
-          <div className="flex-1 overflow-y-auto min-h-0 pt-2 max-w-5xl mx-auto w-full">
+          <div className="flex-1 overflow-y-auto min-h-0 pt-2 max-w-4xl mx-auto w-full">
             <DrugInteractionRadar
               medicines={activeMedsList}
-              allergies={profile?.allergies ? String(profile.allergies) : null}
-              chronicConditions={profile?.chronic_conditions ? String(profile.chronic_conditions) : null}
+              allergies={profile?.allergies ? String(profile.allergies) : undefined}
+              chronicConditions={profile?.chronic_conditions ? String(profile.chronic_conditions) : undefined}
               onAskAssistant={(query) => handleSendMessage(query)}
             />
           </div>
@@ -809,7 +802,7 @@ export function AssistantPage() {
 
         {/* Tab 3: Doctor Visit Prep Brief */}
         {activeTab === 'doctor-prep' && (
-          <div className="flex-1 overflow-y-auto min-h-0 pt-2 max-w-5xl mx-auto w-full">
+          <div className="flex-1 overflow-y-auto min-h-0 pt-2 max-w-4xl mx-auto w-full">
             <DoctorPrepBrief
               profile={profile}
               medicines={activeMedsList}
@@ -821,9 +814,9 @@ export function AssistantPage() {
           </div>
         )}
 
-        {/* Tab 4: Biomarker Trajectory */}
+        {/* Tab 4: Biomarker Trajectory Analytics */}
         {activeTab === 'biomarkers' && (
-          <div className="flex-1 overflow-y-auto min-h-0 pt-2 max-w-5xl mx-auto w-full">
+          <div className="flex-1 overflow-y-auto min-h-0 pt-2 max-w-4xl mx-auto w-full">
             <BiomarkerTrajectory
               reports={reports}
               resultsMap={resultsMap}
@@ -832,81 +825,28 @@ export function AssistantPage() {
           </div>
         )}
 
-        {/* Safety & human-oversight modal */}
+        {/* Safety & Clinical Oversight Modal */}
         <Dialog
           open={showSafetyModal}
           onOpenChange={setShowSafetyModal}
-          title="Safety, Reliability & Human Oversight"
-          description="How Medfolio keeps every suggestion safe, grounded in your records, and confirmed by you."
-          className="max-w-xl"
+          title="Clinical Safety & Oversight"
+          description="Guidelines governing Medfolio's health assistant."
         >
-          <div className="space-y-4 pt-2 text-xs text-content-muted">
-            {/* Core Principle Banner */}
-            <div className="p-3.5 rounded-2xl bg-accent-subtle border border-line">
-              <span className="text-2xs font-black uppercase tracking-wider text-accent block mb-1">
-                Winning Signal Principle
-              </span>
-              <p className="text-xs font-bold text-content leading-relaxed">
-                The solution improves a care decision without pretending to replace care.
-              </p>
+          <div className="space-y-3.5 text-xs text-content-muted leading-relaxed">
+            <p>
+              Medfolio's health assistant assists you in understanding prescriptions, organizing daily dose schedules, and reviewing lab results.
+            </p>
+            <div className="p-3 bg-surface-sunken border border-line rounded-xl space-y-1">
+              <span className="font-bold text-content block text-xs">Core Principles:</span>
+              <ul className="list-disc list-inside space-y-1 text-2xs text-content-muted">
+                <li>Grounds responses strictly on your uploaded prescriptions and reports.</li>
+                <li>Highlights dangerous drug-drug combinations and allergy risks.</li>
+                <li>Never replaces professional medical diagnosis, advice, or emergency triage.</li>
+              </ul>
             </div>
-
-            {/* Human in the loop 4 steps */}
-            <div className="border border-line rounded-2xl p-3.5 bg-surface-sunken/60">
-              <span className="text-2xs font-black uppercase tracking-wider text-content-subtle block mb-2.5">
-                Human-in-the-Loop Workflow
-              </span>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="p-2 rounded-xl bg-surface-raised border border-line">
-                  <p className="font-bold text-content text-2xs">1. Care Moment</p>
-                  <p className="text-2xs text-content-subtle mt-0.5">Patient or caregiver logs symptoms, vitals, or prescription</p>
-                </div>
-                <div className="p-2 rounded-xl bg-surface-raised border border-line">
-                  <p className="font-bold text-accent text-2xs">2. Assistant Support</p>
-                  <p className="text-2xs text-content-subtle mt-0.5">Grounded extraction, dosage timetable & interaction checks</p>
-                </div>
-                <div className="p-2 rounded-xl bg-accent text-content-onaccent border border-accent">
-                  <p className="font-bold text-2xs">3. Human Review</p>
-                  <p className="text-2xs mt-0.5 opacity-80">Patient confirms all data; doctor oversight for clinical judgment</p>
-                </div>
-                <div className="p-2 rounded-xl bg-surface-raised border border-ok-border">
-                  <p className="font-bold text-ok-text text-2xs">4. Next Action</p>
-                  <p className="text-2xs text-content-subtle mt-0.5">Clear, verified schedule & checkup preparation notes</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Safety Rules */}
-            <div className="space-y-2 text-2xs">
-              <div className="flex items-start gap-2">
-                <CheckIcon size={14} className="text-ok-text shrink-0 mt-0.5" />
-                <p><strong>Assist — Do Not Diagnose:</strong> The assistant helps organize regimens, explains terminology, and detects drug interactions, but never makes unilateral diagnostic claims.</p>
-              </div>
-              <div className="flex items-start gap-2">
-                <CheckIcon size={14} className="text-ok-text shrink-0 mt-0.5" />
-                <p><strong>Zero Silent Commits:</strong> No medical records, prescriptions, or schedule updates are saved without your explicit confirmation.</p>
-              </div>
-              <div className="flex items-start gap-2">
-                <CheckIcon size={14} className="text-ok-text shrink-0 mt-0.5" />
-                <p><strong>Domain Isolation:</strong> Responses are bounded strictly to personal health and pharmacology, refusing off-topic generation.</p>
-              </div>
-            </div>
-
-            {/* Emergency Hotlines */}
-            <div className="p-3 rounded-xl bg-risk-bg border border-risk-border flex items-center justify-between">
-              <div>
-                <p className="font-bold text-risk-text text-xs">Medical Emergency?</p>
-                <p className="text-2xs text-risk-text">Dial immediately for acute care in Pakistan</p>
-              </div>
-              <div className="flex gap-1.5">
-                <a href="tel:1122" className="px-2.5 py-1 rounded-lg border border-risk-border bg-surface-raised text-risk-text font-bold text-xs hover:bg-risk-bg">1122</a>
-                <a href="tel:115" className="px-2.5 py-1 rounded-lg border border-risk-border bg-surface-raised text-risk-text font-bold text-xs hover:bg-risk-bg">115</a>
-              </div>
-            </div>
-
-            <div className="flex justify-end pt-1">
-              <Button size="sm" variant="primary" onClick={() => setShowSafetyModal(false)}>
-                Understood
+            <div className="flex justify-end pt-2">
+              <Button variant="secondary" size="sm" onClick={() => setShowSafetyModal(false)}>
+                Close
               </Button>
             </div>
           </div>
