@@ -89,17 +89,7 @@ export function ReviewPrescriptionPage() {
   // Discard Confirmation Modal State
   const [isDiscardDialogOpen, setIsDiscardDialogOpen] = useState(false);
 
-  // Set of medicine IDs currently expanded for editing (collapsed by default for compact view)
-  const [editingMedIds, setEditingMedIds] = useState<Set<string>>(new Set());
 
-  const toggleEditMed = (id: string) => {
-    setEditingMedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
 
   // Image Viewer & Hover Zoom State
   const [activeImageIndex, setActiveImageIndex] = useState(0);
@@ -179,7 +169,6 @@ export function ReviewPrescriptionPage() {
         confidence: 'high',
       },
     ]);
-    setEditingMedIds((prev) => new Set(prev).add(nid));
   };
 
   const handleUpdateMedicine = (id: string, updates: Partial<MedicineDraft>) => {
@@ -634,137 +623,55 @@ export function ReviewPrescriptionPage() {
               </div>
             }
           >
-            <div className="space-y-3">
+            <div className="space-y-4">
               {medicines.length === 0 ? (
-                <div className="text-center py-8 text-sm text-content-muted">
+                <div className="text-center py-10 text-sm text-content-muted">
                   No medicines added yet. Click "+ Add Medicine" above.
                 </div>
               ) : (
                 medicines.map((m, idx) => {
-                  const isEditing = editingMedIds.has(m.id);
                   const isLowConf = m.confidence === 'low';
                   const freqCode = parseFrequency(m.frequency_raw);
                   const durResult = parseDuration(m.duration_raw);
                   const doseTimes = defaultDoseTimes(freqCode, m.with_food, m.frequency_raw);
 
-                  if (!isEditing) {
-                    // Sleek, compact summary card (Concept 1) - ~60px height
-                    return (
-                      <div
-                        key={m.id}
-                        className={`p-3.5 rounded-2xl border ${
-                          isLowConf
-                            ? 'border-warn-border bg-warn-bg/15'
-                            : 'border-line bg-surface-raised'
-                        } flex items-center justify-between gap-3 shadow-xs hover:border-line-strong transition-all`}
-                      >
-                        <div className="flex items-center gap-3 min-w-0 flex-1">
-                          <span className="w-6 h-6 rounded-lg bg-accent-subtle text-accent flex items-center justify-center font-bold text-xs shrink-0">
-                            {idx + 1}
-                          </span>
-                          <div className="min-w-0 flex-1 space-y-1">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-bold text-sm text-content truncate">
-                                {m.medicine_name.trim() || `Medicine #${idx + 1}`}
-                              </span>
-                              {m.strength && (
-                                <span className="text-xs font-semibold text-content-muted">
-                                  {m.strength}
-                                </span>
-                              )}
-                              <span className="px-2 py-0.5 rounded-md bg-surface-sunken border border-line text-2xs font-bold text-accent capitalize">
-                                {m.form || 'Tablet'}
-                              </span>
-                              {isLowConf && (
-                                <Badge tone="warn" size="sm">
-                                  Verify
-                                </Badge>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2 text-2xs text-content-muted flex-wrap">
-                              <span className="font-medium text-accent">
-                                {m.frequency_raw?.trim() || (freqCode ? freqCode : 'PRN')}
-                              </span>
-                              <span>•</span>
-                              <span>
-                                {durResult.kind === 'days'
-                                  ? `${durResult.days} days`
-                                  : m.is_ongoing
-                                    ? 'Ongoing'
-                                    : m.duration_raw?.trim() || '5 days'}
-                              </span>
-                              <span>•</span>
-                              <span>
-                                {m.with_food === true
-                                  ? 'After meals'
-                                  : m.with_food === false
-                                    ? 'Before meals'
-                                    : m.instructions
-                                      ? m.instructions
-                                      : 'Anytime'}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-1 shrink-0">
-                          <button
-                            type="button"
-                            onClick={() => toggleEditMed(m.id)}
-                            className="px-2.5 py-1 rounded-lg text-xs font-bold text-accent hover:bg-accent-subtle transition-colors"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveMedicine(m.id)}
-                            className="p-1.5 rounded-lg text-content-muted hover:text-risk-text hover:bg-risk-bg transition-colors"
-                            title="Remove medicine"
-                          >
-                            <TrashIcon size={14} />
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  }
-
-                  // Expanded Editor for this medicine
                   return (
                     <div
                       key={m.id}
-                      className={`p-5 rounded-2xl border-2 border-accent/60 bg-surface-raised space-y-4 shadow-card transition-all`}
+                      className={`p-5 rounded-2xl border ${
+                        isLowConf
+                          ? 'border-warn-border bg-warn-bg/10'
+                          : 'border-line-strong bg-surface-raised'
+                      } space-y-4 shadow-card hover:border-accent/40 transition-all`}
                     >
                       {/* Medicine Card Top Header */}
                       <div className="flex items-center justify-between pb-3 border-b border-line">
-                        <div className="flex items-center gap-2">
-                          <span className="w-7 h-7 rounded-lg bg-accent text-content-onaccent flex items-center justify-center font-bold text-xs">
+                        <div className="flex items-center gap-2.5">
+                          <span className="w-7 h-7 rounded-xl bg-accent text-content-onaccent flex items-center justify-center font-bold text-xs shadow-xs">
                             {idx + 1}
                           </span>
                           <span className="text-sm font-bold text-content">
-                            Editing {m.medicine_name.trim() || `Medicine #${idx + 1}`}
+                            {m.medicine_name.trim() || `Prescribed Medicine #${idx + 1}`}
                           </span>
+                          {isLowConf && (
+                            <Badge tone="warn" size="sm">
+                              Verify Details
+                            </Badge>
+                          )}
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => toggleEditMed(m.id)}
-                            leftIcon={<CheckIcon size={12} />}
-                          >
-                            Done
-                          </Button>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveMedicine(m.id)}
-                            className="text-xs text-risk-text hover:bg-risk-bg px-2 py-1 rounded-lg font-bold flex items-center gap-1 transition-colors"
-                          >
-                            <TrashIcon size={13} />
-                          </button>
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveMedicine(m.id)}
+                          className="text-xs text-risk-text hover:bg-risk-bg px-2.5 py-1 rounded-lg font-bold flex items-center gap-1.5 transition-colors"
+                          title="Remove this medicine"
+                        >
+                          <TrashIcon size={14} />
+                          <span>Remove</span>
+                        </button>
                       </div>
 
                       {/* Medicine Name & Strength */}
-                      <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-12 gap-3.5">
                         <div className="sm:col-span-8">
                           <Field id={`med-name-${m.id}`} label="Medicine Name" required>
                             <Input
@@ -779,7 +686,7 @@ export function ReviewPrescriptionPage() {
                             <Input
                               value={m.strength || ''}
                               onChange={(e) => handleUpdateMedicine(m.id, { strength: e.target.value })}
-                              placeholder="e.g. 50mg, 625mg, 10ml"
+                              placeholder="e.g. 500mg, 625mg, 10ml"
                             />
                           </Field>
                         </div>
@@ -811,7 +718,7 @@ export function ReviewPrescriptionPage() {
                                 onClick={() => handleUpdateMedicine(m.id, { form: f.label })}
                                 className={`text-xs font-semibold px-3 py-1.5 rounded-xl border transition-all ${
                                   isSelected
-                                    ? 'bg-accent text-content-onaccent border-accent shadow-xs'
+                                    ? 'bg-accent text-content-onaccent border-accent shadow-xs font-bold'
                                     : 'bg-surface-sunken text-content-muted border-line hover:border-line-strong hover:text-content'
                                 }`}
                               >
@@ -839,7 +746,7 @@ export function ReviewPrescriptionPage() {
                                 else if (val === 'WEEKLY') handleUpdateMedicine(m.id, { frequency_raw: 'Once weekly' });
                                 else handleUpdateMedicine(m.id, { frequency_raw: '' });
                               }}
-                              className="w-full h-12 px-3.5 text-base sm:text-sm bg-surface-raised border border-line-strong rounded-[var(--radius-md)] text-content focus:border-accent focus:outline-2 focus:outline-offset-2 focus:outline-accent"
+                              className="w-full h-12 px-3.5 text-base sm:text-sm bg-surface-raised border border-line-strong rounded-[var(--radius-md)] text-content focus:border-accent focus:outline-2 focus:outline-offset-2 focus:outline-accent font-medium"
                             >
                               <option value="BD">Twice daily — Morning & Night</option>
                               <option value="OD">Once daily — Morning</option>
@@ -863,12 +770,12 @@ export function ReviewPrescriptionPage() {
                             </div>
                           )}
 
-                          {/* Clean scheduled times summary */}
-                          <div className="mt-1.5 flex items-center justify-between text-xs text-content-muted">
-                            <span className="flex items-center gap-1.5 font-medium">
+                          {/* Scheduled times preview */}
+                          <div className="mt-2 flex items-center justify-between text-xs text-content-muted">
+                            <span className="flex items-center gap-1.5 font-medium text-accent">
                               <ClockIcon size={13} className="text-accent shrink-0" />
                               {doseTimes.length > 0
-                                ? `Times: ${doseTimes.map((t) => formatMinutesTo24h(t)).join(', ')}`
+                                ? `Scheduled Times: ${doseTimes.map((t) => formatMinutesTo24h(t)).join(', ')}`
                                 : 'No fixed scheduled hours (as needed)'}
                             </span>
                           </div>
