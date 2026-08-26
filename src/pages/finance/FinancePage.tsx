@@ -88,62 +88,67 @@ export function FinancePage() {
       ]);
 
       // Auto-sync doctor visit fees and medicine costs if not already logged
-      const synced: HealthExpenseItem[] = [...expenses];
-      let hasChanges = false;
+      setExpenses((prevExpenses) => {
+        const synced: HealthExpenseItem[] = [...prevExpenses];
+        let hasChanges = false;
 
-      // 1. Doctor Visits
-      for (const v of vList) {
-        if (v.visit_cost && v.visit_cost > 0) {
-          const exists = synced.some((e) => e.id === `visit-${v.id}`);
-          if (!exists) {
-            synced.push({
-              id: `visit-${v.id}`,
-              category: 'doctor',
-              title: `Consultation Fee — Dr. ${v.doctor_name || 'Physician'}`,
-              amount: Number(v.visit_cost),
-              currency: v.currency || 'PKR',
-              date: v.visit_date,
-              note: v.clinic_name || v.diagnosis || undefined,
-            });
-            hasChanges = true;
+        // 1. Doctor Visits
+        for (const v of vList) {
+          if (v.visit_cost && v.visit_cost > 0) {
+            const exists = synced.some((e) => e.id === `visit-${v.id}`);
+            if (!exists) {
+              synced.push({
+                id: `visit-${v.id}`,
+                category: 'doctor',
+                title: `Consultation Fee — Dr. ${v.doctor_name || 'Physician'}`,
+                amount: Number(v.visit_cost),
+                currency: v.currency || 'PKR',
+                date: v.visit_date,
+                note: v.clinic_name || v.diagnosis || undefined,
+              });
+              hasChanges = true;
+            }
           }
         }
-      }
 
-      // 2. Prescribed Medicines with Recorded Costs
-      for (const m of medList) {
-        if (m.unit_cost && m.unit_cost > 0) {
-          const exists = synced.some((e) => e.id === `med-${m.id}`);
-          if (!exists) {
-            synced.push({
-              id: `med-${m.id}`,
-              category: 'medicine',
-              title: `Medication — ${m.medicine_name}${m.strength ? ' ' + m.strength : ''}`,
-              amount: Number(m.unit_cost),
-              currency: m.currency || 'PKR',
-              date: m.start_date || todayInAppTz(),
-              note: m.instructions || undefined,
-            });
-            hasChanges = true;
+        // 2. Prescribed Medicines with Recorded Costs
+        for (const m of medList) {
+          if (m.unit_cost && m.unit_cost > 0) {
+            const exists = synced.some((e) => e.id === `med-${m.id}`);
+            if (!exists) {
+              synced.push({
+                id: `med-${m.id}`,
+                category: 'medicine',
+                title: `Medication — ${m.medicine_name}${m.strength ? ' ' + m.strength : ''}`,
+                amount: Number(m.unit_cost),
+                currency: m.currency || 'PKR',
+                date: m.start_date || todayInAppTz(),
+                note: m.instructions || undefined,
+              });
+              hasChanges = true;
+            }
           }
         }
-      }
 
-      if (hasChanges) {
-        setExpenses(synced);
-        localStorage.setItem(EXPENSE_STORAGE_KEY, JSON.stringify(synced));
-      }
+        if (hasChanges) {
+          try {
+            localStorage.setItem(EXPENSE_STORAGE_KEY, JSON.stringify(synced));
+          } catch {
+            // ignore
+          }
+          return synced;
+        }
+        return prevExpenses;
+      });
     } catch (err) {
       console.error('Failed to load financial records:', err);
-      // Locally stored expenses are still usable, so this surfaces as an inline
-      // retryable banner instead of hiding the ledger behind a full error state.
       setLoadError(
         'Could not sync doctor visit and medicine costs. Your saved expenses are still shown below.'
       );
     } finally {
       setIsLoading(false);
     }
-  }, [effectiveProfileId, effectiveUserId, expenses]);
+  }, [effectiveProfileId, effectiveUserId]);
 
   useEffect(() => {
     loadData();

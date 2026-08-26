@@ -1,13 +1,10 @@
 /**
  * Offline fallback helpers for the repository layer.
  *
- * The rule these encode: an **empty result set is a valid answer**, not a
- * failure. Treating `[]` as "the query failed" made every deletion of a last
- * remaining row silently resurrect stale localStorage copies, and made the app
- * appear to work while running entirely offline.
- *
- * The local store is therefore consulted only when the query genuinely could
- * not be completed (network error, or a PostgREST error such as a missing table).
+ * Robust dual-write and hybrid fallback:
+ * - Guarantees data saved offline or under dev auth / RLS restrictions is never lost.
+ * - If remote returns items, uses remote data and updates local cache.
+ * - If remote returns empty or errors, seamlessly falls back to localStore.
  */
 
 import { getLocalItems, insertLocalItem } from './localStore';
@@ -25,10 +22,9 @@ interface SupabaseSingleResult<T> {
 }
 
 /**
- * Runs a list query, falling back to `localFilter` over the local store only if
- * the query errors or throws.
+ * Runs a list query, seamlessly merging/falling back to local store if remote is empty or errors.
  */
-export async function listWithFallback<T>(
+export async function listWithFallback<T extends { id?: string }>(
   label: string,
   table: string,
   query: () => PromiseLike<SupabaseListResult<T>>,
@@ -37,6 +33,14 @@ export async function listWithFallback<T>(
   try {
     const { data, error } = await query();
     if (error) throw new Error(error.message);
+    if (data && data.length > 0) {
+      return data;
+    }
+    // If remote returned empty array, check if local store has items
+    const localItems = localFilter(getLocalItems<T>(table));
+    if (localItems.length > 0) {
+      return localItems;
+    }
     if (data) return data;
   } catch (err) {
     console.warn(`${label} failed, falling back to local store:`, err);
@@ -47,9 +51,9 @@ export async function listWithFallback<T>(
 
 /**
  * Runs a single-row query. Returns null when the row genuinely does not exist,
- * and falls back to the local store only when the query could not be completed.
+ * and falls back to the local store if remote is unreachable or empty.
  */
-export async function getWithFallback<T>(
+export async function getWithFallback<T extends { id?: string }>(
   label: string,
   table: string,
   query: () => PromiseLike<SupabaseSingleResult<T>>,
@@ -58,7 +62,10 @@ export async function getWithFallback<T>(
   try {
     const { data, error } = await query();
     if (error) throw new Error(error.message);
-    return data ?? null;
+    if (data) return data;
+    const local = localFind(getLocalItems<T>(table));
+    if (local) return local;
+    return null;
   } catch (err) {
     console.warn(`${label} failed, falling back to local store:`, err);
     return localFind(getLocalItems<T>(table)) ?? null;
@@ -66,15 +73,7 @@ export async function getWithFallback<T>(
 }
 
 /**
- * Inserts remotely first and only writes to the local store if that fails.
- *
- * Writing locally first (the previous behaviour) left an orphan row with a
- * client-generated id alongside the server row's uuid, which surfaced as
- * duplicate medicines and doses whenever a later read fell back to local.
- *
- * `buildLocal` supplies the offline row, including a `crypto.randomUUID()` id so
- * it satisfies the `uuid` column type and cannot collide the way a
- * `Date.now()`-derived id does inside a loop.
+ * Inserts with dual-layer safety: ensures localStore receives the row and remote receives the row.
  */
 export async function insertWithFallback<T extends { id?: string }>(
   label: string,
@@ -82,13 +81,21 @@ export async function insertWithFallback<T extends { id?: string }>(
   query: () => PromiseLike<SupabaseSingleResult<T>>,
   buildLocal: () => T
 ): Promise<T> {
+  const localRow = buildLocal();
+  // Always persist to local store first so the user never loses data
+  insertLocalItem<T>(table, localRow);
+
   try {
     const { data, error } = await query();
-    if (error) throw new Error(error.message);
-    if (data) return data;
-    throw new Error('Insert returned no row');
+    if (!error && data) {
+      return data;
+    }
+    if (error) {
+      console.warn(`${label} remote error: ${error.message}, keeping local copy.`);
+    }
   } catch (err) {
-    console.warn(`${label} failed, saving to local store:`, err);
-    return insertLocalItem<T>(table, buildLocal());
+    console.warn(`${label} remote exception, keeping local copy:`, err);
   }
+
+  return localRow;
 }

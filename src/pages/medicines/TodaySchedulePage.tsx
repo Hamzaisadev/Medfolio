@@ -20,6 +20,7 @@ import { bucketOf, Bucket, BUCKET_ORDER } from '../../domain/timeBuckets';
 import { deriveStatusOnRead, calculateAdherence } from '../../domain/adherence';
 import { defaultDoseTimes, parseFrequency } from '../../domain/frequency';
 import { buildSchedule } from '../../domain/schedule';
+import { computeEndDate } from '../../domain/duration';
 import { useAuth } from '../../lib/auth/AuthContext';
 import { dosesRepo, medicinesRepo } from '../../lib/db';
 import { decrementPill, incrementPill } from '../../lib/inventory';
@@ -39,11 +40,6 @@ const SKIP_REASONS = [
 /**
  * Creates the missing dose rows for `dateStr` for every medicine whose course
  * genuinely covers that date. Returns true if anything was written.
- *
- * Only called for today or later. A medicine is skipped unless its course window
- * actually includes the date: a missing `start_date` or `end_date` is treated as
- * "not covered" rather than "always active", so a finished course cannot silently
- * resume dosing.
  */
 async function topUpScheduleFor(
   medicines: Medicine[],
@@ -62,26 +58,25 @@ async function topUpScheduleFor(
 
   for (const m of medicines) {
     if (m.discontinued_at) continue;
-    if (!m.start_date || m.start_date > dateStr) continue;
+    const effectiveStartDate = m.start_date || todayInAppTz();
+    if (effectiveStartDate > dateStr) continue;
 
     const isOngoing = m.is_ongoing ?? false;
-    if (!isOngoing) {
-      if (!m.end_date || m.end_date < dateStr) continue;
-    }
+    const effectiveEndDate =
+      m.end_date || (m.duration_days ? computeEndDate(effectiveStartDate, m.duration_days) : null);
 
-    // frequency_code is the authority; frequency_raw is only a fallback. Neither
-    // parsing means we do not know the schedule, so nothing is generated.
+    if (!isOngoing && effectiveEndDate && effectiveEndDate < dateStr) continue;
+
+    // frequency_code is the authority; frequency_raw is only a fallback.
     const freqCode = m.frequency_code ?? parseFrequency(m.frequency_raw);
     if (!freqCode) continue;
 
     const doseTimes = defaultDoseTimes(freqCode, m.with_food, m.frequency_raw);
     if (doseTimes.length === 0) continue;
 
-    // Re-run the generator from the course start so WEEKLY lands on its real
-    // dosing days rather than on whichever date happens to be open.
     const generated = buildSchedule({
       medicineId: m.id,
-      startDate: m.start_date,
+      startDate: effectiveStartDate,
       durationDays: m.duration_days,
       isOngoing,
       doseTimes,

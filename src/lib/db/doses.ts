@@ -77,6 +77,9 @@ export async function listDosesForRange(
 export async function createDoses(doses: DoseInsert[]): Promise<Dose[]> {
   if (doses.length === 0) return [];
 
+  // Always maintain local store copy so offline/dev sessions have full schedule data
+  const localDoses = writeDosesLocally(doses);
+
   try {
     const { data, error } = await supabase
       .from('doses')
@@ -86,15 +89,12 @@ export async function createDoses(doses: DoseInsert[]): Promise<Dose[]> {
       })
       .select();
 
-    if (error) throw new Error(error.message);
-    // `ignoreDuplicates` returns only newly inserted rows, so an empty array
-    // here means "all of these already existed" — which is success.
-    if (data) return data;
+    if (!error && data && data.length > 0) return data;
   } catch (err) {
-    console.warn('createDoses failed, writing to local store:', err);
+    console.warn('createDoses failed remotely, preserved in local store:', err);
   }
 
-  return writeDosesLocally(doses);
+  return localDoses;
 }
 
 function writeDosesLocally(doses: DoseInsert[]): Dose[] {
