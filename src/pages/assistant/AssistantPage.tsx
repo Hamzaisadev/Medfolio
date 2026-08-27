@@ -178,53 +178,86 @@ export function AssistantPage() {
     }
   }, [messages, activeTab]);
 
-  // Web Speech API
+  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+
+  // Preload synthesis voices on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.getVoices();
+      const onVoicesChanged = () => {
+        window.speechSynthesis.getVoices();
+      };
+      window.speechSynthesis.addEventListener('voiceschanged', onVoicesChanged);
+      return () => {
+        window.speechSynthesis.removeEventListener('voiceschanged', onVoicesChanged);
+        window.speechSynthesis.cancel();
+      };
+    }
+  }, []);
+
+  // Web Speech API - Voice Recognition
   const toggleSpeechRecognition = () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      setToastMessage('Voice recognition is not supported in this browser. Please use Chrome or Edge.');
+      setToastMessage('Voice dictation is not supported in this browser. Please use Chrome or Edge.');
       return;
     }
 
     if (isRecording) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (recognitionRef.current as any)?.stop();
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (recognitionRef.current as any)?.stop();
+      } catch {
+        // ignore
+      }
       setIsRecording(false);
       return;
     }
 
-    const recognition = new SpeechRecognition();
-    recognition.continuous = false;
-    recognition.interimResults = true;
-    recognition.lang = 'en-US';
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    recognition.onresult = (event: any) => {
-      const transcript = Array.from(event.results)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .map((r: any) => r[0].transcript)
-        .join('');
-      setInput(transcript);
-    };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      recognition.onresult = (event: any) => {
+        const transcript = Array.from(event.results)
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .map((r: any) => r[0].transcript)
+          .join('');
+        setInput(transcript);
+      };
 
-    recognition.onerror = () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      recognition.onerror = (event: any) => {
+        setIsRecording(false);
+        if (event.error === 'not-allowed') {
+          setToastMessage('Microphone access was denied. Please allow mic permissions.');
+        } else if (event.error === 'network') {
+          setToastMessage('Speech network error. If using Brave, enable Google Speech in settings.');
+        } else {
+          setToastMessage(`Voice input error: ${event.error || 'Check microphone'}`);
+        }
+      };
+
+      recognition.onend = () => {
+        setIsRecording(false);
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+      setIsRecording(true);
+    } catch (err: unknown) {
       setIsRecording(false);
-      setToastMessage('Could not capture audio. Please check microphone permissions.');
-    };
-
-    recognition.onend = () => {
-      setIsRecording(false);
-    };
-
-    recognitionRef.current = recognition;
-    recognition.start();
-    setIsRecording(true);
+      setToastMessage('Could not start voice recognition. Please check permissions.');
+    }
   };
 
   // Text-To-Speech Playback
   const handleToggleSpeak = (msgId: string, text: string) => {
-    if (typeof window === 'undefined' || !window.speechSynthesis) {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
       setToastMessage('Audio playback not supported in this browser.');
       return;
     }
@@ -232,15 +265,54 @@ export function AssistantPage() {
     if (speakingMsgId === msgId) {
       window.speechSynthesis.cancel();
       setSpeakingMsgId(null);
+      utteranceRef.current = null;
       return;
     }
 
+    // Cancel any previous utterance
     window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
+
+    // Clean markdown and formatting characters for natural speech
+    const cleanText = text
+      .replace(/[#*_`~>-]/g, ' ')
+      .replace(/\[.*?\]\(.*?\)/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    if (!cleanText) return;
+
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    utteranceRef.current = utterance;
     utterance.rate = 1.0;
     utterance.pitch = 1.0;
-    utterance.onend = () => setSpeakingMsgId(null);
-    utterance.onerror = () => setSpeakingMsgId(null);
+    utterance.lang = 'en-US';
+
+    const voices = window.speechSynthesis.getVoices();
+    const preferredVoice =
+      voices.find((v) => v.lang.startsWith('en') && (v.name.includes('Natural') || v.name.includes('Google') || v.default)) ||
+      voices.find((v) => v.lang.startsWith('en'));
+    if (preferredVoice) {
+      utterance.voice = preferredVoice;
+    }
+
+    utterance.onstart = () => {
+      setSpeakingMsgId(msgId);
+    };
+
+    utterance.onend = () => {
+      setSpeakingMsgId(null);
+      utteranceRef.current = null;
+    };
+
+    utterance.onerror = () => {
+      setSpeakingMsgId(null);
+      utteranceRef.current = null;
+    };
+
+    // Ensure audio isn't in a paused state in Chromium
+    if (window.speechSynthesis.paused) {
+      window.speechSynthesis.resume();
+    }
 
     setSpeakingMsgId(msgId);
     window.speechSynthesis.speak(utterance);
