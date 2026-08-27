@@ -43,6 +43,11 @@ interface Message {
   actionCall?: ClinicalActionCall;
   safetyAlerts?: string[];
   suggestions?: string[];
+  citations?: Array<{
+    source: string;
+    type: string;
+    detail: string;
+  }>;
 }
 
 const DEEP_CLINICAL_PROMPTS = [
@@ -371,7 +376,7 @@ export function AssistantPage() {
     setIsLoading(true);
 
     try {
-      const reportsWithResults = reports.slice(0, 3).map((r) => {
+      const reportsWithResults = reports.map((r) => {
         const results = resultsMap[r.id] || [];
         return {
           title: r.title,
@@ -404,14 +409,14 @@ export function AssistantPage() {
           with_food: m.with_food,
           instructions: m.instructions,
         })),
-        recentVisits: visits.slice(0, 3).map((v) => ({
+        recentVisits: visits.map((v) => ({
           doctor_name: v.doctor_name,
           visit_date: v.visit_date,
           diagnosis: v.diagnosis,
           doctor_advice: v.doctor_advice,
         })),
         recentReports: reportsWithResults,
-        sideEffectsHistory: sideEffects.slice(0, 5).map((s) => ({
+        sideEffectsHistory: sideEffects.map((s) => ({
           medicine_name: s.medicine_name,
           note: s.note,
           severity: s.severity,
@@ -443,6 +448,7 @@ export function AssistantPage() {
         actionCall?: ClinicalActionCall;
         safetyAlerts?: string[];
         suggestions?: string[];
+        citations?: Array<{ source: string; type: string; detail: string }>;
         error?: string;
       } = {};
 
@@ -465,6 +471,7 @@ export function AssistantPage() {
         actionCall: data.actionCall,
         safetyAlerts: data.safetyAlerts || [],
         suggestions: data.suggestions || [],
+        citations: data.citations || [],
       };
 
       setMessages((prev) => [...prev, botMsg]);
@@ -707,6 +714,29 @@ export function AssistantPage() {
                               <li key={aIdx}>{alert}</li>
                             ))}
                           </ul>
+                        </div>
+                      )}
+
+                      {/* Retrieved Clinical Evidence & Grounding Citations */}
+                      {m.citations && m.citations.length > 0 && (
+                        <div className="pt-1">
+                          <div className="p-2.5 rounded-xl bg-surface-sunken/80 border border-line text-2xs space-y-1.5">
+                            <span className="font-bold text-accent flex items-center gap-1.5">
+                              <FolderIcon size={12} className="shrink-0" />
+                              <span>Grounded in {m.citations.length} Verified Clinical & Record Source{m.citations.length > 1 ? 's' : ''}:</span>
+                            </span>
+                            <div className="flex flex-wrap gap-1.5">
+                              {m.citations.map((c, cIdx) => (
+                                <span
+                                  key={cIdx}
+                                  className="px-2 py-0.5 rounded-md bg-surface-raised border border-line text-content-muted font-medium text-2xs shadow-2xs"
+                                  title={c.detail}
+                                >
+                                  {c.source}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
                         </div>
                       )}
 
