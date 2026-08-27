@@ -754,20 +754,30 @@ export function AssistantPage() {
                       )}
                     </div>
 
-                    {/* Clickable Follow-up Suggestions */}
+                    {/* Clickable Follow-up Suggestions (Patient's Voice) */}
                     {m.suggestions && m.suggestions.length > 0 && (
                       <div className="mt-2 flex flex-wrap gap-1.5 max-w-3xl">
-                        {m.suggestions.map((s, sIdx) => (
-                          <button
-                            key={sIdx}
-                            type="button"
-                            onClick={() => handleSendMessage(s)}
-                            className="px-3 py-1.5 rounded-xl bg-surface-raised border border-line text-content font-medium hover:border-accent hover:text-accent transition-colors text-xs text-left flex items-center gap-1.5 shadow-2xs"
-                          >
-                            <SparklesIcon size={12} className="text-accent shrink-0" />
-                            <span>{s}</span>
-                          </button>
-                        ))}
+                        {m.suggestions.map((s, sIdx) => {
+                          // Normalize to patient's first-person phrasing
+                          let patientPrompt = s.trim();
+                          patientPrompt = patientPrompt.replace(/^would you like (me to|to)\s+/i, '');
+                          patientPrompt = patientPrompt.replace(/^do you want (me to|to)\s+/i, '');
+                          patientPrompt = patientPrompt.replace(/^can i (help you|assist you with)\s+/i, '');
+                          patientPrompt = patientPrompt.replace(/^how can i help you with\s+/i, '');
+                          patientPrompt = patientPrompt.charAt(0).toUpperCase() + patientPrompt.slice(1);
+
+                          return (
+                            <button
+                              key={sIdx}
+                              type="button"
+                              onClick={() => handleSendMessage(patientPrompt)}
+                              className="px-3 py-1.5 rounded-xl bg-surface-raised border border-line text-content font-medium hover:border-accent hover:text-accent transition-colors text-xs text-left flex items-center gap-1.5 shadow-2xs"
+                            >
+                              <SparklesIcon size={12} className="text-accent shrink-0" />
+                              <span>{patientPrompt}</span>
+                            </button>
+                          );
+                        })}
                       </div>
                     )}
 

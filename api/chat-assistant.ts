@@ -191,10 +191,14 @@ JSON Schema:
     "Alert 1: Key precaution"
   ],
   "suggestions": [
-    "Follow-up question 1",
-    "Follow-up question 2"
+    "Follow-up question or prompt from the PATIENT's first-person perspective that the patient would ask the assistant next (e.g. 'What is the maximum safe dose for me?', 'Can I take this on an empty stomach?', 'Check interactions with my other medicines'). NEVER phrase suggestions from the assistant's perspective (NEVER say 'Would you like me to...' or 'What symptom are you trying to treat?')."
   ]
 }
+
+STRICT SUGGESTIONS PERSPECTIVE RULE:
+- All items in "suggestions" MUST be phrased as things the PATIENT is asking or requesting from the ASSISTANT.
+- CORRECT: "Can I take this with food?", "What are the common side effects of Augmentin?", "Remind me when to take my next dose"
+- FORBIDDEN: "Would you like me to...", "How can I assist you...", "What symptom do you have..."
 
 ---
 
