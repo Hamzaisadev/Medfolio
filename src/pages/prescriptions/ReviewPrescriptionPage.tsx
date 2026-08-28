@@ -81,9 +81,9 @@ const FREQUENCY_OPTIONS = [
 ];
 
 const MEAL_TIMING_OPTIONS = [
-  { value: 'after', label: 'After Food (Post-meal)' },
-  { value: 'before', label: 'Before Food (Empty stomach)' },
-  { value: 'anytime', label: 'Anytime (With or without food)' },
+  { value: 'after', label: 'After Food' },
+  { value: 'before', label: 'Before Food' },
+  { value: 'anytime', label: 'Anytime' },
 ];
 
 export function ReviewPrescriptionPage() {
@@ -808,14 +808,8 @@ export function ReviewPrescriptionPage() {
 
                         <div className="sm:col-span-5 flex flex-col gap-2">
                           <div className="flex items-center justify-between min-h-[20px]">
-                            <label htmlFor={`med-dur-${m.id}`} className="text-sm font-semibold text-content flex items-center gap-1.5">
-                              <span>Duration</span>
-                              {!m.is_ongoing && <span className="text-risk-text" aria-hidden="true">*</span>}
-                              {durResult.kind === 'days' && (
-                                <span className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-accent/10 text-accent font-medium text-xs">
-                                  {durResult.days} days
-                                </span>
-                              )}
+                            <label htmlFor={`med-dur-${m.id}`} className="text-sm font-semibold text-content">
+                              Duration {!m.is_ongoing && <span className="text-risk-text" aria-hidden="true">*</span>}
                             </label>
                             <label className="flex items-center gap-1.5 cursor-pointer text-content font-bold text-xs select-none">
                               <input
@@ -840,6 +834,13 @@ export function ReviewPrescriptionPage() {
                             placeholder={m.is_ongoing ? 'Ongoing medication' : 'e.g. 5 days, 1 month, 6 months'}
                             disabled={m.is_ongoing}
                           />
+
+                          {!m.is_ongoing && durResult.kind === 'days' && (
+                            <span className="text-xs text-content-muted font-medium flex items-center gap-1.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-accent shrink-0 inline-block" />
+                              Calculated duration: <strong className="text-accent font-semibold">{durResult.days} days</strong>
+                            </span>
+                          )}
                         </div>
                       </div>
 
