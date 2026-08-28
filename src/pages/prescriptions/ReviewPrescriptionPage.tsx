@@ -6,6 +6,7 @@ import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { Field } from '../../components/ui/Field';
 import { Input } from '../../components/ui/Input';
+import { Select } from '../../components/ui/Select';
 import { Textarea } from '../../components/ui/Textarea';
 import { Badge } from '../../components/ui/Badge';
 import { Disclaimer } from '../../components/ui/Disclaimer';
@@ -54,6 +55,30 @@ interface TestOrderDraft {
   test_name: string;
   confidence?: 'high' | 'low';
 }
+
+const DOSAGE_FORMS = [
+  { value: 'Tablet', label: 'Tablet' },
+  { value: 'Capsule', label: 'Capsule' },
+  { value: 'Syrup', label: 'Syrup' },
+  { value: 'Drops', label: 'Drops' },
+  { value: 'Injection', label: 'Injection' },
+  { value: 'Inhaler', label: 'Inhaler' },
+  { value: 'Ointment', label: 'Ointment / Cream' },
+  { value: 'Suspension', label: 'Suspension' },
+  { value: 'Gel', label: 'Gel' },
+  { value: 'Other', label: 'Other' },
+];
+
+const FREQUENCY_OPTIONS = [
+  { value: 'BD', label: 'Twice daily — Morning & Night' },
+  { value: 'OD', label: 'Once daily — Morning' },
+  { value: 'TDS', label: '3 times daily — Morning, Noon, Night' },
+  { value: 'QHS', label: 'Once daily — Night at bedtime' },
+  { value: 'QID', label: '4 times daily' },
+  { value: 'PRN', label: 'As needed (PRN)' },
+  { value: 'WEEKLY', label: 'Once weekly' },
+  { value: 'CUSTOM', label: 'Custom routine...' },
+];
 
 export function ReviewPrescriptionPage() {
   const location = useLocation();
@@ -638,23 +663,23 @@ export function ReviewPrescriptionPage() {
                   return (
                     <div
                       key={m.id}
-                      className={`p-5 rounded-2xl border ${
+                      className={`p-4 sm:p-4.5 rounded-2xl border ${
                         isLowConf
                           ? 'border-warn-border bg-warn-bg/10'
                           : 'border-line-strong bg-surface-raised'
-                      } space-y-4 shadow-card hover:border-accent/40 transition-all`}
+                      } space-y-3 shadow-2xs hover:border-accent/40 transition-all`}
                     >
                       {/* Medicine Card Top Header */}
-                      <div className="flex items-center justify-between pb-3 border-b border-line">
-                        <div className="flex items-center gap-2.5">
-                          <span className="w-7 h-7 rounded-xl bg-accent text-content-onaccent flex items-center justify-center font-bold text-xs shadow-xs">
+                      <div className="flex items-center justify-between pb-2.5 border-b border-line">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span className="w-6 h-6 rounded-lg bg-accent text-accent-onaccent flex items-center justify-center font-bold text-xs shadow-2xs shrink-0">
                             {idx + 1}
                           </span>
-                          <span className="text-sm font-bold text-content">
+                          <span className="text-sm font-bold text-content truncate">
                             {m.medicine_name.trim() || `Prescribed Medicine #${idx + 1}`}
                           </span>
                           {isLowConf && (
-                            <Badge tone="warn" size="sm">
+                            <Badge tone="warn" size="sm" className="shrink-0">
                               Verify Details
                             </Badge>
                           )}
@@ -662,17 +687,17 @@ export function ReviewPrescriptionPage() {
                         <button
                           type="button"
                           onClick={() => handleRemoveMedicine(m.id)}
-                          className="text-xs text-risk-text hover:bg-risk-bg px-2.5 py-1 rounded-lg font-bold flex items-center gap-1.5 transition-colors"
+                          className="text-xs text-risk-text hover:bg-risk-bg px-2 py-1 rounded-md font-bold flex items-center gap-1.5 transition-colors shrink-0 cursor-pointer"
                           title="Remove this medicine"
                         >
-                          <TrashIcon size={14} />
+                          <TrashIcon size={13} />
                           <span>Remove</span>
                         </button>
                       </div>
 
-                      {/* Medicine Name & Strength */}
-                      <div className="grid grid-cols-1 sm:grid-cols-12 gap-3.5">
-                        <div className="sm:col-span-8">
+                      {/* Row 1: Medicine Name, Strength, & Dosage Form */}
+                      <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+                        <div className="sm:col-span-6">
                           <Field id={`med-name-${m.id}`} label="Medicine Name" required>
                             <Input
                               value={m.medicine_name}
@@ -681,59 +706,37 @@ export function ReviewPrescriptionPage() {
                             />
                           </Field>
                         </div>
-                        <div className="sm:col-span-4">
+                        <div className="sm:col-span-3">
                           <Field id={`med-strength-${m.id}`} label="Strength / Dosage">
                             <Input
                               value={m.strength || ''}
                               onChange={(e) => handleUpdateMedicine(m.id, { strength: e.target.value })}
-                              placeholder="e.g. 500mg, 625mg, 10ml"
+                              placeholder="e.g. 500mg, 625mg"
+                            />
+                          </Field>
+                        </div>
+                        <div className="sm:col-span-3">
+                          <Field id={`med-form-${m.id}`} label="Dosage Form">
+                            <Select
+                              value={
+                                DOSAGE_FORMS.find((f) =>
+                                  (m.form || '').toLowerCase().includes(f.value.toLowerCase())
+                                )?.value ||
+                                m.form ||
+                                'Tablet'
+                              }
+                              onChange={(e) => handleUpdateMedicine(m.id, { form: e.target.value })}
+                              options={DOSAGE_FORMS}
                             />
                           </Field>
                         </div>
                       </div>
 
-                      {/* Dosage Form Selector Chips */}
-                      <div>
-                        <label className="text-xs font-bold text-content-muted block mb-1.5 uppercase tracking-wider">
-                          Dosage Form
-                        </label>
-                        <div className="flex flex-wrap gap-1.5">
-                          {[
-                            { label: 'Tablet', val: 'tablet' },
-                            { label: 'Capsule', val: 'capsule' },
-                            { label: 'Syrup', val: 'syrup' },
-                            { label: 'Drops', val: 'drops' },
-                            { label: 'Injection', val: 'injection' },
-                            { label: 'Inhaler', val: 'inhaler' },
-                            { label: 'Ointment', val: 'ointment' },
-                            { label: 'Other', val: 'other' },
-                          ].map((f) => {
-                            const isSelected =
-                              (m.form || 'tablet').toLowerCase().includes(f.val) ||
-                              (m.form || '').toLowerCase() === f.val;
-                            return (
-                              <button
-                                key={f.val}
-                                type="button"
-                                onClick={() => handleUpdateMedicine(m.id, { form: f.label })}
-                                className={`text-xs font-semibold px-3 py-1.5 rounded-xl border transition-all ${
-                                  isSelected
-                                    ? 'bg-accent text-content-onaccent border-accent shadow-xs font-bold'
-                                    : 'bg-surface-sunken text-content-muted border-line hover:border-line-strong hover:text-content'
-                                }`}
-                              >
-                                {f.label}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      {/* Frequency Routine & Duration Row */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                      {/* Row 2: Frequency Routine & Duration */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-0.5">
                         <div>
                           <Field id={`med-freq-${m.id}`} label="Frequency / Routine" required>
-                            <select
+                            <Select
                               value={freqCode || 'CUSTOM'}
                               onChange={(e) => {
                                 const val = e.target.value;
@@ -746,34 +749,25 @@ export function ReviewPrescriptionPage() {
                                 else if (val === 'WEEKLY') handleUpdateMedicine(m.id, { frequency_raw: 'Once weekly' });
                                 else handleUpdateMedicine(m.id, { frequency_raw: '' });
                               }}
-                              className="w-full h-12 px-3.5 text-base sm:text-sm bg-surface-raised border border-line-strong rounded-[var(--radius-md)] text-content focus:border-accent focus:outline-2 focus:outline-offset-2 focus:outline-accent font-medium"
-                            >
-                              <option value="BD">Twice daily — Morning & Night</option>
-                              <option value="OD">Once daily — Morning</option>
-                              <option value="TDS">3 times daily — Morning, Noon, Night</option>
-                              <option value="QHS">Once daily — Night at bedtime</option>
-                              <option value="QID">4 times daily</option>
-                              <option value="PRN">As needed (PRN / When required)</option>
-                              <option value="WEEKLY">Once weekly</option>
-                              <option value="CUSTOM">Custom routine...</option>
-                            </select>
+                              options={FREQUENCY_OPTIONS}
+                            />
                           </Field>
 
                           {/* Freeform text entry if custom routine */}
                           {(!freqCode || freqCode === 'CUSTOM') && (
-                            <div className="mt-2">
+                            <div className="mt-1.5">
                               <Input
                                 value={m.frequency_raw || ''}
                                 onChange={(e) => handleUpdateMedicine(m.id, { frequency_raw: e.target.value })}
-                                placeholder="Type routine (e.g. Every 6 hours, alternate days)"
+                                placeholder="Type custom routine (e.g. Alternate days)"
                               />
                             </div>
                           )}
 
                           {/* Scheduled times preview */}
-                          <div className="mt-2 flex items-center justify-between text-xs text-content-muted">
+                          <div className="mt-1 flex items-center justify-between text-xs text-content-muted">
                             <span className="flex items-center gap-1.5 font-medium text-accent">
-                              <ClockIcon size={13} className="text-accent shrink-0" />
+                              <ClockIcon size={12} className="text-accent shrink-0" />
                               {doseTimes.length > 0
                                 ? `Scheduled Times: ${doseTimes.map((t) => formatMinutesTo24h(t)).join(', ')}`
                                 : 'No fixed scheduled hours (as needed)'}
@@ -782,7 +776,15 @@ export function ReviewPrescriptionPage() {
                         </div>
 
                         <div>
-                          <Field id={`med-dur-${m.id}`} label="Duration" required={!m.is_ongoing}>
+                          <Field
+                            id={`med-dur-${m.id}`}
+                            label={
+                              durResult.kind === 'days'
+                                ? `Duration (${durResult.days} days)`
+                                : 'Duration'
+                            }
+                            required={!m.is_ongoing}
+                          >
                             <Input
                               value={m.duration_raw || ''}
                               onChange={(e) => handleUpdateMedicine(m.id, { duration_raw: e.target.value })}
@@ -791,54 +793,59 @@ export function ReviewPrescriptionPage() {
                             />
                           </Field>
 
-                          {/* Quick Duration Preset Chips */}
-                          {!m.is_ongoing && (
-                            <div className="mt-1.5 flex flex-wrap gap-1">
-                              {['3 days', '5 days', '7 days', '14 days', '1 month'].map((d) => (
-                                <button
-                                  key={d}
-                                  type="button"
-                                  onClick={() => handleUpdateMedicine(m.id, { duration_raw: d })}
-                                  className="text-2xs font-semibold px-2 py-0.5 rounded-md bg-surface-sunken hover:bg-accent-subtle hover:text-accent border border-line text-content-muted transition-colors"
-                                >
-                                  {d}
-                                </button>
-                              ))}
-                            </div>
-                          )}
+                          {/* Quick Duration Presets & Ongoing Switch */}
+                          <div className="mt-1.5 flex items-center justify-between gap-1 flex-wrap">
+                            {!m.is_ongoing && (
+                              <div className="flex gap-1 flex-wrap">
+                                {['3d', '5d', '7d', '14d', '1m'].map((dLabel) => {
+                                  const fullDur =
+                                    dLabel === '3d'
+                                      ? '3 days'
+                                      : dLabel === '5d'
+                                        ? '5 days'
+                                        : dLabel === '7d'
+                                          ? '7 days'
+                                          : dLabel === '14d'
+                                            ? '14 days'
+                                            : '1 month';
+                                  return (
+                                    <button
+                                      key={dLabel}
+                                      type="button"
+                                      onClick={() => handleUpdateMedicine(m.id, { duration_raw: fullDur })}
+                                      className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-surface-sunken hover:bg-accent/10 hover:text-accent border border-line text-content-muted transition-colors cursor-pointer"
+                                    >
+                                      {dLabel}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
 
-                          <div className="mt-2 flex items-center justify-between gap-2 text-xs">
-                            <span className="text-content-muted font-medium">
-                              {durResult.kind === 'days'
-                                ? `Total: ${durResult.days} days`
-                                : m.is_ongoing
-                                  ? 'Ongoing medication'
-                                  : m.duration_raw?.trim()
-                                    ? 'Duration set'
-                                    : 'Required — or tick Ongoing'}
-                            </span>
-                            <label className="flex items-center gap-1.5 cursor-pointer text-content font-bold text-xs">
-                              <input
-                                type="checkbox"
-                                checked={m.is_ongoing || false}
-                                onChange={(e) =>
-                                  handleUpdateMedicine(m.id, {
-                                    is_ongoing: e.target.checked,
-                                    duration_raw: e.target.checked ? 'Ongoing' : '',
-                                  })
-                                }
-                                className="rounded text-accent focus:ring-accent"
-                              />
-                              Ongoing
-                            </label>
+                            <div className="flex items-center justify-between gap-2 text-xs ml-auto">
+                              <label className="flex items-center gap-1.5 cursor-pointer text-content font-bold text-xs select-none">
+                                <input
+                                  type="checkbox"
+                                  checked={m.is_ongoing || false}
+                                  onChange={(e) =>
+                                    handleUpdateMedicine(m.id, {
+                                      is_ongoing: e.target.checked,
+                                      duration_raw: e.target.checked ? 'Ongoing' : '',
+                                    })
+                                  }
+                                  className="rounded text-accent focus:ring-accent"
+                                />
+                                Ongoing
+                              </label>
+                            </div>
                           </div>
                         </div>
                       </div>
 
-                      {/* Meal Relation Pills & Special Instructions */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                      {/* Row 3: Meal Relation & Special Instructions */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-0.5">
                         <div>
-                          <label className="text-xs font-bold text-content-muted block mb-2 uppercase tracking-wider">
+                          <label className="text-xs font-bold text-content-muted block mb-1.5 uppercase tracking-wider">
                             Meal Timing
                           </label>
                           <div className="grid grid-cols-3 gap-1.5">
@@ -853,9 +860,9 @@ export function ReviewPrescriptionPage() {
                                   key={String(foodOpt.val)}
                                   type="button"
                                   onClick={() => handleUpdateMedicine(m.id, { with_food: foodOpt.val })}
-                                  className={`text-xs font-semibold py-2 px-1.5 rounded-xl border text-center transition-all ${
+                                  className={`text-xs font-semibold py-2 px-1 rounded-lg border text-center transition-all cursor-pointer select-none ${
                                     isSelected
-                                      ? 'bg-accent text-content-onaccent border-accent shadow-xs font-bold'
+                                      ? 'bg-accent text-accent-onaccent border-accent shadow-2xs font-bold'
                                       : 'bg-surface-sunken text-content-muted border-line hover:border-line-strong hover:text-content'
                                   }`}
                                 >
