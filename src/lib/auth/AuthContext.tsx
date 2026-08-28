@@ -279,15 +279,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const trimmedEmail = email.trim().toLowerCase();
 
+      const metadata: Record<string, string> = {
+        full_name: profileData.fullName.trim(),
+        sex: profileData.sex || 'undisclosed',
+      };
+
+      if (profileData.dateOfBirth && /^\d{4}-\d{2}-\d{2}$/.test(profileData.dateOfBirth)) {
+        metadata.date_of_birth = profileData.dateOfBirth;
+      }
+
       const { data, error } = await supabase.auth.signUp({
         email: trimmedEmail,
         password,
         options: {
-          data: {
-            full_name: profileData.fullName,
-            sex: profileData.sex || 'undisclosed',
-            date_of_birth: profileData.dateOfBirth || null,
-          },
+          data: metadata,
           // The callback URL Supabase appends the verification token to.
           emailRedirectTo: `${window.location.origin}/auth/callback`,
         },

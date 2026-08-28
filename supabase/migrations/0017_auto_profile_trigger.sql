@@ -13,21 +13,47 @@ language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  raw_dob text;
+  parsed_dob date;
 begin
+  -- Safely parse date_of_birth if valid ISO format
+  raw_dob := nullif(trim(new.raw_user_meta_data ->> 'date_of_birth'), '');
+  if raw_dob is not null and raw_dob ~ '^\d{4}-\d{2}-\d{2}$' then
+    begin
+      parsed_dob := raw_dob::date;
+    exception when others then
+      parsed_dob := null;
+    end;
+  else
+    parsed_dob := null;
+  end if;
+
   insert into public.profiles (id, user_id, full_name, sex, date_of_birth, is_default)
   values (
     new.id,
     new.id,
     coalesce(
-      new.raw_user_meta_data ->> 'full_name',
-      split_part(new.email, '@', 1)
+      nullif(trim(new.raw_user_meta_data ->> 'full_name'), ''),
+      split_part(new.email, '@', 1),
+      'Patient'
     ),
-    coalesce(new.raw_user_meta_data ->> 'sex', 'undisclosed'),
-    (new.raw_user_meta_data ->> 'date_of_birth')::date,
+    coalesce(
+      nullif(trim(new.raw_user_meta_data ->> 'sex'), ''),
+      'undisclosed'
+    ),
+    parsed_dob,
     true
   )
-  on conflict (id) do nothing;  -- idempotent: don't fail if profile already exists
+  on conflict (id) do update set
+    full_name = coalesce(nullif(trim(new.raw_user_meta_data ->> 'full_name'), ''), profiles.full_name),
+    sex = coalesce(nullif(trim(new.raw_user_meta_data ->> 'sex'), ''), profiles.sex),
+    date_of_birth = coalesce(parsed_dob, profiles.date_of_birth),
+    updated_at = now();
 
+  return new;
+exception when others then
+  -- Fail-safe: Never block user account creation in Supabase Auth if profile insertion fails
   return new;
 end;
 $$;
