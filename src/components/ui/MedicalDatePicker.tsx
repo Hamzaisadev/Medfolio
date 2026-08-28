@@ -159,14 +159,14 @@ export function MedicalDatePicker({
     setCalendarView('days');
   };
 
-  // Clean, formatted date string for display (e.g. "13 Jun, 2026" or "13 June 2026")
+  // Clean, formatted date string for display (e.g. "13 Jun 2026")
   const formattedDisplayDate = useMemo(() => {
     if (!parsedDate) {
-      return placeholder || (mode === 'birthdate' ? 'Select date of birth' : 'Select date');
+      return placeholder || (mode === 'birthdate' ? 'Select birth date' : 'Select date');
     }
     const monthObj = MONTHS.find((item) => Number(item.value) === parsedDate.month);
     const monthLabel = monthObj ? monthObj.label : `M${parsedDate.month}`;
-    return `${parsedDate.day} ${monthLabel}, ${parsedDate.year}`;
+    return `${parsedDate.day} ${monthLabel} ${parsedDate.year}`;
   }, [parsedDate, placeholder, mode]);
 
   // Age calculation
@@ -266,7 +266,7 @@ export function MedicalDatePicker({
           setIsCalendarOpen(open);
         }}
       >
-        {/* Full-width, Accessible Themed Date Button */}
+        {/* Full-width, Spacious Themed Date Button */}
         <Popover.Trigger asChild>
           <button
             type="button"
@@ -274,23 +274,24 @@ export function MedicalDatePicker({
             disabled={disabled}
             aria-label={placeholder || (mode === 'birthdate' ? 'Select date of birth' : 'Select date')}
             className={twMerge(
-              'h-12 w-full bg-surface-raised border border-line-strong rounded-[var(--radius-md)] px-3.5 text-xs sm:text-sm text-content flex items-center justify-between transition-all select-none cursor-pointer shadow-2xs',
+              'h-12 w-full bg-surface-raised border border-line-strong rounded-[var(--radius-md)] px-3 text-xs sm:text-sm text-content flex items-center justify-between transition-all select-none cursor-pointer shadow-2xs',
               'hover:border-accent hover:bg-surface-hover focus:border-accent focus:outline-2 focus:outline-offset-2 focus:outline-accent',
               'disabled:opacity-50 disabled:cursor-not-allowed',
               isCalendarOpen && 'border-accent ring-2 ring-accent/20'
             )}
           >
-            <div className="flex items-center gap-2.5 min-w-0 overflow-hidden pr-1">
-              <CalendarIcon
-                size={16}
-                className={clsx('shrink-0 transition-colors', isSelected ? 'text-accent' : 'text-content-subtle')}
-              />
-              <span className={clsx('whitespace-nowrap font-medium text-xs sm:text-sm', isSelected ? 'text-content' : 'text-content-muted')}>
-                {formattedDisplayDate}
-              </span>
-            </div>
+            {/* Direct date text on left */}
+            <span
+              className={clsx(
+                'whitespace-nowrap font-medium text-xs sm:text-sm tracking-tight text-left min-w-0 pr-1',
+                isSelected ? 'text-content' : 'text-content-muted'
+              )}
+            >
+              {formattedDisplayDate}
+            </span>
 
-            <div className="flex items-center gap-1.5 shrink-0 ml-2">
+            {/* Right actions: Clear (X) + Calendar Icon */}
+            <div className="flex items-center gap-1.5 shrink-0 ml-1 text-content-subtle">
               {value && !disabled && (
                 <span
                   role="button"
@@ -308,12 +309,12 @@ export function MedicalDatePicker({
                   className="p-1 rounded-md text-content-subtle hover:text-content hover:bg-surface-sunken transition cursor-pointer"
                   aria-label="Clear selected date"
                 >
-                  <XIcon size={13} />
+                  <XIcon size={12} />
                 </span>
               )}
-              <ChevronDownIcon
-                size={14}
-                className={clsx('text-content-subtle transition-transform duration-200', isCalendarOpen && 'rotate-180 text-accent')}
+              <CalendarIcon
+                size={16}
+                className={clsx('transition-colors', isSelected ? 'text-accent' : 'text-content-subtle')}
               />
             </div>
           </button>
