@@ -6,6 +6,7 @@ import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { Field } from '../../components/ui/Field';
 import { Input } from '../../components/ui/Input';
+import { Select } from '../../components/ui/Select';
 import { Logo } from '../../components/ui/Logo';
 import { MedicalDatePicker } from '../../components/ui/MedicalDatePicker';
 import {
@@ -16,6 +17,19 @@ import {
   Mail,
   CheckCircle2,
 } from 'lucide-react';
+
+const BLOOD_GROUPS = [
+  { value: '', label: 'Select blood type (optional)' },
+  { value: 'A+', label: 'A+' },
+  { value: 'A-', label: 'A-' },
+  { value: 'B+', label: 'B+' },
+  { value: 'B-', label: 'B-' },
+  { value: 'AB+', label: 'AB+' },
+  { value: 'AB-', label: 'AB-' },
+  { value: 'O+', label: 'O+' },
+  { value: 'O-', label: 'O-' },
+  { value: 'unknown', label: 'Unknown' },
+];
 
 export function SignUpPage() {
   const navigate = useNavigate();
@@ -30,6 +44,7 @@ export function SignUpPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [sex, setSex] = useState<'male' | 'female' | 'other' | 'undisclosed'>('undisclosed');
   const [dateOfBirth, setDateOfBirth] = useState('');
+  const [bloodGroup, setBloodGroup] = useState('');
 
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -72,6 +87,7 @@ export function SignUpPage() {
       fullName: trimmedName,
       sex,
       dateOfBirth: dateOfBirth || undefined,
+      bloodGroup: bloodGroup || undefined,
     });
 
     setIsLoading(false);
@@ -356,17 +372,36 @@ export function SignUpPage() {
                   </div>
                 </div>
 
-                {/* Custom Medical Date of Birth Picker */}
-                <div className="space-y-1.5 pt-1">
-                  <span className="text-sm font-semibold text-content block">Date of Birth</span>
-                  <MedicalDatePicker
-                    id="signup-dob"
-                    value={dateOfBirth}
-                    onChange={setDateOfBirth}
-                    mode="birthdate"
-                    showAge
-                    disabled={isLoading}
-                  />
+                {/* 2-Column Clinical Demographics: Date of Birth & Blood Group */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  {/* Date of Birth Field */}
+                  <div className="space-y-1.5">
+                    <span className="text-sm font-semibold text-content block">Date of Birth</span>
+                    <MedicalDatePicker
+                      id="signup-dob"
+                      value={dateOfBirth}
+                      onChange={setDateOfBirth}
+                      mode="birthdate"
+                      showAge
+                      placeholder="Select birth date"
+                      disabled={isLoading}
+                    />
+                  </div>
+
+                  {/* Blood Group Field */}
+                  <div className="space-y-1.5">
+                    <span className="text-sm font-semibold text-content block">
+                      Blood Group <span className="text-xs font-normal text-content-subtle">(Optional)</span>
+                    </span>
+                    <Select
+                      id="signup-blood-group"
+                      value={bloodGroup}
+                      onChange={(e) => setBloodGroup(e.target.value)}
+                      options={BLOOD_GROUPS}
+                      disabled={isLoading}
+                      className="h-12 text-xs sm:text-sm font-medium"
+                    />
+                  </div>
                 </div>
 
                 <Button type="submit" variant="primary" className="w-full h-12 text-sm font-bold mt-3 tap-spring" loading={isLoading}>

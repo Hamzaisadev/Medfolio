@@ -43,7 +43,12 @@ interface AuthContextValue {
   signUpWithEmail: (
     email: string,
     password: string,
-    profileData: { fullName: string; sex?: 'male' | 'female' | 'other' | 'undisclosed'; dateOfBirth?: string }
+    profileData: {
+      fullName: string;
+      sex?: 'male' | 'female' | 'other' | 'undisclosed';
+      dateOfBirth?: string;
+      bloodGroup?: string;
+    }
   ) => Promise<{ error: string | null; needsVerification: boolean }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -274,7 +279,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signUpWithEmail = useCallback(async (
     email: string,
     password: string,
-    profileData: { fullName: string; sex?: 'male' | 'female' | 'other' | 'undisclosed'; dateOfBirth?: string }
+    profileData: {
+      fullName: string;
+      sex?: 'male' | 'female' | 'other' | 'undisclosed';
+      dateOfBirth?: string;
+      bloodGroup?: string;
+    }
   ): Promise<{ error: string | null; needsVerification: boolean }> => {
     try {
       const trimmedEmail = email.trim().toLowerCase();
@@ -286,6 +296,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (profileData.dateOfBirth && /^\d{4}-\d{2}-\d{2}$/.test(profileData.dateOfBirth)) {
         metadata.date_of_birth = profileData.dateOfBirth;
+      }
+
+      if (profileData.bloodGroup && profileData.bloodGroup.trim()) {
+        metadata.blood_group = profileData.bloodGroup.trim();
       }
 
       const { data, error } = await supabase.auth.signUp({

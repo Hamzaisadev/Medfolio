@@ -318,6 +318,7 @@ as $$
 declare
   raw_dob text;
   parsed_dob date;
+  raw_blood text;
 begin
   -- Safely parse date_of_birth if valid ISO format
   raw_dob := nullif(trim(new.raw_user_meta_data ->> 'date_of_birth'), '');
@@ -331,7 +332,13 @@ begin
     parsed_dob := null;
   end if;
 
-  insert into public.profiles (id, user_id, full_name, sex, date_of_birth, is_default)
+  -- Safely sanitize blood_group
+  raw_blood := nullif(trim(new.raw_user_meta_data ->> 'blood_group'), '');
+  if raw_blood is not null and raw_blood not in ('A+','A-','B+','B-','AB+','AB-','O+','O-','unknown') then
+    raw_blood := null;
+  end if;
+
+  insert into public.profiles (id, user_id, full_name, sex, date_of_birth, blood_group, is_default)
   values (
     new.id,
     new.id,
@@ -345,12 +352,14 @@ begin
       'undisclosed'
     ),
     parsed_dob,
+    raw_blood,
     true
   )
   on conflict (id) do update set
     full_name = coalesce(nullif(trim(new.raw_user_meta_data ->> 'full_name'), ''), profiles.full_name),
     sex = coalesce(nullif(trim(new.raw_user_meta_data ->> 'sex'), ''), profiles.sex),
     date_of_birth = coalesce(parsed_dob, profiles.date_of_birth),
+    blood_group = coalesce(raw_blood, profiles.blood_group),
     updated_at = now();
 
   return new;
