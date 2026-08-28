@@ -701,9 +701,9 @@ export function ReviewPrescriptionPage() {
                         </button>
                       </div>
 
-                      {/* Row 1: Medicine Name (6 cols), Strength (3 cols), Form (3 cols) */}
+                      {/* Row 1: Medicine Name (8 cols) & Strength (4 cols) */}
                       <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
-                        <div className="sm:col-span-6">
+                        <div className="sm:col-span-8">
                           <Field id={`med-name-${m.id}`} label="Medicine Name" required>
                             <Input
                               value={m.medicine_name}
@@ -712,7 +712,7 @@ export function ReviewPrescriptionPage() {
                             />
                           </Field>
                         </div>
-                        <div className="sm:col-span-3">
+                        <div className="sm:col-span-4">
                           <Field id={`med-strength-${m.id}`} label="Strength">
                             <Input
                               value={m.strength || ''}
@@ -721,27 +721,11 @@ export function ReviewPrescriptionPage() {
                             />
                           </Field>
                         </div>
-                        <div className="sm:col-span-3">
-                          <Field id={`med-form-${m.id}`} label="Dosage Form">
-                            <Select
-                              value={
-                                DOSAGE_FORMS.find((f) =>
-                                  (m.form || '').toLowerCase().includes(f.value.toLowerCase())
-                                )?.value ||
-                                m.form ||
-                                'Tablet'
-                              }
-                              onChange={(e) => handleUpdateMedicine(m.id, { form: e.target.value })}
-                              options={DOSAGE_FORMS}
-                            />
-                          </Field>
-                        </div>
                       </div>
 
-                      {/* Row 2: Frequency & Duration (Perfect vertical & baseline alignment) */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {/* Frequency Column */}
-                        <div className="flex flex-col gap-2">
+                      {/* Row 2: Frequency (7 cols) & Dosage Form (5 cols) */}
+                      <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
+                        <div className="sm:col-span-7 flex flex-col gap-2">
                           <div className="flex items-center justify-between min-h-[20px]">
                             <label htmlFor={`med-freq-${m.id}`} className="text-sm font-semibold text-content">
                               Frequency <span className="text-risk-text" aria-hidden="true">*</span>
@@ -760,9 +744,9 @@ export function ReviewPrescriptionPage() {
                               const val = e.target.value;
                               if (val === 'BD') handleUpdateMedicine(m.id, { frequency_raw: 'Morning & Night (Twice daily)' });
                               else if (val === 'OD') handleUpdateMedicine(m.id, { frequency_raw: 'Once daily (Morning)' });
-                              else if (val === 'TDS') handleUpdateMedicine(m.id, { frequency_raw: '3 times daily (Morning, Afternoon & Night)' });
+                              else if (val === 'TDS') handleUpdateMedicine(m.id, { frequency_raw: '3 times daily (TDS)' });
                               else if (val === 'QHS') handleUpdateMedicine(m.id, { frequency_raw: 'Night at bedtime' });
-                              else if (val === 'QID') handleUpdateMedicine(m.id, { frequency_raw: '4 times daily' });
+                              else if (val === 'QID') handleUpdateMedicine(m.id, { frequency_raw: '4 times daily (QID)' });
                               else if (val === 'PRN') handleUpdateMedicine(m.id, { frequency_raw: 'As needed (PRN)' });
                               else if (val === 'WEEKLY') handleUpdateMedicine(m.id, { frequency_raw: 'Once weekly' });
                               else handleUpdateMedicine(m.id, { frequency_raw: '' });
@@ -778,7 +762,50 @@ export function ReviewPrescriptionPage() {
                           )}
                         </div>
 
-                        {/* Duration Column */}
+                        <div className="sm:col-span-5 flex flex-col gap-2">
+                          <label htmlFor={`med-form-${m.id}`} className="text-sm font-semibold text-content min-h-[20px] flex items-center">
+                            Dosage Form
+                          </label>
+                          <Select
+                            id={`med-form-${m.id}`}
+                            value={
+                              DOSAGE_FORMS.find((f) =>
+                                (m.form || '').toLowerCase().includes(f.value.toLowerCase())
+                              )?.value ||
+                              m.form ||
+                              'Tablet'
+                            }
+                            onChange={(e) => handleUpdateMedicine(m.id, { form: e.target.value })}
+                            options={DOSAGE_FORMS}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Row 3: Meal Timing & Duration */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="flex flex-col gap-2">
+                          <label htmlFor={`med-food-${m.id}`} className="text-sm font-semibold text-content min-h-[20px] flex items-center">
+                            Meal Timing
+                          </label>
+                          <Select
+                            id={`med-food-${m.id}`}
+                            value={
+                              m.with_food === true
+                                ? 'after'
+                                : m.with_food === false
+                                  ? 'before'
+                                  : 'anytime'
+                            }
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              handleUpdateMedicine(m.id, {
+                                with_food: val === 'after' ? true : val === 'before' ? false : null,
+                              });
+                            }}
+                            options={MEAL_TIMING_OPTIONS}
+                          />
+                        </div>
+
                         <div className="flex flex-col gap-2">
                           <div className="flex items-center justify-between min-h-[20px]">
                             <label htmlFor={`med-dur-${m.id}`} className="text-sm font-semibold text-content flex items-center gap-1.5">
@@ -816,42 +843,17 @@ export function ReviewPrescriptionPage() {
                         </div>
                       </div>
 
-                      {/* Row 3: Meal Timing & Special Instructions (Uniform h-12 height across both columns!) */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div className="flex flex-col gap-2">
-                          <label htmlFor={`med-food-${m.id}`} className="text-sm font-semibold text-content min-h-[20px] flex items-center">
-                            Meal Timing
-                          </label>
-                          <Select
-                            id={`med-food-${m.id}`}
-                            value={
-                              m.with_food === true
-                                ? 'after'
-                                : m.with_food === false
-                                  ? 'before'
-                                  : 'anytime'
-                            }
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              handleUpdateMedicine(m.id, {
-                                with_food: val === 'after' ? true : val === 'before' ? false : null,
-                              });
-                            }}
-                            options={MEAL_TIMING_OPTIONS}
-                          />
-                        </div>
-
-                        <div className="flex flex-col gap-2">
-                          <label htmlFor={`med-inst-${m.id}`} className="text-sm font-semibold text-content min-h-[20px] flex items-center">
-                            Special Instructions
-                          </label>
-                          <Input
-                            id={`med-inst-${m.id}`}
-                            value={m.instructions || ''}
-                            onChange={(e) => handleUpdateMedicine(m.id, { instructions: e.target.value })}
-                            placeholder="e.g. Take with warm water, avoid dairy"
-                          />
-                        </div>
+                      {/* Row 4: Special Instructions (Single Full-Width Row) */}
+                      <div className="flex flex-col gap-2">
+                        <label htmlFor={`med-inst-${m.id}`} className="text-sm font-semibold text-content">
+                          Special Instructions
+                        </label>
+                        <Input
+                          id={`med-inst-${m.id}`}
+                          value={m.instructions || ''}
+                          onChange={(e) => handleUpdateMedicine(m.id, { instructions: e.target.value })}
+                          placeholder="e.g. Take with warm water, avoid dairy products before bedtime"
+                        />
                       </div>
                     </div>
                   );
