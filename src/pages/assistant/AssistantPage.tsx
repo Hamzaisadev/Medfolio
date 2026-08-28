@@ -549,72 +549,74 @@ export function AssistantPage() {
     <AppShell fullWidth noPadding fixedViewport>
       <div className="flex-1 flex flex-col h-full min-h-0 w-full bg-surface-sunken">
         {/* Streamlined Single-Line Header Bar */}
-        <div className="shrink-0 h-12 px-3 sm:px-5 border-b border-line bg-surface-raised flex items-center justify-between gap-2 shadow-2xs z-10">
-          {/* Left: Title & Record Badge */}
-          <div className="flex items-center gap-2 sm:gap-3">
-            <span className="font-bold text-sm sm:text-base text-content">
-              Health Assistant
-            </span>
-            <button
-              type="button"
-              onClick={() => setShowContextDrawer(!showContextDrawer)}
-              className={`text-2xs font-semibold px-2 py-0.5 rounded-lg border flex items-center gap-1 transition-all ${
-                showContextDrawer
-                  ? 'bg-accent text-content-onaccent border-accent shadow-xs'
-                  : 'bg-surface-sunken text-content-muted border-line hover:border-line-strong hover:text-content'
-              }`}
-              title="Click to view active health context"
-            >
-              <FolderIcon size={12} />
-              <span>{activeMedsList.length} Active Med{activeMedsList.length === 1 ? '' : 's'}</span>
-            </button>
-          </div>
+        <div className="shrink-0 border-b border-line bg-surface-raised shadow-2xs z-10 px-3 sm:px-4">
+          <div className="max-w-4xl mx-auto h-12 flex items-center justify-between gap-2">
+            {/* Left: Title & Record Badge */}
+            <div className="flex items-center gap-2 sm:gap-3">
+              <span className="font-bold text-sm sm:text-base text-content">
+                Health Assistant
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowContextDrawer(!showContextDrawer)}
+                className={`text-2xs font-semibold px-2 py-0.5 rounded-lg border flex items-center gap-1 transition-all cursor-pointer ${
+                  showContextDrawer
+                    ? 'bg-accent text-content-onaccent border-accent shadow-xs'
+                    : 'bg-surface-sunken text-content-muted border-line hover:border-line-strong hover:text-content'
+                }`}
+                title="Click to view active health context"
+              >
+                <FolderIcon size={12} />
+                <span>{activeMedsList.length} Active Med{activeMedsList.length === 1 ? '' : 's'}</span>
+              </button>
+            </div>
 
-          {/* Center: Sleek Segmented Mode Tabs */}
-          <div className="flex items-center gap-1 bg-surface-sunken p-1 rounded-xl border border-line">
-            {[
-              { id: 'chat', label: 'Chat', icon: <MessageSquareIcon size={13} /> },
-              { id: 'radar', label: 'Interactions', icon: <MedicineIcon size={13} /> },
-              { id: 'doctor-prep', label: 'Doctor Prep', icon: <DoctorIcon size={13} /> },
-              { id: 'biomarkers', label: 'Lab Trends', icon: <BarChartIcon size={13} /> },
-            ].map((tab) => {
-              const isActive = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setActiveTab(tab.id as typeof activeTab)}
-                  className={`px-2.5 sm:px-3 py-1 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 whitespace-nowrap ${
-                    isActive
-                      ? 'bg-surface-raised text-accent shadow-xs border border-line'
-                      : 'text-content-muted hover:text-content'
-                  }`}
-                >
-                  {tab.icon}
-                  <span className="hidden sm:inline">{tab.label}</span>
-                </button>
-              );
-            })}
-          </div>
+            {/* Center: Sleek Segmented Mode Tabs */}
+            <div className="flex items-center gap-1 bg-surface-sunken p-1 rounded-xl border border-line">
+              {[
+                { id: 'chat', label: 'Chat', icon: <MessageSquareIcon size={13} /> },
+                { id: 'radar', label: 'Interactions', icon: <MedicineIcon size={13} /> },
+                { id: 'doctor-prep', label: 'Doctor Prep', icon: <DoctorIcon size={13} /> },
+                { id: 'biomarkers', label: 'Lab Trends', icon: <BarChartIcon size={13} /> },
+              ].map((tab) => {
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setActiveTab(tab.id as typeof activeTab)}
+                    className={`px-2.5 sm:px-3 py-1 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                      isActive
+                        ? 'bg-surface-raised text-accent shadow-xs border border-line'
+                        : 'text-content-muted hover:text-content'
+                    }`}
+                  >
+                    {tab.icon}
+                    <span className="hidden sm:inline">{tab.label}</span>
+                  </button>
+                );
+              })}
+            </div>
 
-          {/* Right: Actions */}
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() => setShowSafetyModal(true)}
-              className="p-1.5 rounded-lg text-content-muted hover:text-content hover:bg-surface-hover transition-colors"
-              title="Clinical safety & oversight"
-            >
-              <ShieldIcon size={15} />
-            </button>
-            <button
-              type="button"
-              onClick={handleClearChat}
-              className="p-1.5 rounded-lg text-content-muted hover:text-risk-text hover:bg-risk-bg transition-colors"
-              title="Clear conversation"
-            >
-              <TrashIcon size={15} />
-            </button>
+            {/* Right: Actions */}
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setShowSafetyModal(true)}
+                className="p-1.5 rounded-lg text-content-muted hover:text-content hover:bg-surface-hover transition-colors cursor-pointer"
+                title="Clinical safety & oversight"
+              >
+                <ShieldIcon size={15} />
+              </button>
+              <button
+                type="button"
+                onClick={handleClearChat}
+                className="p-1.5 rounded-lg text-content-muted hover:text-risk-text hover:bg-risk-bg transition-colors cursor-pointer"
+                title="Clear conversation"
+              >
+                <TrashIcon size={15} />
+              </button>
+            </div>
           </div>
         </div>
 
