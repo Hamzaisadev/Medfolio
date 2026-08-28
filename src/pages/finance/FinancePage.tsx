@@ -4,6 +4,7 @@ import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
+import { Select } from '../../components/ui/Select';
 import { Toast } from '../../components/ui/Toast';
 import { Dialog } from '../../components/ui/Dialog';
 import { EmptyState } from '../../components/ui/EmptyState';
@@ -423,18 +424,19 @@ export function FinancePage() {
                 className="h-9 px-3 text-xs bg-surface border border-line rounded-xl text-content focus:outline-none focus:ring-1 focus:ring-accent"
               />
 
-              <select
+              <Select
                 value={filterCategory}
-                onChange={(e) => setFilterCategory(e.target.value)}
+                onValueChange={(val) => setFilterCategory(val)}
                 aria-label="Filter by category"
-                className="h-9 px-2 text-xs bg-surface border border-line rounded-xl text-content focus:outline-none focus:ring-1 focus:ring-accent"
-              >
-                <option value="all">All Categories</option>
-                <option value="doctor">Doctor Fees</option>
-                <option value="medicine">Medicines</option>
-                <option value="lab">Lab Tests</option>
-                <option value="other">Other Medical</option>
-              </select>
+                className="h-9 min-w-36 text-xs font-semibold"
+                options={[
+                  { value: 'all', label: 'All Categories' },
+                  { value: 'doctor', label: 'Doctor Fees' },
+                  { value: 'medicine', label: 'Medicines' },
+                  { value: 'lab', label: 'Lab Tests' },
+                  { value: 'other', label: 'Other Medical' },
+                ]}
+              />
             </div>
           </div>
 
@@ -533,17 +535,18 @@ export function FinancePage() {
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label htmlFor="exp-category" className="block font-semibold text-content-muted mb-1">Category</label>
-                <select
+                <Select
                   id="exp-category"
                   value={newCategory}
-                  onChange={(e) => setNewCategory(e.target.value as 'doctor' | 'medicine' | 'lab' | 'other')}
-                  className="w-full h-10 px-2 bg-surface-sunken border border-line rounded-xl text-content focus:outline-none focus:ring-2 focus:ring-accent"
-                >
-                  <option value="doctor">Doctor Fee</option>
-                  <option value="medicine">Medicine / Pharmacy</option>
-                  <option value="lab">Diagnostic Lab Test</option>
-                  <option value="other">Other Medical</option>
-                </select>
+                  onValueChange={(val) => setNewCategory(val as 'doctor' | 'medicine' | 'lab' | 'other')}
+                  className="h-10 text-xs font-bold"
+                  options={[
+                    { value: 'doctor', label: 'Doctor Fee' },
+                    { value: 'medicine', label: 'Medicine / Pharmacy' },
+                    { value: 'lab', label: 'Diagnostic Lab Test' },
+                    { value: 'other', label: 'Other Medical' },
+                  ]}
+                />
               </div>
 
               <div>

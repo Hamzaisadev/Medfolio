@@ -4,6 +4,7 @@ import { AppShell } from '../../components/layout/AppShell';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
+import { Select } from '../../components/ui/Select';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { Disclaimer } from '../../components/ui/Disclaimer';
 import { LabFlaskIcon, SparklesIcon, XIcon } from '../../components/ui/icons';
@@ -185,18 +186,18 @@ export function CaptureReportPage() {
               <p className="text-xs text-ink-600">
                 If your doctor ordered tests during a visit, select it here to mark it completed when this report is saved:
               </p>
-              <select
+              <Select
                 value={selectedOrderId}
-                onChange={(e) => setSelectedOrderId(e.target.value)}
-                className="w-full h-11 px-3.5 py-2 text-sm bg-surface-primary border border-ink-200 rounded-[var(--radius-md)] text-ink-900 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600"
-              >
-                <option value="">-- Do not link / Standalone report --</option>
-                {pendingOrders.map((order) => (
-                  <option key={order.id} value={order.id}>
-                    {order.test_name} (Ordered on {order.ordered_date})
-                  </option>
-                ))}
-              </select>
+                onValueChange={(val) => setSelectedOrderId(val)}
+                placeholder="-- Do not link / Standalone report --"
+                options={[
+                  { value: '', label: '-- Do not link / Standalone report --' },
+                  ...pendingOrders.map((order) => ({
+                    value: order.id,
+                    label: `${order.test_name} (Ordered on ${order.ordered_date})`,
+                  })),
+                ]}
+              />
             </div>
           </Card>
         )}

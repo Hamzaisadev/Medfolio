@@ -6,6 +6,7 @@ import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { Field } from '../../components/ui/Field';
 import { Input } from '../../components/ui/Input';
+import { Select } from '../../components/ui/Select';
 import { Badge } from '../../components/ui/Badge';
 import { Disclaimer } from '../../components/ui/Disclaimer';
 import { Toast } from '../../components/ui/Toast';
@@ -413,18 +414,19 @@ export function ReviewReportPage() {
 
               {pendingOrders.length > 0 && (
                 <Field id="rep-link" label="Link to Doctor Test Order" hint="Completes the pending order on save">
-                  <select
+                  <Select
+                    id="rep-link"
                     value={selectedOrderId}
-                    onChange={(e) => setSelectedOrderId(e.target.value)}
-                    className="w-full h-11 px-3.5 py-2 text-sm bg-surface-primary border border-ink-200 rounded-[var(--radius-md)] text-ink-900 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600"
-                  >
-                    <option value="">-- Standalone report --</option>
-                    {pendingOrders.map((order) => (
-                      <option key={order.id} value={order.id}>
-                        {order.test_name} (Ordered {order.ordered_date})
-                      </option>
-                    ))}
-                  </select>
+                    onValueChange={(val) => setSelectedOrderId(val)}
+                    placeholder="-- Standalone report --"
+                    options={[
+                      { value: '', label: '-- Standalone report --' },
+                      ...pendingOrders.map((order) => ({
+                        value: order.id,
+                        label: `${order.test_name} (Ordered ${order.ordered_date})`,
+                      })),
+                    ]}
+                  />
                 </Field>
               )}
             </div>

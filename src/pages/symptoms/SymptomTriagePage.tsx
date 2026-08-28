@@ -4,6 +4,7 @@ import { AppShell } from '../../components/layout/AppShell';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
+import { Select } from '../../components/ui/Select';
 import { Toast } from '../../components/ui/Toast';
 import { Disclaimer } from '../../components/ui/Disclaimer';
 import {
@@ -494,17 +495,12 @@ export function SymptomTriagePage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="font-bold text-content block mb-1">Time of Day</label>
-                  <select
+                  <Select
                     value={newTimeLabel}
-                    onChange={(e) => setNewTimeLabel(e.target.value)}
-                    className="w-full h-10 px-3 text-xs bg-surface-sunken border border-line rounded-xl text-content focus:outline-none focus:border-accent"
-                  >
-                    {TIME_OPTIONS.map((opt) => (
-                      <option key={opt} value={opt}>
-                        {opt}
-                      </option>
-                    ))}
-                  </select>
+                    onValueChange={(val) => setNewTimeLabel(val)}
+                    options={TIME_OPTIONS.map((opt) => ({ value: opt, label: opt }))}
+                    className="h-10 text-xs font-semibold"
+                  />
                 </div>
 
                 <div>

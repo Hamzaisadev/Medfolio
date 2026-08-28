@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
+import { Select } from '../ui/Select';
 import { PrescriptionIcon, CheckIcon, XIcon, PlusIcon } from '../ui/icons';
 import { medicinesRepo, dosesRepo } from '../../lib/db';
 import { parseFrequency, defaultDoseTimes } from '../../domain/frequency';
@@ -260,23 +261,24 @@ export function EditablePrescriptionWidget({
                     className="w-full h-8 px-2 border border-ink-200 rounded-lg text-xs text-center font-bold text-ink-800 focus:outline-teal-600 disabled:bg-transparent disabled:border-transparent"
                   />
                 </td>
-                <td className="py-1.5 pr-2 w-32">
-                  <select
+                <td className="py-1.5 pr-2 w-36">
+                  <Select
                     disabled={isSaved}
                     value={med.with_food === true ? 'after' : med.with_food === false ? 'before' : 'unknown'}
-                    onChange={(e) =>
+                    onValueChange={(val) =>
                       handleFieldChange(
                         med.rowId,
                         'with_food',
-                        e.target.value === 'after' ? true : e.target.value === 'before' ? false : null,
+                        val === 'after' ? true : val === 'before' ? false : null,
                       )
                     }
-                    className="w-full h-8 px-2 border border-ink-200 rounded-lg text-xs text-ink-800 focus:outline-teal-600 disabled:bg-transparent disabled:border-transparent"
-                  >
-                    <option value="after">With Food</option>
-                    <option value="before">Empty Stomach</option>
-                    <option value="unknown">Not Specified</option>
-                  </select>
+                    className="h-8 text-xs font-semibold px-2"
+                    options={[
+                      { value: 'after', label: 'With Food' },
+                      { value: 'before', label: 'Empty Stomach' },
+                      { value: 'unknown', label: 'Not Specified' },
+                    ]}
+                  />
                 </td>
                 <td className="py-1.5 text-right">
                   {!isSaved && (

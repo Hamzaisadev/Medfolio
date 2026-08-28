@@ -6,6 +6,7 @@ import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { Field } from '../../components/ui/Field';
 import { Input } from '../../components/ui/Input';
+import { Select } from '../../components/ui/Select';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Toast } from '../../components/ui/Toast';
 import { Disclaimer } from '../../components/ui/Disclaimer';
@@ -431,15 +432,17 @@ export function SettingsPage() {
               </Field>
 
               <Field id="set-sex" label="Biological Sex" hint="Used for lab reference range calculation">
-                <select
+                <Select
+                  id="set-sex"
                   value={sex}
-                  onChange={(e) => setSex(e.target.value as 'male' | 'female' | 'other' | 'undisclosed')}
-                  className="w-full h-11 px-3.5 py-2 text-sm bg-surface-primary border border-ink-200 rounded-[var(--radius-md)] text-ink-900 focus:outline-none focus:ring-2 focus:ring-teal-500"
-                >
-                  <option value="undisclosed">Undisclosed / Other</option>
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                </select>
+                  onValueChange={(val) => setSex(val as 'male' | 'female' | 'other' | 'undisclosed')}
+                  options={[
+                    { value: 'undisclosed', label: 'Undisclosed / Other' },
+                    { value: 'male', label: 'Male' },
+                    { value: 'female', label: 'Female' },
+                  ]}
+                  placeholder="Select biological sex"
+                />
               </Field>
             </div>
 

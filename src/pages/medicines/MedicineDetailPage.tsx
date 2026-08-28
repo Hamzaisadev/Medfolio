@@ -6,6 +6,7 @@ import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Field } from '../../components/ui/Field';
+import { Select } from '../../components/ui/Select';
 import { Textarea } from '../../components/ui/Textarea';
 import { Dialog } from '../../components/ui/Dialog';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
@@ -418,16 +419,16 @@ export function MedicineDetailPage() {
           </Field>
 
           <Field id="se-sev" label="Severity">
-            <select
+            <Select
               id="se-sev"
               value={severity}
-              onChange={(e) => setSeverity(e.target.value as 'mild' | 'moderate' | 'severe')}
-              className="w-full h-11 px-3.5 py-2 text-sm bg-surface border border-line rounded-[var(--radius-md)] text-content focus:outline-none focus:ring-2 focus:ring-accent"
-            >
-              <option value="mild">Mild — Slight discomfort, manageable</option>
-              <option value="moderate">Moderate — Noticeable impairment or discomfort</option>
-              <option value="severe">Severe — Significant adverse reaction</option>
-            </select>
+              onValueChange={(val) => setSeverity(val as 'mild' | 'moderate' | 'severe')}
+              options={[
+                { value: 'mild', label: 'Mild — Slight discomfort, manageable' },
+                { value: 'moderate', label: 'Moderate — Noticeable impairment or discomfort' },
+                { value: 'severe', label: 'Severe — Significant adverse reaction' },
+              ]}
+            />
           </Field>
 
           <div className="flex items-center justify-end gap-3 pt-3">

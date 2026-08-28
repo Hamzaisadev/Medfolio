@@ -16,6 +16,7 @@ import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Input } from '../../components/ui/Input';
+import { Select } from '../../components/ui/Select';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ErrorState } from '../../components/ui/ErrorState';
@@ -271,19 +272,14 @@ export function ReportsListPage() {
                     <p className="text-xs text-content-subtle">Track changes across historic blood work and lab tests</p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <label htmlFor="trend-test-select" className="text-xs text-content-subtle font-medium">Select Parameter:</label>
-                    <select
+                    <label htmlFor="trend-test-select" className="text-xs text-content-subtle font-medium shrink-0">Select Parameter:</label>
+                    <Select
                       id="trend-test-select"
                       value={selectedTrendTest}
-                      onChange={(e) => setSelectedTrendTest(e.target.value)}
-                      className="h-9 px-3 text-xs bg-surface border border-line rounded-md font-semibold text-content focus:outline-none focus:ring-2 focus:ring-accent"
-                    >
-                      {availableTrendTests.map((name) => (
-                        <option key={name} value={name}>
-                          {name}
-                        </option>
-                      ))}
-                    </select>
+                      onValueChange={(val) => setSelectedTrendTest(val)}
+                      options={availableTrendTests.map((name) => ({ value: name, label: name }))}
+                      className="h-9 min-w-44 text-xs font-semibold"
+                    />
                   </div>
                 </div>
               }

@@ -21,6 +21,7 @@ import {
 } from '../../domain/vitals';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
+import { Select } from '../../components/ui/Select';
 import { Dialog } from '../../components/ui/Dialog';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { VITAL_TONE } from '../../components/ui/vitalTone';
@@ -510,15 +511,16 @@ export function VitalsTrackerPage() {
               </div>
               <div>
                 <label htmlFor="glucose-unit" className="block text-xs font-bold text-content mb-1">Unit</label>
-                <select
+                <Select
                   id="glucose-unit"
                   value={glucoseUnit}
-                  onChange={(e) => setGlucoseUnit(e.target.value as 'mg/dL' | 'mmol/L')}
-                  className="w-full px-2 py-2 rounded-xl border border-line text-xs font-bold text-content bg-surface"
-                >
-                  <option value="mg/dL">mg/dL</option>
-                  <option value="mmol/L">mmol/L</option>
-                </select>
+                  onValueChange={(val) => setGlucoseUnit(val as 'mg/dL' | 'mmol/L')}
+                  options={[
+                    { value: 'mg/dL', label: 'mg/dL' },
+                    { value: 'mmol/L', label: 'mmol/L' },
+                  ]}
+                  className="h-10 text-xs font-bold"
+                />
               </div>
             </div>
 
@@ -597,28 +599,30 @@ export function VitalsTrackerPage() {
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label htmlFor="bp-arm" className="block text-xs font-bold text-content mb-1">Arm</label>
-                <select
+                <Select
                   id="bp-arm"
                   value={bpArm}
-                  onChange={(e) => setBpArm(e.target.value as 'left' | 'right')}
-                  className="w-full px-3 py-2 rounded-xl border border-line text-xs font-bold text-content bg-surface"
-                >
-                  <option value="left">Left Arm</option>
-                  <option value="right">Right Arm</option>
-                </select>
+                  onValueChange={(val) => setBpArm(val as 'left' | 'right')}
+                  options={[
+                    { value: 'left', label: 'Left Arm' },
+                    { value: 'right', label: 'Right Arm' },
+                  ]}
+                  className="h-10 text-xs font-bold"
+                />
               </div>
               <div>
                 <label htmlFor="bp-posture" className="block text-xs font-bold text-content mb-1">Posture</label>
-                <select
+                <Select
                   id="bp-posture"
                   value={bpPosture}
-                  onChange={(e) => setBpPosture(e.target.value as 'sitting' | 'standing' | 'lying')}
-                  className="w-full px-3 py-2 rounded-xl border border-line text-xs font-bold text-content bg-surface"
-                >
-                  <option value="sitting">Sitting</option>
-                  <option value="standing">Standing</option>
-                  <option value="lying">Lying Down</option>
-                </select>
+                  onValueChange={(val) => setBpPosture(val as 'sitting' | 'standing' | 'lying')}
+                  options={[
+                    { value: 'sitting', label: 'Sitting' },
+                    { value: 'standing', label: 'Standing' },
+                    { value: 'lying', label: 'Lying Down' },
+                  ]}
+                  className="h-10 text-xs font-bold"
+                />
               </div>
             </div>
 
