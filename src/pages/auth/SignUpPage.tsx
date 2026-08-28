@@ -6,9 +6,9 @@ import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { Field } from '../../components/ui/Field';
 import { Input } from '../../components/ui/Input';
-import { Select } from '../../components/ui/Select';
 import { Logo } from '../../components/ui/Logo';
 import { MedicalDatePicker } from '../../components/ui/MedicalDatePicker';
+import { BloodGroupPicker } from '../../components/ui/BloodGroupPicker';
 import {
   ShieldCheck,
   FileText,
@@ -17,19 +17,6 @@ import {
   Mail,
   CheckCircle2,
 } from 'lucide-react';
-
-const BLOOD_GROUPS = [
-  { value: '', label: 'Select blood type (optional)' },
-  { value: 'A+', label: 'A+' },
-  { value: 'A-', label: 'A-' },
-  { value: 'B+', label: 'B+' },
-  { value: 'B-', label: 'B-' },
-  { value: 'AB+', label: 'AB+' },
-  { value: 'AB-', label: 'AB-' },
-  { value: 'O+', label: 'O+' },
-  { value: 'O-', label: 'O-' },
-  { value: 'unknown', label: 'Unknown' },
-];
 
 export function SignUpPage() {
   const navigate = useNavigate();
@@ -393,13 +380,12 @@ export function SignUpPage() {
                     <span className="text-sm font-semibold text-content block">
                       Blood Group <span className="text-xs font-normal text-content-subtle">(Optional)</span>
                     </span>
-                    <Select
+                    <BloodGroupPicker
                       id="signup-blood-group"
                       value={bloodGroup}
-                      onChange={(e) => setBloodGroup(e.target.value)}
-                      options={BLOOD_GROUPS}
+                      onChange={setBloodGroup}
                       disabled={isLoading}
-                      className="h-12 text-xs sm:text-sm font-medium"
+                      placeholder="Select (e.g. O+)"
                     />
                   </div>
                 </div>
