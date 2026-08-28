@@ -57,6 +57,15 @@ interface Message {
     clinicalMessage: string;
     actionRecommendation: string;
   }>;
+  biomarkerTrajectories?: Array<{
+    displayName: string;
+    unit: string;
+    deltaValue: number;
+    deltaPercent: number;
+    trendStatus: 'worsening' | 'improving' | 'stable' | 'fluctuating';
+    clinicalSignificance: string;
+    predictiveAlert?: string;
+  }>;
 }
 
 const DEEP_CLINICAL_PROMPTS = [
@@ -467,6 +476,15 @@ export function AssistantPage() {
           clinicalMessage: string;
           actionRecommendation: string;
         }>;
+        biomarkerTrajectories?: Array<{
+          displayName: string;
+          unit: string;
+          deltaValue: number;
+          deltaPercent: number;
+          trendStatus: 'worsening' | 'improving' | 'stable' | 'fluctuating';
+          clinicalSignificance: string;
+          predictiveAlert?: string;
+        }>;
         error?: string;
       } = {};
 
@@ -491,6 +509,7 @@ export function AssistantPage() {
         suggestions: data.suggestions || [],
         citations: data.citations || [],
         sentinelAlerts: data.sentinelAlerts || [],
+        biomarkerTrajectories: data.biomarkerTrajectories || [],
       };
 
       setMessages((prev) => [...prev, botMsg]);
@@ -763,6 +782,47 @@ export function AssistantPage() {
                                   <span className="font-bold">Action:</span>
                                   <span>{sentinel.actionRecommendation}</span>
                                 </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* Longitudinal Biomarker Trajectory & Predictive Anomaly Insights */}
+                      {m.biomarkerTrajectories && m.biomarkerTrajectories.length > 0 && (
+                        <div className="space-y-2 pt-1">
+                          {m.biomarkerTrajectories.map((traj, tIdx) => {
+                            const isWorse = traj.trendStatus === 'worsening';
+                            return (
+                              <div
+                                key={tIdx}
+                                className={`p-3.5 rounded-xl border text-xs space-y-1.5 shadow-2xs ${
+                                  traj.predictiveAlert
+                                    ? isWorse
+                                      ? 'border-risk-border bg-risk-bg text-risk-text'
+                                      : 'border-warn-border bg-warn-bg text-warn-text'
+                                    : 'border-line bg-surface-sunken/80 text-content'
+                                }`}
+                              >
+                                <div className="flex items-center justify-between font-bold">
+                                  <span className="flex items-center gap-1.5">
+                                    <BarChartIcon size={16} className="text-accent shrink-0" />
+                                    <span>Biomarker Trajectory: {traj.displayName}</span>
+                                  </span>
+                                  <Badge
+                                    tone={traj.trendStatus === 'worsening' ? 'risk' : traj.trendStatus === 'improving' ? 'ok' : 'neutral'}
+                                    size="sm"
+                                  >
+                                    {traj.deltaPercent >= 0 ? '+' : ''}{traj.deltaPercent.toFixed(0)}% ({traj.trendStatus})
+                                  </Badge>
+                                </div>
+                                <p className="text-xs leading-relaxed">{traj.clinicalSignificance}</p>
+                                {traj.predictiveAlert && (
+                                  <div className="p-2 rounded-lg bg-surface-raised border border-line text-2xs font-semibold flex items-center gap-1.5">
+                                    <AlertTriangleIcon size={14} className="text-warn-text shrink-0" />
+                                    <span>{traj.predictiveAlert}</span>
+                                  </div>
+                                )}
                               </div>
                             );
                           })}

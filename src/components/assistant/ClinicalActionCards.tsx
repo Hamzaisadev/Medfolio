@@ -15,7 +15,7 @@ import {
   SparklesIcon,
   ClockIcon,
 } from '../ui/icons';
-import { sideEffectsRepo, testOrdersRepo, visitsRepo } from '../../lib/db';
+import { sideEffectsRepo, testOrdersRepo, visitsRepo, medicinesRepo } from '../../lib/db';
 import { todayInAppTz, addDaysAppTz } from '../../lib/time';
 
 export interface ClinicalActionCall {
@@ -36,6 +36,9 @@ export interface ClinicalActionCall {
   data: {
     symptom?: string;
     medicine_name?: string;
+    new_time?: string;
+    meal_relation?: string;
+    adjustment_reason?: string;
     severity?: 'mild' | 'moderate' | 'severe';
     shiftDetails?: string;
     pillCount?: number;
@@ -83,6 +86,91 @@ export function ClinicalActionCards({ action, profileId, onExecuted }: ClinicalA
   const [severity, setSeverity] = useState<'mild' | 'moderate' | 'severe'>(
     action.data.severity || 'mild'
   );
+
+  // 0. Tool: Adjust Schedule / Food Timing (1-Click Sync)
+  if (action.type === 'adjust_schedule') {
+    const handleApplySchedule = async () => {
+      setIsExecuting(true);
+      try {
+        const currentMeds = await medicinesRepo.listMedicines(profileId);
+        const targetMed = currentMeds.find(
+          (m) =>
+            m.medicine_name.toLowerCase().includes((action.data.medicine_name || '').toLowerCase()) ||
+            (action.data.medicine_name || '').toLowerCase().includes(m.medicine_name.toLowerCase())
+        );
+
+        if (targetMed) {
+          const isWithFood =
+            action.data.meal_relation?.toLowerCase().includes('after') ||
+            action.data.meal_relation?.toLowerCase().includes('with');
+          await medicinesRepo.updateMedicine(targetMed.id, {
+            instructions: `${targetMed.instructions || ''} [Updated schedule: ${action.data.new_time || ''} ${action.data.meal_relation || ''}]`.trim(),
+            with_food: isWithFood,
+          });
+        }
+        setIsDone(true);
+        if (onExecuted) onExecuted(`Applied schedule adjustment for ${action.data.medicine_name || 'medication'}.`);
+      } catch (err) {
+        console.error('Failed to update schedule:', err);
+      } finally {
+        setIsExecuting(false);
+      }
+    };
+
+    return (
+      <div className="my-3 p-3.5 bg-surface-raised border border-accent/30 rounded-2xl shadow-2xs space-y-2.5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-content font-bold text-xs flex items-center gap-1.5">
+              <ClockIcon size={16} className="text-accent" /> Schedule Optimization Sentinel
+            </span>
+            <Badge tone="ok" size="sm">1-Click Sync</Badge>
+          </div>
+          {isDone && (
+            <span className="text-2xs text-accent font-bold flex items-center gap-1">
+              <CheckIcon size={13} className="text-accent" /> Applied to Timetable
+            </span>
+          )}
+        </div>
+
+        <div className="text-xs space-y-1 text-content">
+          <p>
+            <strong className="text-content font-bold">Target Medicine:</strong> {action.data.medicine_name}
+          </p>
+          {action.data.new_time && (
+            <p>
+              <strong className="text-content font-bold">Recommended Time:</strong> {action.data.new_time}
+            </p>
+          )}
+          {action.data.meal_relation && (
+            <p>
+              <strong className="text-content font-bold">Food Timing:</strong> {action.data.meal_relation}
+            </p>
+          )}
+          {action.data.adjustment_reason && (
+            <p className="text-2xs text-content-muted pt-0.5">
+              <span className="font-semibold">Clinical Rationale:</span> {action.data.adjustment_reason}
+            </p>
+          )}
+        </div>
+
+        {!isDone && (
+          <div className="pt-2 border-t border-line flex justify-end">
+            <Button
+              variant="primary"
+              size="sm"
+              loading={isExecuting}
+              onClick={handleApplySchedule}
+              className="text-xs font-bold shadow-xs"
+              leftIcon={<ClockIcon size={14} />}
+            >
+              Apply to My Daily Schedule
+            </Button>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   // 1. Tool: Log Symptom / Adverse Reaction
   if (action.type === 'log_symptom') {

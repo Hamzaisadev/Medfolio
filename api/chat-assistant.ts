@@ -170,10 +170,13 @@ JSON Schema:
     }
   ],
   "actionCall": {
-    "type": "log_symptom" | "missed_dose" | "caregiver_brief" | "generic_substitution" | "pre_op_cessation" | "pregnancy_lactation" | "travel_timezone" | "schedule_followup" | "create_refill" | "otc_compatibility" | "emergency_triage",
+    "type": "adjust_schedule" | "log_symptom" | "missed_dose" | "caregiver_brief" | "generic_substitution" | "pre_op_cessation" | "pregnancy_lactation" | "travel_timezone" | "schedule_followup" | "create_refill" | "otc_compatibility" | "emergency_triage",
     "data": {
+      "medicine_name": "Medicine to adjust",
+      "new_time": "08:00 AM",
+      "meal_relation": "Empty stomach (30 mins before breakfast)" | "After meals" | "With food" | "At bedtime",
+      "adjustment_reason": "Clinical rationale for timing shift",
       "symptom": "Reported symptom",
-      "medicine_name": "Suspected medicine",
       "severity": "mild" | "moderate" | "severe",
       "missed_time": "Time missed",
       "catchup_instructions": "Exact clinical catchup rule",
@@ -199,6 +202,17 @@ JSON Schema:
       "emergency_reasons": ["Severe symptom 1"]
     }
   },
+  "biomarkerTrajectories": [
+    {
+      "displayName": "Biomarker Name",
+      "unit": "mg/dL",
+      "deltaValue": 0.5,
+      "deltaPercent": 25.0,
+      "trendStatus": "worsening" | "improving" | "stable" | "fluctuating",
+      "clinicalSignificance": "Clinical insight explaining the trend",
+      "predictiveAlert": "Actionable risk alert if any"
+    }
+  ],
   "safetyAlerts": [
     "Alert 1: Key precaution"
   ],
@@ -206,6 +220,18 @@ JSON Schema:
     "Follow-up question or prompt from the PATIENT's first-person perspective that the patient would ask the assistant next (e.g. 'What is the maximum safe dose for me?', 'Can I take this on an empty stomach?', 'Check interactions with my other medicines'). NEVER phrase suggestions from the assistant's perspective (NEVER say 'Would you like me to...' or 'What symptom are you trying to treat?')."
   ]
 }
+
+AUTONOMOUS ACTION TRIGGERS:
+1. "When advising changing/optimizing dose timing (e.g. move Omeprazole to empty stomach or Statin to bedtime)" -> actionCall: type="adjust_schedule"
+2. "I missed / forgot my medicine dose" -> actionCall: type="missed_dose"
+3. "Send update to my son/daughter/caregiver / WhatsApp summary" -> actionCall: type="caregiver_brief"
+4. "Pharmacy gave me brand X instead of brand Y" -> actionCall: type="generic_substitution"
+5. "I have a tooth extraction / surgery / operation in X days" -> actionCall: type="pre_op_cessation"
+6. "Is this medicine safe during pregnancy / breastfeeding?" -> actionCall: type="pregnancy_lactation"
+7. "I am traveling / flying to another country/timezone" -> actionCall: type="travel_timezone"
+8. "I have symptom / side effect X" -> actionCall: type="log_symptom"
+9. "Can I take OTC medicine X?" -> actionCall: type="otc_compatibility"
+10. Acute red flags -> actionCall: type="emergency_triage"
 
 STRICT SUGGESTIONS PERSPECTIVE RULE:
 - All items in "suggestions" MUST be phrased as things the PATIENT is asking or requesting from the ASSISTANT.
@@ -330,6 +356,10 @@ ${ragResult.retrievedPatientEvidence.length > 0 ? ragResult.retrievedPatientEvid
 
     if (!Array.isArray(data.sentinelAlerts) || data.sentinelAlerts.length === 0) {
       data.sentinelAlerts = ragResult.sentinelAlerts;
+    }
+
+    if (!Array.isArray(data.biomarkerTrajectories) || data.biomarkerTrajectories.length === 0) {
+      data.biomarkerTrajectories = ragResult.biomarkerTrajectories;
     }
 
     sendJson(res, 200, data);

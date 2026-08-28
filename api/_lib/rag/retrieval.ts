@@ -4,10 +4,14 @@ import {
   GENERIC_MOLECULE_REGISTRY,
 } from './clinicalKnowledge';
 import { analyzeSafetySentinel, type SentinelAlert } from './sentinel';
+import {
+  analyzeBiomarkerTrajectories,
+  type BiomarkerTrajectoryItem,
+} from './biomarkerTrajectory';
 
 export interface RetrievedCitation {
   source: string;
-  type: 'clinical_guideline' | 'patient_prescription' | 'patient_lab_result' | 'patient_consultation' | 'safety_sentinel';
+  type: 'clinical_guideline' | 'patient_prescription' | 'patient_lab_result' | 'patient_consultation' | 'safety_sentinel' | 'biomarker_trajectory';
   detail: string;
 }
 
@@ -16,6 +20,7 @@ export interface RagRetrievalResult {
   retrievedPatientEvidence: string[];
   citations: RetrievedCitation[];
   sentinelAlerts: SentinelAlert[];
+  biomarkerTrajectories: BiomarkerTrajectoryItem[];
   queryIntent: 'interaction_check' | 'lab_interpretation' | 'dosing_timing' | 'pregnancy_lactation' | 'pre_op' | 'overdose_sentinel' | 'general_clinical';
   resolvedContextQuery: string;
 }
@@ -145,7 +150,26 @@ export function executeClinicalRag(
     });
   });
 
-  // 3. Detect Query Intent
+  // 3. Run Longitudinal Biomarker Trajectory & Predictive Trend Engine
+  const { trajectories, trajectoryPromptDirectives } = analyzeBiomarkerTrajectories(
+    patientContext?.recentReports || []
+  );
+
+  if (trajectoryPromptDirectives.length > 0) {
+    retrievedClinicalRules.push(...trajectoryPromptDirectives);
+  }
+
+  trajectories.forEach((traj) => {
+    if (traj.predictiveAlert || traj.trendStatus === 'worsening' || traj.trendStatus === 'improving') {
+      citations.push({
+        source: `Biomarker Trajectory: ${traj.displayName}`,
+        type: 'biomarker_trajectory',
+        detail: traj.clinicalSignificance,
+      });
+    }
+  });
+
+  // 4. Detect Query Intent
   let queryIntent: RagRetrievalResult['queryIntent'] = 'general_clinical';
   if (sentinelAlerts.length > 0) {
     queryIntent = 'overdose_sentinel';
@@ -323,10 +347,11 @@ export function executeClinicalRag(
   ).slice(0, 6);
 
   return {
-    retrievedClinicalRules: retrievedClinicalRules.slice(0, 10),
-    retrievedPatientEvidence: retrievedPatientEvidence.slice(0, 12),
+    retrievedClinicalRules: retrievedClinicalRules.slice(0, 12),
+    retrievedPatientEvidence: retrievedPatientEvidence.slice(0, 14),
     citations: uniqueCitations,
     sentinelAlerts,
+    biomarkerTrajectories: trajectories,
     queryIntent,
     resolvedContextQuery,
   };
