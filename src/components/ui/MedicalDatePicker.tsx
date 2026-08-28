@@ -12,7 +12,7 @@ import {
 
 export interface MedicalDatePickerProps {
   id?: string;
-  value?: string; // YYYY-MM-DD format
+  value?: string; // YYYY-MM-DD format or common date strings
   onChange: (isoDate: string) => void;
   disabled?: boolean;
   className?: string;
@@ -37,6 +37,53 @@ const MONTHS = [
 ];
 
 const WEEKDAYS = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+
+/**
+ * Robust date parser for standard ISO, slash-separated, and timestamped dates.
+ */
+function parseDateString(str?: string | null): { year: number; month: number; day: number; iso: string } | null {
+  if (!str) return null;
+  const trimmed = String(str).trim();
+  if (!trimmed) return null;
+
+  // Case 1: YYYY-MM-DD or YYYY/MM/DD (with optional timestamp)
+  let match = trimmed.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})/);
+  if (match) {
+    const y = Number(match[1]);
+    const m = Number(match[2]);
+    const d = Number(match[3]);
+    if (m >= 1 && m <= 12 && d >= 1 && d <= 31) {
+      const iso = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      return { year: y, month: m, day: d, iso };
+    }
+  }
+
+  // Case 2: DD/MM/YYYY or DD-MM-YYYY
+  match = trimmed.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})/);
+  if (match) {
+    const d = Number(match[1]);
+    const m = Number(match[2]);
+    const y = Number(match[3]);
+    if (m >= 1 && m <= 12 && d >= 1 && d <= 31) {
+      const iso = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      return { year: y, month: m, day: d, iso };
+    }
+  }
+
+  // Case 3: General JS Date fallback
+  const dObj = new Date(trimmed);
+  if (!isNaN(dObj.getTime())) {
+    const y = dObj.getFullYear();
+    const m = dObj.getMonth() + 1;
+    const d = dObj.getDate();
+    if (y >= 1900 && y <= 2100) {
+      const iso = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      return { year: y, month: m, day: d, iso };
+    }
+  }
+
+  return null;
+}
 
 export function MedicalDatePicker({
   id,
@@ -63,6 +110,8 @@ export function MedicalDatePicker({
     return `${y}-${m}-${dayNum}`;
   }, []);
 
+  const parsedDate = useMemo(() => parseDateString(value), [value]);
+
   // Dynamic year options for grid
   const YEARS = useMemo(() => {
     if (mode === 'recent') {
@@ -77,29 +126,22 @@ export function MedicalDatePicker({
 
   // Calendar navigation state
   const [viewYear, setViewYear] = useState<number>(() => {
-    if (value && /^\d{4}/.test(value)) {
-      return Number(value.slice(0, 4));
-    }
+    if (parsedDate) return parsedDate.year;
     return mode === 'birthdate' ? 2000 : currentYear;
   });
 
   const [viewMonth, setViewMonth] = useState<number>(() => {
-    if (value && /^\d{4}-\d{2}/.test(value)) {
-      return Number(value.slice(5, 7)) - 1;
-    }
+    if (parsedDate) return parsedDate.month - 1;
     return currentMonth;
   });
 
   // Sync internal view year/month when value changes externally
   useEffect(() => {
-    if (value && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
-      const parts = value.split('-');
-      const y = Number(parts[0]);
-      const m = Number(parts[1]) - 1;
-      if (!isNaN(y)) setViewYear(y);
-      if (!isNaN(m)) setViewMonth(m);
+    if (parsedDate) {
+      setViewYear(parsedDate.year);
+      setViewMonth(parsedDate.month - 1);
     }
-  }, [value]);
+  }, [parsedDate]);
 
   // Scroll to active year when opening year picker view
   useEffect(() => {
@@ -117,25 +159,22 @@ export function MedicalDatePicker({
     setCalendarView('days');
   };
 
-  // Formatted date string for display
+  // Full, clear date formatting: e.g. "13 June 2026"
   const formattedDisplayDate = useMemo(() => {
-    if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    if (!parsedDate) {
       return placeholder || (mode === 'birthdate' ? 'Select date of birth' : 'Select date');
     }
-    const [y, m, d] = value.split('-');
-    const monthObj = MONTHS.find((item) => item.value === m);
-    const monthLabel = monthObj ? monthObj.label : m;
-    const dayNum = Number(d);
-    return `${dayNum} ${monthLabel}, ${y}`;
-  }, [value, placeholder, mode]);
+    const monthObj = MONTHS.find((item) => Number(item.value) === parsedDate.month);
+    const monthFull = monthObj ? monthObj.full : `Month ${parsedDate.month}`;
+    return `${parsedDate.day} ${monthFull} ${parsedDate.year}`;
+  }, [parsedDate, placeholder, mode]);
 
   // Age calculation
   const ageDisplay = useMemo(() => {
-    if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
-    const [y, m, d] = value.split('-');
-    const numY = Number(y);
-    if (numY < 1900) return null;
-    const dob = new Date(numY, Number(m) - 1, Number(d));
+    if (!parsedDate) return null;
+    const { year: y, month: m, day: d } = parsedDate;
+    if (y < 1900) return null;
+    const dob = new Date(y, m - 1, d);
     const today = new Date();
     let age = today.getFullYear() - dob.getFullYear();
     const monthDiff = today.getMonth() - dob.getMonth();
@@ -146,7 +185,7 @@ export function MedicalDatePicker({
       return `${age} years old`;
     }
     return null;
-  }, [value]);
+  }, [parsedDate]);
 
   // Calendar Day Cells Calculation
   const calendarDays = useMemo(() => {
@@ -210,7 +249,7 @@ export function MedicalDatePicker({
     return cells;
   }, [viewYear, viewMonth, todayStr]);
 
-  const isSelected = Boolean(value && /^\d{4}-\d{2}-\d{2}$/.test(value));
+  const isSelected = Boolean(parsedDate);
 
   return (
     <div className={twMerge('space-y-1.5 relative w-full', className)}>
@@ -218,17 +257,16 @@ export function MedicalDatePicker({
         open={isCalendarOpen}
         onOpenChange={(open) => {
           if (open) {
-            if (value && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
-              const [y, m] = value.split('-');
-              setViewYear(Number(y));
-              setViewMonth(Number(m) - 1);
+            if (parsedDate) {
+              setViewYear(parsedDate.year);
+              setViewMonth(parsedDate.month - 1);
             }
             setCalendarView('days');
           }
           setIsCalendarOpen(open);
         }}
       >
-        {/* Unified, Responsive Date Picker Input Trigger */}
+        {/* Full-width, Accessible Date Display Button */}
         <Popover.Trigger asChild>
           <button
             type="button"
@@ -242,12 +280,12 @@ export function MedicalDatePicker({
               isCalendarOpen && 'border-accent ring-2 ring-accent/20'
             )}
           >
-            <div className="flex items-center gap-2.5 min-w-0 overflow-hidden">
+            <div className="flex items-center gap-2.5 min-w-0 overflow-hidden pr-1">
               <CalendarIcon
                 size={16}
                 className={clsx('shrink-0 transition-colors', isSelected ? 'text-accent' : 'text-content-subtle')}
               />
-              <span className={clsx('truncate', isSelected ? 'font-medium text-content' : 'text-content-muted')}>
+              <span className={clsx('whitespace-nowrap font-medium text-xs sm:text-sm', isSelected ? 'text-content' : 'text-content-muted')}>
                 {formattedDisplayDate}
               </span>
             </div>
@@ -468,7 +506,7 @@ export function MedicalDatePicker({
                 {/* Day numbers */}
                 <div className="grid grid-cols-7 gap-0.5">
                   {calendarDays.map((cell) => {
-                    const isSelectedDay = cell.dateStr === value;
+                    const isSelectedDay = cell.dateStr === parsedDate?.iso;
                     const isTodayCell = cell.dateStr === todayStr;
                     const isFutureDisabled = mode === 'birthdate' && cell.isFuture;
 
