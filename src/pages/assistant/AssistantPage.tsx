@@ -549,8 +549,8 @@ export function AssistantPage() {
     <AppShell fullWidth noPadding fixedViewport>
       <div className="flex-1 flex flex-col h-full min-h-0 w-full bg-surface-sunken">
         {/* Streamlined Single-Line Header Bar */}
-        <div className="shrink-0 border-b border-line bg-surface-raised shadow-2xs z-10 px-3 sm:px-4">
-          <div className="max-w-4xl mx-auto h-12 flex items-center justify-between gap-2">
+        <div className="shrink-0 border-b border-line bg-surface-raised shadow-2xs z-10 px-4 sm:px-6">
+          <div className="max-w-5xl mx-auto h-13 sm:h-14 flex items-center justify-between gap-2">
             {/* Left: Title & Record Badge */}
             <div className="flex items-center gap-2 sm:gap-3">
               <span className="font-bold text-sm sm:text-base text-content">
@@ -559,14 +559,14 @@ export function AssistantPage() {
               <button
                 type="button"
                 onClick={() => setShowContextDrawer(!showContextDrawer)}
-                className={`text-2xs font-semibold px-2 py-0.5 rounded-lg border flex items-center gap-1 transition-all cursor-pointer ${
+                className={`text-2xs font-semibold px-2.5 py-1 rounded-lg border flex items-center gap-1.5 transition-all cursor-pointer ${
                   showContextDrawer
                     ? 'bg-accent text-content-onaccent border-accent shadow-xs'
                     : 'bg-surface-sunken text-content-muted border-line hover:border-line-strong hover:text-content'
                 }`}
                 title="Click to view active health context"
               >
-                <FolderIcon size={12} />
+                <FolderIcon size={13} />
                 <span>{activeMedsList.length} Active Med{activeMedsList.length === 1 ? '' : 's'}</span>
               </button>
             </div>
@@ -585,7 +585,7 @@ export function AssistantPage() {
                     key={tab.id}
                     type="button"
                     onClick={() => setActiveTab(tab.id as typeof activeTab)}
-                    className={`px-2.5 sm:px-3 py-1 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                    className={`px-2.5 sm:px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                       isActive
                         ? 'bg-surface-raised text-accent shadow-xs border border-line'
                         : 'text-content-muted hover:text-content'
@@ -603,18 +603,18 @@ export function AssistantPage() {
               <button
                 type="button"
                 onClick={() => setShowSafetyModal(true)}
-                className="p-1.5 rounded-lg text-content-muted hover:text-content hover:bg-surface-hover transition-colors cursor-pointer"
+                className="p-2 rounded-lg text-content-muted hover:text-content hover:bg-surface-hover transition-colors cursor-pointer"
                 title="Clinical safety & oversight"
               >
-                <ShieldIcon size={15} />
+                <ShieldIcon size={16} />
               </button>
               <button
                 type="button"
                 onClick={handleClearChat}
-                className="p-1.5 rounded-lg text-content-muted hover:text-risk-text hover:bg-risk-bg transition-colors cursor-pointer"
+                className="p-2 rounded-lg text-content-muted hover:text-risk-text hover:bg-risk-bg transition-colors cursor-pointer"
                 title="Clear conversation"
               >
-                <TrashIcon size={15} />
+                <TrashIcon size={16} />
               </button>
             </div>
           </div>
@@ -629,8 +629,8 @@ export function AssistantPage() {
 
         {/* Collapsible Record Grounding Context Drawer */}
         {showContextDrawer && (
-          <div className="shrink-0 p-4 bg-surface-raised border-b border-line shadow-card animate-in fade-in slide-in-from-top-2 duration-150">
-            <div className="max-w-4xl mx-auto space-y-2.5">
+          <div className="shrink-0 p-4 sm:p-5 bg-surface-raised border-b border-line shadow-card animate-in fade-in slide-in-from-top-2 duration-150 px-4 sm:px-6">
+            <div className="max-w-5xl mx-auto space-y-2.5">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-content">Patient Record Grounding</span>
                 <button
@@ -1161,7 +1161,7 @@ export function AssistantPage() {
 
         {/* Tab 2: Drug Interaction Radar */}
         {activeTab === 'radar' && (
-          <div className="flex-1 overflow-y-auto min-h-0 p-4 sm:p-6 max-w-4xl mx-auto w-full">
+          <div className="flex-1 overflow-y-auto min-h-0 p-4 sm:p-6 max-w-5xl mx-auto w-full">
             <DrugInteractionRadar
               medicines={activeMedsList}
               allergies={profile?.allergies ? String(profile.allergies) : undefined}
@@ -1173,7 +1173,7 @@ export function AssistantPage() {
 
         {/* Tab 3: Doctor Visit Prep Brief */}
         {activeTab === 'doctor-prep' && (
-          <div className="flex-1 overflow-y-auto min-h-0 p-4 sm:p-6 max-w-4xl mx-auto w-full">
+          <div className="flex-1 overflow-y-auto min-h-0 p-4 sm:p-6 max-w-5xl mx-auto w-full">
             <DoctorPrepBrief
               profile={profile}
               medicines={activeMedsList}
@@ -1187,7 +1187,7 @@ export function AssistantPage() {
 
         {/* Tab 4: Biomarker Trajectory Analytics */}
         {activeTab === 'biomarkers' && (
-          <div className="flex-1 overflow-y-auto min-h-0 p-4 sm:p-6 max-w-4xl mx-auto w-full">
+          <div className="flex-1 overflow-y-auto min-h-0 p-4 sm:p-6 max-w-5xl mx-auto w-full">
             <BiomarkerTrajectory
               reports={reports}
               resultsMap={resultsMap}

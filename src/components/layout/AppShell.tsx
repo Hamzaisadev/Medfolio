@@ -23,7 +23,7 @@ export function AppShell({ children, fullWidth, noPadding, fixedViewport }: AppS
         <TopBar />
         <main
           className={`flex-1 w-full mx-auto flex flex-col min-h-0 ${
-            fullWidth ? 'max-w-7xl' : 'max-w-5xl px-4 md:px-8'
+            fullWidth ? 'max-w-none' : 'max-w-5xl px-4 md:px-8'
           } ${
             noPadding
               ? 'p-0 pb-16 md:pb-0'
