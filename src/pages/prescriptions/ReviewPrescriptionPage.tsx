@@ -701,9 +701,9 @@ export function ReviewPrescriptionPage() {
                         </button>
                       </div>
 
-                      {/* Row 1: Medicine Name (8 cols) & Strength (4 cols) */}
+                      {/* Row 1: Medicine Name (7 cols) & Strength (5 cols) */}
                       <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
-                        <div className="sm:col-span-8">
+                        <div className="sm:col-span-7">
                           <Field id={`med-name-${m.id}`} label="Medicine Name" required>
                             <Input
                               value={m.medicine_name}
@@ -712,7 +712,7 @@ export function ReviewPrescriptionPage() {
                             />
                           </Field>
                         </div>
-                        <div className="sm:col-span-4">
+                        <div className="sm:col-span-5">
                           <Field id={`med-strength-${m.id}`} label="Strength">
                             <Input
                               value={m.strength || ''}
@@ -781,9 +781,9 @@ export function ReviewPrescriptionPage() {
                         </div>
                       </div>
 
-                      {/* Row 3: Meal Timing & Duration */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div className="flex flex-col gap-2">
+                      {/* Row 3: Meal Timing (7 cols) & Duration (5 cols) */}
+                      <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
+                        <div className="sm:col-span-7 flex flex-col gap-2">
                           <label htmlFor={`med-food-${m.id}`} className="text-sm font-semibold text-content min-h-[20px] flex items-center">
                             Meal Timing
                           </label>
@@ -806,7 +806,7 @@ export function ReviewPrescriptionPage() {
                           />
                         </div>
 
-                        <div className="flex flex-col gap-2">
+                        <div className="sm:col-span-5 flex flex-col gap-2">
                           <div className="flex items-center justify-between min-h-[20px]">
                             <label htmlFor={`med-dur-${m.id}`} className="text-sm font-semibold text-content flex items-center gap-1.5">
                               <span>Duration</span>
