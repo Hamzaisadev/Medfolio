@@ -256,7 +256,7 @@ export function SignUpPage() {
               </p>
             </div>
 
-            <Card className="p-6 sm:p-8 shadow-sm glass-card border border-line rounded-2xl">
+            <Card className="p-6 sm:p-8 shadow-sm glass-card border border-line rounded-2xl overflow-visible">
               <form onSubmit={handleSubmit} className="space-y-4">
                 {errorMessage && (
                   <div className="p-3.5 rounded-xl bg-risk-bg border border-risk-border text-xs text-risk-text font-medium">
@@ -332,8 +332,8 @@ export function SignUpPage() {
 
                 {/* Clean Segmented Biological Sex Selector */}
                 <div className="space-y-1.5 pt-1">
-                  <label className="text-sm font-semibold text-content block">Biological Sex</label>
-                  <div className="grid grid-cols-3 gap-2">
+                  <span className="text-sm font-semibold text-content block">Biological Sex</span>
+                  <div className="grid grid-cols-3 gap-2" role="group" aria-label="Biological Sex">
                     {[
                       { id: 'male', label: 'Male' },
                       { id: 'female', label: 'Female' },
@@ -358,11 +358,13 @@ export function SignUpPage() {
 
                 {/* Custom Medical Date of Birth Picker */}
                 <div className="space-y-1.5 pt-1">
-                  <label className="text-sm font-semibold text-content block">Date of Birth</label>
+                  <span className="text-sm font-semibold text-content block">Date of Birth</span>
                   <MedicalDatePicker
                     id="signup-dob"
                     value={dateOfBirth}
                     onChange={setDateOfBirth}
+                    mode="birthdate"
+                    showAge
                     disabled={isLoading}
                   />
                 </div>
