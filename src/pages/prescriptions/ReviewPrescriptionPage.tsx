@@ -70,11 +70,11 @@ const DOSAGE_FORMS = [
 ];
 
 const FREQUENCY_OPTIONS = [
-  { value: 'BD', label: 'Twice daily — Morning & Night' },
-  { value: 'OD', label: 'Once daily — Morning' },
-  { value: 'TDS', label: '3 times daily — Morning, Noon, Night' },
-  { value: 'QHS', label: 'Once daily — Night at bedtime' },
-  { value: 'QID', label: '4 times daily' },
+  { value: 'BD', label: 'Twice daily (Morning & Night)' },
+  { value: 'OD', label: 'Once daily (Morning)' },
+  { value: 'TDS', label: '3 times daily (TDS)' },
+  { value: 'QHS', label: 'Once daily (At bedtime)' },
+  { value: 'QID', label: '4 times daily (QID)' },
   { value: 'PRN', label: 'As needed (PRN)' },
   { value: 'WEEKLY', label: 'Once weekly' },
   { value: 'CUSTOM', label: 'Custom routine...' },
@@ -663,11 +663,11 @@ export function ReviewPrescriptionPage() {
                   return (
                     <div
                       key={m.id}
-                      className={`p-4 sm:p-4.5 rounded-2xl border ${
+                      className={`p-4 sm:p-5 rounded-2xl border ${
                         isLowConf
                           ? 'border-warn-border bg-warn-bg/10'
                           : 'border-line-strong bg-surface-raised'
-                      } space-y-3 shadow-2xs hover:border-accent/40 transition-all`}
+                      } space-y-3.5 shadow-2xs hover:border-accent/40 transition-all`}
                     >
                       {/* Medicine Card Top Header */}
                       <div className="flex items-center justify-between pb-2.5 border-b border-line">
@@ -695,23 +695,23 @@ export function ReviewPrescriptionPage() {
                         </button>
                       </div>
 
-                      {/* Row 1: Medicine Name, Strength, & Dosage Form */}
-                      <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+                      {/* Row 1: Medicine Name (6 cols), Strength (3 cols), Form (3 cols) */}
+                      <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
                         <div className="sm:col-span-6">
                           <Field id={`med-name-${m.id}`} label="Medicine Name" required>
                             <Input
                               value={m.medicine_name}
                               onChange={(e) => handleUpdateMedicine(m.id, { medicine_name: e.target.value })}
-                              placeholder="e.g. Augmentin, Panadol, Omeprazole"
+                              placeholder="e.g. Sizodon Plus, Augmentin"
                             />
                           </Field>
                         </div>
                         <div className="sm:col-span-3">
-                          <Field id={`med-strength-${m.id}`} label="Strength / Dosage">
+                          <Field id={`med-strength-${m.id}`} label="Strength">
                             <Input
                               value={m.strength || ''}
                               onChange={(e) => handleUpdateMedicine(m.id, { strength: e.target.value })}
-                              placeholder="e.g. 500mg, 625mg"
+                              placeholder="e.g. 500mg, 10ml"
                             />
                           </Field>
                         </div>
@@ -732,71 +732,84 @@ export function ReviewPrescriptionPage() {
                         </div>
                       </div>
 
-                      {/* Row 2: Frequency Routine & Duration */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-0.5">
-                        <div>
-                          <Field id={`med-freq-${m.id}`} label="Frequency / Routine" required>
-                            <Select
-                              value={freqCode || 'CUSTOM'}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                if (val === 'BD') handleUpdateMedicine(m.id, { frequency_raw: 'Morning & Night (Twice daily)' });
-                                else if (val === 'OD') handleUpdateMedicine(m.id, { frequency_raw: 'Once daily (Morning)' });
-                                else if (val === 'TDS') handleUpdateMedicine(m.id, { frequency_raw: '3 times daily (Morning, Afternoon & Night)' });
-                                else if (val === 'QHS') handleUpdateMedicine(m.id, { frequency_raw: 'Night at bedtime' });
-                                else if (val === 'QID') handleUpdateMedicine(m.id, { frequency_raw: '4 times daily' });
-                                else if (val === 'PRN') handleUpdateMedicine(m.id, { frequency_raw: 'As needed (PRN)' });
-                                else if (val === 'WEEKLY') handleUpdateMedicine(m.id, { frequency_raw: 'Once weekly' });
-                                else handleUpdateMedicine(m.id, { frequency_raw: '' });
-                              }}
-                              options={FREQUENCY_OPTIONS}
-                            />
-                          </Field>
-
-                          {/* Freeform text entry if custom routine */}
-                          {(!freqCode || freqCode === 'CUSTOM') && (
-                            <div className="mt-1.5">
-                              <Input
-                                value={m.frequency_raw || ''}
-                                onChange={(e) => handleUpdateMedicine(m.id, { frequency_raw: e.target.value })}
-                                placeholder="Type custom routine (e.g. Alternate days)"
-                              />
-                            </div>
-                          )}
-
-                          {/* Scheduled times preview */}
-                          <div className="mt-1 flex items-center justify-between text-xs text-content-muted">
-                            <span className="flex items-center gap-1.5 font-medium text-accent">
-                              <ClockIcon size={12} className="text-accent shrink-0" />
-                              {doseTimes.length > 0
-                                ? `Scheduled Times: ${doseTimes.map((t) => formatMinutesTo24h(t)).join(', ')}`
-                                : 'No fixed scheduled hours (as needed)'}
-                            </span>
+                      {/* Row 2: Frequency & Duration (Perfect vertical & baseline alignment) */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {/* Frequency Column */}
+                        <div className="flex flex-col gap-2">
+                          <div className="flex items-center justify-between min-h-[20px]">
+                            <label htmlFor={`med-freq-${m.id}`} className="text-sm font-semibold text-content">
+                              Frequency <span className="text-risk-text" aria-hidden="true">*</span>
+                            </label>
+                            {doseTimes.length > 0 && (
+                              <span className="text-xs font-semibold text-accent flex items-center gap-1">
+                                <ClockIcon size={12} className="shrink-0" />
+                                {doseTimes.map((t) => formatMinutesTo24h(t)).join(', ')}
+                              </span>
+                            )}
                           </div>
+                          <Select
+                            id={`med-freq-${m.id}`}
+                            value={freqCode || 'CUSTOM'}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === 'BD') handleUpdateMedicine(m.id, { frequency_raw: 'Morning & Night (Twice daily)' });
+                              else if (val === 'OD') handleUpdateMedicine(m.id, { frequency_raw: 'Once daily (Morning)' });
+                              else if (val === 'TDS') handleUpdateMedicine(m.id, { frequency_raw: '3 times daily (Morning, Afternoon & Night)' });
+                              else if (val === 'QHS') handleUpdateMedicine(m.id, { frequency_raw: 'Night at bedtime' });
+                              else if (val === 'QID') handleUpdateMedicine(m.id, { frequency_raw: '4 times daily' });
+                              else if (val === 'PRN') handleUpdateMedicine(m.id, { frequency_raw: 'As needed (PRN)' });
+                              else if (val === 'WEEKLY') handleUpdateMedicine(m.id, { frequency_raw: 'Once weekly' });
+                              else handleUpdateMedicine(m.id, { frequency_raw: '' });
+                            }}
+                            options={FREQUENCY_OPTIONS}
+                          />
+                          {(!freqCode || freqCode === 'CUSTOM') && (
+                            <Input
+                              value={m.frequency_raw || ''}
+                              onChange={(e) => handleUpdateMedicine(m.id, { frequency_raw: e.target.value })}
+                              placeholder="Type custom routine (e.g. Alternate days)"
+                            />
+                          )}
                         </div>
 
-                        <div>
-                          <Field
-                            id={`med-dur-${m.id}`}
-                            label={
-                              durResult.kind === 'days'
-                                ? `Duration (${durResult.days} days)`
-                                : 'Duration'
-                            }
-                            required={!m.is_ongoing}
-                          >
+                        {/* Duration Column */}
+                        <div className="flex flex-col gap-2">
+                          <div className="flex items-center justify-between min-h-[20px]">
+                            <label htmlFor={`med-dur-${m.id}`} className="text-sm font-semibold text-content">
+                              Duration {!m.is_ongoing && <span className="text-risk-text" aria-hidden="true">*</span>}
+                              {durResult.kind === 'days' && (
+                                <span className="ml-1 text-xs font-normal text-content-subtle">
+                                  ({durResult.days} days)
+                                </span>
+                              )}
+                            </label>
+                            <label className="flex items-center gap-1.5 cursor-pointer text-content font-bold text-xs select-none">
+                              <input
+                                type="checkbox"
+                                checked={m.is_ongoing || false}
+                                onChange={(e) =>
+                                  handleUpdateMedicine(m.id, {
+                                    is_ongoing: e.target.checked,
+                                    duration_raw: e.target.checked ? 'Ongoing' : '',
+                                  })
+                                }
+                                className="rounded text-accent focus:ring-accent"
+                              />
+                              Ongoing
+                            </label>
+                          </div>
+
+                          <div className="relative flex items-center w-full">
                             <Input
+                              id={`med-dur-${m.id}`}
                               value={m.duration_raw || ''}
                               onChange={(e) => handleUpdateMedicine(m.id, { duration_raw: e.target.value })}
-                              placeholder="e.g. 5 days, 2 weeks, 1 month"
+                              placeholder={m.is_ongoing ? 'Ongoing medication' : 'e.g. 5 days, 1 month'}
                               disabled={m.is_ongoing}
+                              className={!m.is_ongoing ? 'pr-40' : ''}
                             />
-                          </Field>
-
-                          {/* Quick Duration Presets & Ongoing Switch */}
-                          <div className="mt-1.5 flex items-center justify-between gap-1 flex-wrap">
                             {!m.is_ongoing && (
-                              <div className="flex gap-1 flex-wrap">
+                              <div className="absolute right-1.5 flex items-center gap-1">
                                 {['3d', '5d', '7d', '14d', '1m'].map((dLabel) => {
                                   const fullDur =
                                     dLabel === '3d'
@@ -813,7 +826,7 @@ export function ReviewPrescriptionPage() {
                                       key={dLabel}
                                       type="button"
                                       onClick={() => handleUpdateMedicine(m.id, { duration_raw: fullDur })}
-                                      className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-surface-sunken hover:bg-accent/10 hover:text-accent border border-line text-content-muted transition-colors cursor-pointer"
+                                      className="h-7 px-1.5 text-[11px] font-semibold rounded bg-surface-sunken hover:bg-accent/15 hover:text-accent border border-line text-content-muted transition-colors cursor-pointer"
                                     >
                                       {dLabel}
                                     </button>
@@ -821,65 +834,49 @@ export function ReviewPrescriptionPage() {
                                 })}
                               </div>
                             )}
-
-                            <div className="flex items-center justify-between gap-2 text-xs ml-auto">
-                              <label className="flex items-center gap-1.5 cursor-pointer text-content font-bold text-xs select-none">
-                                <input
-                                  type="checkbox"
-                                  checked={m.is_ongoing || false}
-                                  onChange={(e) =>
-                                    handleUpdateMedicine(m.id, {
-                                      is_ongoing: e.target.checked,
-                                      duration_raw: e.target.checked ? 'Ongoing' : '',
-                                    })
-                                  }
-                                  className="rounded text-accent focus:ring-accent"
-                                />
-                                Ongoing
-                              </label>
-                            </div>
                           </div>
                         </div>
                       </div>
 
-                      {/* Row 3: Meal Relation & Special Instructions */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-0.5">
-                        <div>
-                          <label className="text-xs font-bold text-content-muted block mb-1.5 uppercase tracking-wider">
+                      {/* Row 3: Meal Timing & Special Instructions (Uniform h-12 height across both columns!) */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="flex flex-col gap-2">
+                          <label className="text-sm font-semibold text-content min-h-[20px] flex items-center">
                             Meal Timing
                           </label>
-                          <div className="grid grid-cols-3 gap-1.5">
+                          <div className="h-12 p-1 bg-surface-sunken border border-line-strong rounded-[var(--radius-md)] grid grid-cols-3 gap-1 items-center">
                             {[
                               { label: 'After Food', val: true },
                               { label: 'Before Food', val: false },
                               { label: 'Anytime', val: null },
-                            ].map((foodOpt) => {
-                              const isSelected = m.with_food === foodOpt.val;
-                              return (
-                                <button
-                                  key={String(foodOpt.val)}
-                                  type="button"
-                                  onClick={() => handleUpdateMedicine(m.id, { with_food: foodOpt.val })}
-                                  className={`text-xs font-semibold py-2 px-1 rounded-lg border text-center transition-all cursor-pointer select-none ${
-                                    isSelected
-                                      ? 'bg-accent text-accent-onaccent border-accent shadow-2xs font-bold'
-                                      : 'bg-surface-sunken text-content-muted border-line hover:border-line-strong hover:text-content'
-                                  }`}
-                                >
-                                  {foodOpt.label}
-                                </button>
-                              );
-                            })}
+                            ].map((opt) => (
+                              <button
+                                key={String(opt.val)}
+                                type="button"
+                                onClick={() => handleUpdateMedicine(m.id, { with_food: opt.val })}
+                                className={`h-full rounded-md text-xs font-semibold flex items-center justify-center transition-all cursor-pointer select-none ${
+                                  m.with_food === opt.val
+                                    ? 'bg-accent text-accent-onaccent shadow-xs font-bold'
+                                    : 'text-content-muted hover:text-content hover:bg-surface-raised'
+                                }`}
+                              >
+                                {opt.label}
+                              </button>
+                            ))}
                           </div>
                         </div>
 
-                        <Field id={`med-inst-${m.id}`} label="Instructions / Special Directions">
+                        <div className="flex flex-col gap-2">
+                          <label htmlFor={`med-inst-${m.id}`} className="text-sm font-semibold text-content min-h-[20px] flex items-center">
+                            Special Instructions
+                          </label>
                           <Input
+                            id={`med-inst-${m.id}`}
                             value={m.instructions || ''}
                             onChange={(e) => handleUpdateMedicine(m.id, { instructions: e.target.value })}
                             placeholder="e.g. Take with warm water, avoid dairy"
                           />
-                        </Field>
+                        </div>
                       </div>
                     </div>
                   );
