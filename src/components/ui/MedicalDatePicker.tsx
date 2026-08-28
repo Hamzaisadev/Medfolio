@@ -91,6 +91,7 @@ export function MedicalDatePicker({
   onChange,
   disabled = false,
   className,
+  placeholder,
   mode = 'recent',
   showAge = false,
 }: MedicalDatePickerProps) {
@@ -158,25 +159,15 @@ export function MedicalDatePicker({
     setCalendarView('days');
   };
 
-  const handleSelectMonth = (mIndex: number) => {
-    const selectedYear = parsedDate ? parsedDate.year : viewYear;
-    const selectedDay = parsedDate ? Math.min(parsedDate.day, new Date(selectedYear, mIndex + 1, 0).getDate()) : 1;
-    const mm = String(mIndex + 1).padStart(2, '0');
-    const dd = String(selectedDay).padStart(2, '0');
-    onChange(`${selectedYear}-${mm}-${dd}`);
-    setViewMonth(mIndex);
-    setCalendarView('days');
-  };
-
-  const handleSelectYear = (y: number) => {
-    const selectedMonth = parsedDate ? parsedDate.month - 1 : viewMonth;
-    const selectedDay = parsedDate ? Math.min(parsedDate.day, new Date(y, selectedMonth + 1, 0).getDate()) : 1;
-    const mm = String(selectedMonth + 1).padStart(2, '0');
-    const dd = String(selectedDay).padStart(2, '0');
-    onChange(`${y}-${mm}-${dd}`);
-    setViewYear(y);
-    setCalendarView('days');
-  };
+  // Clean, formatted date string for display (e.g. "13 Jun, 2026" or "13 June 2026")
+  const formattedDisplayDate = useMemo(() => {
+    if (!parsedDate) {
+      return placeholder || (mode === 'birthdate' ? 'Select date of birth' : 'Select date');
+    }
+    const monthObj = MONTHS.find((item) => Number(item.value) === parsedDate.month);
+    const monthLabel = monthObj ? monthObj.label : `M${parsedDate.month}`;
+    return `${parsedDate.day} ${monthLabel}, ${parsedDate.year}`;
+  }, [parsedDate, placeholder, mode]);
 
   // Age calculation
   const ageDisplay = useMemo(() => {
@@ -258,94 +249,75 @@ export function MedicalDatePicker({
     return cells;
   }, [viewYear, viewMonth, todayStr]);
 
-  const selectedMonthObj = parsedDate
-    ? MONTHS.find((item) => Number(item.value) === parsedDate.month)
-    : null;
+  const isSelected = Boolean(parsedDate);
 
   return (
     <div className={twMerge('space-y-1.5 relative w-full', className)}>
-      <Popover.Root open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
-        {/* Connected 3-Segment Input Box: Month | Day | Year | Calendar */}
-        <div
-          id={id}
-          className={twMerge(
-            'h-12 w-full bg-surface-raised border border-line-strong rounded-[var(--radius-md)] flex items-stretch divide-x divide-line transition-all overflow-hidden shadow-2xs',
-            isCalendarOpen && 'border-accent ring-2 ring-accent/20',
-            disabled && 'opacity-50 pointer-events-none'
-          )}
-        >
-          {/* Month Segment */}
+      <Popover.Root
+        open={isCalendarOpen}
+        onOpenChange={(open) => {
+          if (open) {
+            if (parsedDate) {
+              setViewYear(parsedDate.year);
+              setViewMonth(parsedDate.month - 1);
+            }
+            setCalendarView('days');
+          }
+          setIsCalendarOpen(open);
+        }}
+      >
+        {/* Full-width, Accessible Themed Date Button */}
+        <Popover.Trigger asChild>
           <button
             type="button"
+            id={id}
             disabled={disabled}
-            onClick={() => {
-              setCalendarView('months');
-              setIsCalendarOpen(true);
-            }}
-            aria-label="Select month"
-            className="flex-[1.1] min-w-0 px-2 flex items-center justify-center gap-1 hover:bg-surface-hover transition cursor-pointer select-none"
+            aria-label={placeholder || (mode === 'birthdate' ? 'Select date of birth' : 'Select date')}
+            className={twMerge(
+              'h-12 w-full bg-surface-raised border border-line-strong rounded-[var(--radius-md)] px-3.5 text-xs sm:text-sm text-content flex items-center justify-between transition-all select-none cursor-pointer shadow-2xs',
+              'hover:border-accent hover:bg-surface-hover focus:border-accent focus:outline-2 focus:outline-offset-2 focus:outline-accent',
+              'disabled:opacity-50 disabled:cursor-not-allowed',
+              isCalendarOpen && 'border-accent ring-2 ring-accent/20'
+            )}
           >
-            <span className={clsx('text-xs sm:text-sm font-semibold truncate', selectedMonthObj ? 'text-content' : 'text-content-muted')}>
-              {selectedMonthObj ? selectedMonthObj.label : 'Month'}
-            </span>
-            <ChevronDownIcon size={11} className="text-content-subtle shrink-0" />
-          </button>
+            <div className="flex items-center gap-2.5 min-w-0 overflow-hidden pr-1">
+              <CalendarIcon
+                size={16}
+                className={clsx('shrink-0 transition-colors', isSelected ? 'text-accent' : 'text-content-subtle')}
+              />
+              <span className={clsx('whitespace-nowrap font-medium text-xs sm:text-sm', isSelected ? 'text-content' : 'text-content-muted')}>
+                {formattedDisplayDate}
+              </span>
+            </div>
 
-          {/* Day Segment */}
-          <button
-            type="button"
-            disabled={disabled}
-            onClick={() => {
-              setCalendarView('days');
-              setIsCalendarOpen(true);
-            }}
-            aria-label="Select day"
-            className="flex-[0.9] min-w-0 px-2 flex items-center justify-center gap-1 hover:bg-surface-hover transition cursor-pointer select-none"
-          >
-            <span className={clsx('text-xs sm:text-sm font-semibold truncate', parsedDate ? 'text-content' : 'text-content-muted')}>
-              {parsedDate ? parsedDate.day : 'Day'}
-            </span>
-            <ChevronDownIcon size={11} className="text-content-subtle shrink-0" />
-          </button>
-
-          {/* Year Segment (Full 4-digit width) */}
-          <button
-            type="button"
-            disabled={disabled}
-            onClick={() => {
-              setCalendarView('years');
-              setIsCalendarOpen(true);
-            }}
-            aria-label="Select year"
-            className="flex-[1.3] min-w-0 px-2 flex items-center justify-center gap-1 hover:bg-surface-hover transition cursor-pointer select-none"
-          >
-            <span className={clsx('text-xs sm:text-sm font-semibold truncate', parsedDate ? 'text-content' : 'text-content-muted')}>
-              {parsedDate ? parsedDate.year : 'Year'}
-            </span>
-            <ChevronDownIcon size={11} className="text-content-subtle shrink-0" />
-          </button>
-
-          {/* Calendar Action Button */}
-          <Popover.Trigger asChild>
-            <button
-              type="button"
-              disabled={disabled}
-              onClick={() => {
-                setCalendarView('days');
-                setIsCalendarOpen(true);
-              }}
-              aria-label="Open full calendar picker"
-              className={clsx(
-                'w-11 px-2.5 flex items-center justify-center transition cursor-pointer shrink-0',
-                isCalendarOpen
-                  ? 'bg-accent text-accent-onaccent'
-                  : 'text-accent hover:bg-surface-hover hover:text-accent'
+            <div className="flex items-center gap-1.5 shrink-0 ml-2">
+              {value && !disabled && (
+                <span
+                  role="button"
+                  tabIndex={0}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onChange('');
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.stopPropagation();
+                      onChange('');
+                    }
+                  }}
+                  className="p-1 rounded-md text-content-subtle hover:text-content hover:bg-surface-sunken transition cursor-pointer"
+                  aria-label="Clear selected date"
+                >
+                  <XIcon size={13} />
+                </span>
               )}
-            >
-              <CalendarIcon size={16} />
-            </button>
-          </Popover.Trigger>
-        </div>
+              <ChevronDownIcon
+                size={14}
+                className={clsx('text-content-subtle transition-transform duration-200', isCalendarOpen && 'rotate-180 text-accent')}
+              />
+            </div>
+          </button>
+        </Popover.Trigger>
 
         {/* Floating Themed Popover with 80px Top Header Clearance */}
         <Popover.Portal>
@@ -467,7 +439,11 @@ export function MedicalDatePicker({
                         key={y}
                         type="button"
                         data-selected={isSelectedYear}
-                        onClick={() => handleSelectYear(Number(y))}
+                        onClick={() => {
+                          const numericY = Number(y);
+                          setViewYear(numericY);
+                          setCalendarView('days');
+                        }}
                         className={clsx(
                           'h-8 rounded-lg text-xs font-semibold flex items-center justify-center transition-all cursor-pointer',
                           isSelectedYear
@@ -496,7 +472,10 @@ export function MedicalDatePicker({
                       <button
                         key={m.value}
                         type="button"
-                        onClick={() => handleSelectMonth(idx)}
+                        onClick={() => {
+                          setViewMonth(idx);
+                          setCalendarView('days');
+                        }}
                         className={clsx(
                           'h-8 rounded-lg text-xs font-semibold flex items-center justify-center transition-all cursor-pointer',
                           isSelectedMonth
