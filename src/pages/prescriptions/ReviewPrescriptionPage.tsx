@@ -597,14 +597,6 @@ export function ReviewPrescriptionPage() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Field id="rev-diag" label="Diagnosis">
-                  <Input
-                    value={diagnosis}
-                    onChange={(e) => setDiagnosis(e.target.value)}
-                    placeholder="e.g. Right knee pain, Hypertension"
-                  />
-                </Field>
-
                 <Field id="rev-followup" label="Follow-up Date">
                   <MedicalDatePicker
                     id="rev-followup"
@@ -613,9 +605,7 @@ export function ReviewPrescriptionPage() {
                     mode="recent"
                   />
                 </Field>
-              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Field id="rev-cost" label="Visit Fee (PKR)">
                   <Input
                     type="number"
@@ -625,6 +615,14 @@ export function ReviewPrescriptionPage() {
                   />
                 </Field>
               </div>
+
+              <Field id="rev-diag" label="Diagnosis">
+                <Input
+                  value={diagnosis}
+                  onChange={(e) => setDiagnosis(e.target.value)}
+                  placeholder="e.g. Right knee pain, Hypertension, Type 2 Diabetes"
+                />
+              </Field>
 
               <Field id="rev-advice" label="Doctor's Advice / Notes">
                 <Textarea
