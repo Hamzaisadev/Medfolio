@@ -616,15 +616,6 @@ export function ReviewPrescriptionPage() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Field id="rev-advice" label="Doctor's Advice / Notes">
-                  <Textarea
-                    value={doctorAdvice}
-                    onChange={(e) => setDoctorAdvice(e.target.value)}
-                    placeholder="e.g. Steam inhalation, rest, avoid cold drinks"
-                    rows={2}
-                  />
-                </Field>
-
                 <Field id="rev-cost" label="Visit Fee (PKR)">
                   <Input
                     type="number"
@@ -634,6 +625,15 @@ export function ReviewPrescriptionPage() {
                   />
                 </Field>
               </div>
+
+              <Field id="rev-advice" label="Doctor's Advice / Notes">
+                <Textarea
+                  value={doctorAdvice}
+                  onChange={(e) => setDoctorAdvice(e.target.value)}
+                  placeholder="e.g. Steam inhalation, rest, avoid cold drinks, follow up in 2 weeks"
+                  rows={3}
+                />
+              </Field>
             </div>
           </Card>
         </div>
