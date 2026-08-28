@@ -818,21 +818,22 @@ export function ReviewPrescriptionPage() {
                           </label>
                           <div className="h-12 p-1 bg-surface-sunken border border-line-strong rounded-[var(--radius-md)] grid grid-cols-3 gap-1 items-center">
                             {[
-                              { label: 'After Food', val: true },
-                              { label: 'Before Food', val: false },
-                              { label: 'Anytime', val: null },
+                              { label: 'After Meal', shortLabel: 'After', val: true },
+                              { label: 'Before Meal', shortLabel: 'Before', val: false },
+                              { label: 'Anytime', shortLabel: 'Anytime', val: null },
                             ].map((opt) => (
                               <button
                                 key={String(opt.val)}
                                 type="button"
                                 onClick={() => handleUpdateMedicine(m.id, { with_food: opt.val })}
-                                className={`h-full rounded-md text-xs font-semibold flex items-center justify-center transition-all cursor-pointer select-none ${
+                                className={`h-full rounded-md text-xs font-semibold flex items-center justify-center transition-all cursor-pointer select-none whitespace-nowrap px-1.5 ${
                                   m.with_food === opt.val
                                     ? 'bg-accent text-accent-onaccent shadow-xs font-bold'
                                     : 'text-content-muted hover:text-content hover:bg-surface-raised'
                                 }`}
                               >
-                                {opt.label}
+                                <span className="hidden xl:inline">{opt.label}</span>
+                                <span className="xl:hidden">{opt.shortLabel}</span>
                               </button>
                             ))}
                           </div>
