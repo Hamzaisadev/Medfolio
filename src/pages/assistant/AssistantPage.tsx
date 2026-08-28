@@ -16,6 +16,10 @@ import {
   SparklesIcon,
   MicrophoneIcon,
   TrashIcon,
+  SendIcon,
+  Volume2Icon,
+  CopyIcon,
+  CheckIcon,
 } from '../../components/ui/icons';
 import { medicinesRepo, visitsRepo, reportsRepo, profilesRepo, sideEffectsRepo } from '../../lib/db';
 import { activeMedicines, type MedicineRecord } from '../../domain/activeMedicines';
@@ -127,7 +131,18 @@ export function AssistantPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [speakingMsgId, setSpeakingMsgId] = useState<string | null>(null);
+  const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const handleCopyMessage = async (msgId: string, text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedMsgId(msgId);
+      setTimeout(() => setCopiedMsgId(null), 2000);
+    } catch {
+      // ignore
+    }
+  };
 
   const [profile, setProfile] = useState<Tables<'profiles'> | null>(null);
   const [medicines, setMedicines] = useState<Tables<'medicines'>[]>([]);
@@ -677,261 +692,328 @@ export function AssistantPage() {
 
         {/* Tab 1: Full-Height Clean Consultation Chat */}
         {activeTab === 'chat' && (
-          <div className="flex-1 flex flex-col min-h-0">
-            {/* Scrollable Messages Stream — Takes Majority of Screen */}
-            <div ref={chatContainerRef} className="flex-1 p-3 sm:p-5 lg:p-6 overflow-y-auto space-y-4 text-sm sm:text-base">
-              <div className="max-w-4xl mx-auto space-y-4">
-                {messages.map((m) => (
-                  <div
-                    key={m.id}
-                    className={`flex flex-col ${m.role === 'user' ? 'items-end' : 'items-start'}`}
-                  >
+          <div className="flex-1 flex flex-col min-h-0 bg-surface-sunken/40">
+            {/* Scrollable Messages Stream */}
+            <div ref={chatContainerRef} className="flex-1 p-3 sm:p-5 lg:p-6 overflow-y-auto space-y-6 text-sm sm:text-base">
+              <div className="max-w-4xl mx-auto space-y-6">
+                {messages.map((m) => {
+                  const userInitial =
+                    authProfile?.full_name?.charAt(0).toUpperCase() ||
+                    user?.email?.charAt(0).toUpperCase() ||
+                    'U';
+
+                  return (
                     <div
-                      className={`p-4 sm:p-5 rounded-2xl leading-relaxed transition-all ${
-                        m.role === 'user'
-                          ? 'bg-accent text-content-onaccent rounded-br-xs font-medium max-w-[80%] text-sm sm:text-base shadow-sm'
-                          : 'bg-surface-raised border border-line text-content rounded-bl-xs w-full shadow-card text-sm sm:text-base space-y-3'
-                      }`}
+                      key={m.id}
+                      className={`flex flex-col w-full ${m.role === 'user' ? 'items-end' : 'items-start'}`}
                     >
-                      {m.image_base64 && (
-                        <img
-                          src={m.image_base64}
-                          alt="User attachment"
-                          className="w-full max-h-72 object-cover rounded-xl mb-3 border border-line shadow-xs"
-                        />
-                      )}
-                      <p className="whitespace-pre-line leading-relaxed">{m.content}</p>
-
-                      {/* Modular Interactive Widgets */}
-                      {m.medicines && m.medicines.length > 0 && (
-                        <div className="pt-1">
-                          <EditablePrescriptionWidget
-                            initialMedicines={m.medicines}
-                            profileId={effectiveProfileId}
-                            userId={effectiveUserId}
-                            onAddedSuccess={(count) => {
-                              setToastMessage(`Added ${count} medicines to your cabinet.`);
-                              loadData();
-                            }}
-                          />
-                        </div>
-                      )}
-
-                      {m.dailySchedule && m.dailySchedule.length > 0 && (
-                        <div className="pt-1">
-                          <DailyScheduleClockWidget slots={m.dailySchedule} />
-                        </div>
-                      )}
-
-                      {m.diffAnalysis && m.diffAnalysis.length > 0 && (
-                        <div className="pt-1">
-                          <PrescriptionDiffWidget diffs={m.diffAnalysis} />
-                        </div>
-                      )}
-
-                      {m.actionCall && (
-                        <div className="pt-1">
-                          <ClinicalActionCards
-                            action={m.actionCall}
-                            profileId={effectiveProfileId}
-                            onExecuted={(msg) => {
-                              setToastMessage(msg);
-                              loadData();
-                            }}
-                          />
-                        </div>
-                      )}
-
-                      {/* Clinical Safety Sentinel (Duplicate / Overdose Alerts) */}
-                      {m.sentinelAlerts && m.sentinelAlerts.length > 0 && (
-                        <div className="space-y-2 pt-1">
-                          {m.sentinelAlerts.map((sentinel, sIdx) => {
-                            const isCritical = sentinel.severity === 'critical';
-                            return (
-                              <div
-                                key={sIdx}
-                                className={`p-3.5 rounded-xl border text-xs sm:text-sm space-y-1.5 shadow-2xs ${
-                                  isCritical
-                                    ? 'border-risk-border bg-risk-bg text-risk-text'
-                                    : 'border-warn-border bg-warn-bg text-warn-text'
-                                }`}
-                              >
-                                <div className="flex items-center justify-between font-bold">
-                                  <span className="flex items-center gap-1.5">
-                                    <AlertTriangleIcon size={16} className="shrink-0" />
-                                    <span>
-                                      {sentinel.type === 'cumulative_overdose'
-                                        ? 'Cumulative Overdose Sentinel Alert'
-                                        : sentinel.type === 'duplicate_generic'
-                                        ? 'Duplicate Active Ingredient Alert'
-                                        : 'Therapeutic Class Overlap Alert'}
-                                    </span>
-                                  </span>
-                                  <span
-                                    className={`px-2 py-0.5 rounded-full text-2xs uppercase tracking-wider font-extrabold ${
-                                      isCritical
-                                        ? 'bg-risk-fill text-content-onaccent'
-                                        : 'bg-warn-border text-content'
-                                    }`}
-                                  >
-                                    {sentinel.severity}
-                                  </span>
-                                </div>
-                                <p className="font-semibold text-xs">{sentinel.clinicalMessage}</p>
-                                <div className="flex items-center gap-1.5 text-2xs pt-0.5 opacity-90">
-                                  <span className="font-bold">Action:</span>
-                                  <span>{sentinel.actionRecommendation}</span>
-                                </div>
+                      {m.role === 'assistant' ? (
+                        <div className="flex flex-col items-start w-full space-y-2">
+                          {/* Assistant Identity Bar */}
+                          <div className="flex items-center justify-between w-full px-1">
+                            <div className="flex items-center gap-2">
+                              <div className="w-7 h-7 rounded-xl bg-accent/10 border border-accent/25 flex items-center justify-center text-accent shadow-2xs">
+                                <SparklesIcon size={14} />
                               </div>
-                            );
-                          })}
-                        </div>
-                      )}
-
-                      {/* Longitudinal Biomarker Trajectory & Predictive Anomaly Insights */}
-                      {m.biomarkerTrajectories && m.biomarkerTrajectories.length > 0 && (
-                        <div className="space-y-2 pt-1">
-                          {m.biomarkerTrajectories.map((traj, tIdx) => {
-                            const isWorse = traj.trendStatus === 'worsening';
-                            return (
-                              <div
-                                key={tIdx}
-                                className={`p-3.5 rounded-xl border text-xs space-y-1.5 shadow-2xs ${
-                                  traj.predictiveAlert
-                                    ? isWorse
-                                      ? 'border-risk-border bg-risk-bg text-risk-text'
-                                      : 'border-warn-border bg-warn-bg text-warn-text'
-                                    : 'border-line bg-surface-sunken/80 text-content'
-                                }`}
-                              >
-                                <div className="flex items-center justify-between font-bold">
-                                  <span className="flex items-center gap-1.5">
-                                    <BarChartIcon size={16} className="text-accent shrink-0" />
-                                    <span>Biomarker Trajectory: {traj.displayName}</span>
-                                  </span>
-                                  <Badge
-                                    tone={traj.trendStatus === 'worsening' ? 'risk' : traj.trendStatus === 'improving' ? 'ok' : 'neutral'}
-                                    size="sm"
-                                  >
-                                    {traj.deltaPercent >= 0 ? '+' : ''}{traj.deltaPercent.toFixed(0)}% ({traj.trendStatus})
-                                  </Badge>
-                                </div>
-                                <p className="text-xs leading-relaxed">{traj.clinicalSignificance}</p>
-                                {traj.predictiveAlert && (
-                                  <div className="p-2 rounded-lg bg-surface-raised border border-line text-2xs font-semibold flex items-center gap-1.5">
-                                    <AlertTriangleIcon size={14} className="text-warn-text shrink-0" />
-                                    <span>{traj.predictiveAlert}</span>
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-
-                      {m.safetyAlerts && m.safetyAlerts.length > 0 && (
-                        <div className="p-3.5 rounded-xl border border-warn-border bg-warn-bg text-sm space-y-1">
-                          <span className="font-bold text-warn-text flex items-center gap-2 text-xs sm:text-sm">
-                            <AlertTriangleIcon size={15} className="shrink-0" /> Clinical Safety Alert:
-                          </span>
-                          <ul className="list-disc list-inside space-y-0.5 text-warn-text text-xs sm:text-sm">
-                            {m.safetyAlerts.map((alert, aIdx) => (
-                              <li key={aIdx}>{alert}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-
-                      {/* Retrieved Clinical Evidence & Grounding Citations */}
-                      {m.citations && m.citations.length > 0 && (
-                        <div className="pt-1">
-                          <div className="p-2.5 rounded-xl bg-surface-sunken/80 border border-line text-2xs space-y-1.5">
-                            <span className="font-bold text-accent flex items-center gap-1.5">
-                              <FolderIcon size={12} className="shrink-0" />
-                              <span>Grounded in {m.citations.length} Verified Clinical & Record Source{m.citations.length > 1 ? 's' : ''}:</span>
-                            </span>
-                            <div className="flex flex-wrap gap-1.5">
-                              {m.citations.map((c, cIdx) => (
-                                <span
-                                  key={cIdx}
-                                  className="px-2 py-0.5 rounded-md bg-surface-raised border border-line text-content-muted font-medium text-2xs shadow-2xs"
-                                  title={c.detail}
-                                >
-                                  {c.source}
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-bold text-xs sm:text-sm text-content">Medfolio AI</span>
+                                <span className="px-1.5 py-0.5 rounded-md bg-accent/10 text-accent font-bold text-[10px] uppercase tracking-wider">
+                                  Clinical Copilot
                                 </span>
-                              ))}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-1 text-content-subtle">
+                              <button
+                                type="button"
+                                onClick={() => handleCopyMessage(m.id, m.content)}
+                                className="p-1.5 rounded-lg hover:text-content hover:bg-surface-hover transition-colors text-xs flex items-center gap-1 cursor-pointer"
+                                title="Copy response"
+                              >
+                                {copiedMsgId === m.id ? (
+                                  <>
+                                    <CheckIcon size={13} className="text-ok-text" />
+                                    <span className="text-[11px] text-ok-text font-bold">Copied</span>
+                                  </>
+                                ) : (
+                                  <CopyIcon size={13} />
+                                )}
+                              </button>
+                              {m.id !== 'welcome' && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleSpeak(m.id, m.content)}
+                                  className={`p-1.5 rounded-lg transition-colors text-xs flex items-center gap-1 cursor-pointer ${
+                                    speakingMsgId === m.id
+                                      ? 'text-accent bg-accent/10 font-bold'
+                                      : 'hover:text-content hover:bg-surface-hover'
+                                  }`}
+                                  title={speakingMsgId === m.id ? 'Stop audio' : 'Listen to response'}
+                                >
+                                  <Volume2Icon size={13} />
+                                </button>
+                              )}
                             </div>
                           </div>
+
+                          {/* Assistant Message Bubble */}
+                          <div className="w-full bg-surface-raised border border-line-strong rounded-2xl rounded-tl-xs p-4 sm:p-5 text-content shadow-card text-sm sm:text-base space-y-3.5 leading-relaxed">
+                            {m.image_base64 && (
+                              <img
+                                src={m.image_base64}
+                                alt="User attachment"
+                                className="w-full max-h-72 object-cover rounded-xl border border-line shadow-xs"
+                              />
+                            )}
+                            <p className="whitespace-pre-line leading-relaxed text-content">{m.content}</p>
+
+                            {/* Modular Interactive Widgets */}
+                            {m.medicines && m.medicines.length > 0 && (
+                              <div className="pt-1">
+                                <EditablePrescriptionWidget
+                                  initialMedicines={m.medicines}
+                                  profileId={effectiveProfileId}
+                                  userId={effectiveUserId}
+                                  onAddedSuccess={(count) => {
+                                    setToastMessage(`Added ${count} medicines to your cabinet.`);
+                                    loadData();
+                                  }}
+                                />
+                              </div>
+                            )}
+
+                            {m.dailySchedule && m.dailySchedule.length > 0 && (
+                              <div className="pt-1">
+                                <DailyScheduleClockWidget slots={m.dailySchedule} />
+                              </div>
+                            )}
+
+                            {m.diffAnalysis && m.diffAnalysis.length > 0 && (
+                              <div className="pt-1">
+                                <PrescriptionDiffWidget diffs={m.diffAnalysis} />
+                              </div>
+                            )}
+
+                            {m.actionCall && (
+                              <div className="pt-1">
+                                <ClinicalActionCards
+                                  action={m.actionCall}
+                                  profileId={effectiveProfileId}
+                                  onExecuted={(msg) => {
+                                    setToastMessage(msg);
+                                    loadData();
+                                  }}
+                                />
+                              </div>
+                            )}
+
+                            {/* Clinical Safety Sentinel (Duplicate / Overdose Alerts) */}
+                            {m.sentinelAlerts && m.sentinelAlerts.length > 0 && (
+                              <div className="space-y-2 pt-1">
+                                {m.sentinelAlerts.map((sentinel, sIdx) => {
+                                  const isCritical = sentinel.severity === 'critical';
+                                  return (
+                                    <div
+                                      key={sIdx}
+                                      className={`p-3.5 rounded-xl border text-xs sm:text-sm space-y-1.5 shadow-2xs ${
+                                        isCritical
+                                          ? 'border-risk-border bg-risk-bg text-risk-text'
+                                          : 'border-warn-border bg-warn-bg text-warn-text'
+                                      }`}
+                                    >
+                                      <div className="flex items-center justify-between font-bold">
+                                        <span className="flex items-center gap-1.5">
+                                          <AlertTriangleIcon size={16} className="shrink-0" />
+                                          <span>
+                                            {sentinel.type === 'cumulative_overdose'
+                                              ? 'Cumulative Overdose Sentinel Alert'
+                                              : sentinel.type === 'duplicate_generic'
+                                              ? 'Duplicate Active Ingredient Alert'
+                                              : 'Therapeutic Class Overlap Alert'}
+                                          </span>
+                                        </span>
+                                        <span
+                                          className={`px-2 py-0.5 rounded-full text-2xs uppercase tracking-wider font-extrabold ${
+                                            isCritical
+                                              ? 'bg-risk-fill text-content-onaccent'
+                                              : 'bg-warn-border text-content'
+                                          }`}
+                                        >
+                                          {sentinel.severity}
+                                        </span>
+                                      </div>
+                                      <p className="font-semibold text-xs">{sentinel.clinicalMessage}</p>
+                                      <div className="flex items-center gap-1.5 text-2xs pt-0.5 opacity-90">
+                                        <span className="font-bold">Action:</span>
+                                        <span>{sentinel.actionRecommendation}</span>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+
+                            {/* Longitudinal Biomarker Trajectory & Predictive Anomaly Insights */}
+                            {m.biomarkerTrajectories && m.biomarkerTrajectories.length > 0 && (
+                              <div className="space-y-2 pt-1">
+                                {m.biomarkerTrajectories.map((traj, tIdx) => {
+                                  const isWorse = traj.trendStatus === 'worsening';
+                                  return (
+                                    <div
+                                      key={tIdx}
+                                      className={`p-3.5 rounded-xl border text-xs space-y-1.5 shadow-2xs ${
+                                        traj.predictiveAlert
+                                          ? isWorse
+                                            ? 'border-risk-border bg-risk-bg text-risk-text'
+                                            : 'border-warn-border bg-warn-bg text-warn-text'
+                                          : 'border-line bg-surface-sunken/80 text-content'
+                                      }`}
+                                    >
+                                      <div className="flex items-center justify-between font-bold">
+                                        <span className="flex items-center gap-1.5">
+                                          <BarChartIcon size={16} className="text-accent shrink-0" />
+                                          <span>Biomarker Trajectory: {traj.displayName}</span>
+                                        </span>
+                                        <Badge
+                                          tone={traj.trendStatus === 'worsening' ? 'risk' : traj.trendStatus === 'improving' ? 'ok' : 'neutral'}
+                                          size="sm"
+                                        >
+                                          {traj.deltaPercent >= 0 ? '+' : ''}{traj.deltaPercent.toFixed(0)}% ({traj.trendStatus})
+                                        </Badge>
+                                      </div>
+                                      <p className="text-xs leading-relaxed">{traj.clinicalSignificance}</p>
+                                      {traj.predictiveAlert && (
+                                        <div className="p-2 rounded-lg bg-surface-raised border border-line text-2xs font-semibold flex items-center gap-1.5">
+                                          <AlertTriangleIcon size={14} className="text-warn-text shrink-0" />
+                                          <span>{traj.predictiveAlert}</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+
+                            {m.safetyAlerts && m.safetyAlerts.length > 0 && (
+                              <div className="p-3.5 rounded-xl border border-warn-border bg-warn-bg text-sm space-y-1">
+                                <span className="font-bold text-warn-text flex items-center gap-2 text-xs sm:text-sm">
+                                  <AlertTriangleIcon size={15} className="shrink-0" /> Clinical Safety Alert:
+                                </span>
+                                <ul className="list-disc list-inside space-y-0.5 text-warn-text text-xs sm:text-sm">
+                                  {m.safetyAlerts.map((alert, aIdx) => (
+                                    <li key={aIdx}>{alert}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+
+                            {/* Retrieved Clinical Evidence & Grounding Citations */}
+                            {m.citations && m.citations.length > 0 && (
+                              <div className="pt-1">
+                                <div className="p-2.5 rounded-xl bg-surface-sunken/80 border border-line text-2xs space-y-1.5">
+                                  <span className="font-bold text-accent flex items-center gap-1.5">
+                                    <FolderIcon size={12} className="shrink-0" />
+                                    <span>Grounded in {m.citations.length} Verified Clinical & Record Source{m.citations.length > 1 ? 's' : ''}:</span>
+                                  </span>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {m.citations.map((c, cIdx) => (
+                                      <span
+                                        key={cIdx}
+                                        className="px-2 py-0.5 rounded-md bg-surface-raised border border-line text-content-muted font-medium text-2xs shadow-2xs"
+                                        title={c.detail}
+                                      >
+                                        {c.source}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          <span className="text-[11px] text-content-subtle px-1">{m.timestamp}</span>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-end space-y-1.5 max-w-[85%] sm:max-w-[75%]">
+                          <div className="flex items-center gap-1.5 px-1">
+                            <span className="font-bold text-xs text-content-muted">You</span>
+                            <div className="w-5 h-5 rounded-full bg-surface-raised border border-line flex items-center justify-center text-[10px] font-bold text-content shadow-2xs">
+                              {userInitial}
+                            </div>
+                          </div>
+
+                          <div className="bg-accent text-accent-onaccent font-medium rounded-2xl rounded-tr-xs px-4 py-3 sm:px-5 sm:py-3.5 shadow-sm text-sm sm:text-base leading-relaxed">
+                            {m.image_base64 && (
+                              <img
+                                src={m.image_base64}
+                                alt="User attachment"
+                                className="w-full max-h-72 object-cover rounded-xl mb-2.5 border border-white/20 shadow-xs"
+                              />
+                            )}
+                            <p className="whitespace-pre-line">{m.content}</p>
+                          </div>
+
+                          <span className="text-[11px] text-content-subtle px-1">{m.timestamp}</span>
                         </div>
                       )}
 
-                      {m.role === 'assistant' && m.id !== 'welcome' && (
-                        <div className="pt-2 border-t border-line flex items-center justify-between text-2xs text-content-subtle">
-                          <span>Grounded in patient health record</span>
-                          <button
-                            type="button"
-                            onClick={() => handleToggleSpeak(m.id, m.content)}
-                            className="text-accent hover:underline font-bold"
-                          >
-                            {speakingMsgId === m.id ? 'Stop audio' : 'Listen'}
-                          </button>
+                      {/* Clickable Follow-up Suggestions (Patient's Voice) */}
+                      {m.suggestions && m.suggestions.length > 0 && (
+                        <div className="mt-2.5 flex flex-wrap gap-2 max-w-3xl">
+                          {m.suggestions.map((s, sIdx) => {
+                            let patientPrompt = s.trim();
+                            patientPrompt = patientPrompt.replace(/^would you like (me to|to)\s+/i, '');
+                            patientPrompt = patientPrompt.replace(/^do you want (me to|to)\s+/i, '');
+                            patientPrompt = patientPrompt.replace(/^can i (help you|assist you with)\s+/i, '');
+                            patientPrompt = patientPrompt.replace(/^how can i help you with\s+/i, '');
+                            patientPrompt = patientPrompt.charAt(0).toUpperCase() + patientPrompt.slice(1);
+
+                            return (
+                              <button
+                                key={sIdx}
+                                type="button"
+                                onClick={() => handleSendMessage(patientPrompt)}
+                                className="px-3.5 py-1.5 rounded-xl bg-surface-raised border border-line-strong text-content font-medium hover:border-accent hover:text-accent hover:shadow-xs transition-all text-xs text-left flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                              >
+                                <SparklesIcon size={12} className="text-accent shrink-0" />
+                                <span>{patientPrompt}</span>
+                              </button>
+                            );
+                          })}
                         </div>
                       )}
                     </div>
+                  );
+                })}
 
-                    {/* Clickable Follow-up Suggestions (Patient's Voice) */}
-                    {m.suggestions && m.suggestions.length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-1.5 max-w-3xl">
-                        {m.suggestions.map((s, sIdx) => {
-                          // Normalize to patient's first-person phrasing
-                          let patientPrompt = s.trim();
-                          patientPrompt = patientPrompt.replace(/^would you like (me to|to)\s+/i, '');
-                          patientPrompt = patientPrompt.replace(/^do you want (me to|to)\s+/i, '');
-                          patientPrompt = patientPrompt.replace(/^can i (help you|assist you with)\s+/i, '');
-                          patientPrompt = patientPrompt.replace(/^how can i help you with\s+/i, '');
-                          patientPrompt = patientPrompt.charAt(0).toUpperCase() + patientPrompt.slice(1);
-
-                          return (
-                            <button
-                              key={sIdx}
-                              type="button"
-                              onClick={() => handleSendMessage(patientPrompt)}
-                              className="px-3 py-1.5 rounded-xl bg-surface-raised border border-line text-content font-medium hover:border-accent hover:text-accent transition-colors text-xs text-left flex items-center gap-1.5 shadow-2xs"
-                            >
-                              <SparklesIcon size={12} className="text-accent shrink-0" />
-                              <span>{patientPrompt}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-
-                    <span className="text-2xs text-content-subtle mt-1 px-2">{m.timestamp}</span>
-                  </div>
-                ))}
-
-                {/* Show Quick Starters ONLY on empty / welcome state */}
-                {messages.length <= 1 && (
-                  <div className="pt-2">
-                    <span className="text-xs font-bold text-content-muted block mb-2">
-                      Suggested Clinical Inquiries
-                    </span>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {/* Always-accessible Quick Starters when few messages */}
+                {messages.length <= 2 && !isLoading && (
+                  <div className="pt-3 max-w-4xl mx-auto w-full space-y-3 animate-in fade-in duration-200">
+                    <div className="flex items-center justify-between px-1">
+                      <span className="text-xs font-bold text-content-muted uppercase tracking-wider flex items-center gap-1.5">
+                        <SparklesIcon size={13} className="text-accent" />
+                        Suggested Clinical Inquiries
+                      </span>
+                      <span className="text-[11px] text-content-subtle hidden sm:inline">
+                        Grounded in your medical cabinet & history
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {DEEP_CLINICAL_PROMPTS.map((sq, idx) => (
                         <button
                           key={idx}
                           type="button"
                           onClick={() => handleSendMessage(sq.prompt)}
-                          className="p-3 rounded-xl border border-line bg-surface-raised hover:bg-surface-hover hover:border-accent/50 transition-all text-left flex items-center gap-2.5 shadow-2xs group"
+                          className="p-3.5 rounded-2xl border border-line-strong bg-surface-raised hover:bg-surface-hover hover:border-accent/50 hover:shadow-card transition-all text-left flex items-start gap-3 shadow-2xs group cursor-pointer"
                         >
-                          <span className="p-2 rounded-lg bg-surface-sunken text-accent group-hover:bg-accent-subtle transition-colors shrink-0">
+                          <span className="p-2.5 rounded-xl bg-accent/10 text-accent group-hover:bg-accent group-hover:text-accent-onaccent transition-all shrink-0 mt-0.5">
                             {sq.icon}
                           </span>
-                          <div>
-                            <span className="font-bold text-xs text-content block">
+                          <div className="space-y-0.5">
+                            <span className="font-bold text-xs sm:text-sm text-content block group-hover:text-accent transition-colors">
                               {sq.title}
                             </span>
-                            <span className="text-2xs text-content-muted line-clamp-1">
+                            <span className="text-xs text-content-muted line-clamp-2 leading-relaxed">
                               {sq.prompt}
                             </span>
                           </div>
@@ -941,12 +1023,34 @@ export function AssistantPage() {
                   </div>
                 )}
 
+                {/* Animated AI Thinking / Loading State */}
                 {isLoading && (
-                  <div className="flex items-center gap-2.5 p-3.5 bg-surface-raised border border-line rounded-2xl max-w-xs text-xs text-content-muted font-medium shadow-card">
-                    <span>Analyzing clinical records</span>
-                    <div className="w-1.5 h-1.5 rounded-full bg-accent animate-bounce" />
-                    <div className="w-1.5 h-1.5 rounded-full bg-accent animate-bounce [animation-delay:0.2s]" />
-                    <div className="w-1.5 h-1.5 rounded-full bg-accent animate-bounce [animation-delay:0.4s]" />
+                  <div className="flex flex-col items-start w-full max-w-4xl mx-auto space-y-2 animate-in fade-in duration-200">
+                    <div className="flex items-center gap-2 px-1">
+                      <div className="w-7 h-7 rounded-xl bg-accent/10 border border-accent/25 flex items-center justify-center text-accent shadow-2xs animate-pulse">
+                        <SparklesIcon size={14} />
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-xs sm:text-sm text-content">Medfolio AI</span>
+                        <span className="px-1.5 py-0.5 rounded-md bg-accent/10 text-accent font-bold text-[10px] uppercase tracking-wider">
+                          Analyzing Records
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="bg-surface-raised border border-line-strong rounded-2xl rounded-tl-xs p-4 sm:p-5 shadow-card max-w-md w-full space-y-3">
+                      <div className="flex items-center gap-2.5 text-xs text-content font-medium">
+                        <div className="flex items-center gap-1">
+                          <div className="w-2 h-2 rounded-full bg-accent animate-bounce" />
+                          <div className="w-2 h-2 rounded-full bg-accent animate-bounce [animation-delay:0.2s]" />
+                          <div className="w-2 h-2 rounded-full bg-accent animate-bounce [animation-delay:0.4s]" />
+                        </div>
+                        <span>Reviewing clinical records & guidelines...</span>
+                      </div>
+                      <div className="h-1.5 bg-surface-sunken rounded-full overflow-hidden w-full">
+                        <div className="h-full bg-accent/50 rounded-full w-2/3 animate-pulse" />
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
@@ -954,29 +1058,29 @@ export function AssistantPage() {
 
             {/* Attached Photo Preview */}
             {attachedImage && (
-              <div className="px-4 py-2 bg-accent-subtle border-t border-line flex items-center justify-between text-xs text-content shrink-0 max-w-4xl mx-auto w-full">
+              <div className="px-4 py-2 bg-accent/10 border-t border-line flex items-center justify-between text-xs text-content shrink-0 max-w-4xl mx-auto w-full">
                 <span className="font-semibold truncate flex items-center gap-1.5">
                   <FolderIcon size={14} className="text-accent shrink-0" /> Photo attached for clinical review
                 </span>
                 <button
                   type="button"
                   onClick={() => setAttachedImage(null)}
-                  className="text-risk-text font-bold hover:underline ml-2 shrink-0"
+                  className="text-risk-text font-bold hover:underline ml-2 shrink-0 cursor-pointer"
                 >
                   Remove
                 </button>
               </div>
             )}
 
-            {/* Ultra-Clean Modern ChatGPT Input Dock */}
-            <div className="p-3 sm:p-4 bg-surface-raised border-t border-line shrink-0">
-              <div className="max-w-4xl mx-auto space-y-1.5">
+            {/* Ultra-Clean Modern Floating Composer Dock */}
+            <div className="p-3 sm:p-4 bg-surface-raised/90 backdrop-blur-md border-t border-line shrink-0">
+              <div className="max-w-4xl mx-auto space-y-2">
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
                     handleSendMessage();
                   }}
-                  className="flex items-center gap-1.5 p-1.5 bg-surface-sunken border border-line rounded-2xl focus-within:border-accent focus-within:ring-1 focus-within:ring-accent shadow-2xs"
+                  className="flex items-center gap-2 p-2 bg-surface-sunken border border-line-strong rounded-2xl focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/20 transition-all shadow-2xs"
                 >
                   <input
                     ref={fileInputRef}
@@ -992,7 +1096,7 @@ export function AssistantPage() {
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     aria-label="Attach photo"
-                    className="p-2 rounded-xl text-content-muted hover:text-accent hover:bg-surface-raised transition-colors shrink-0"
+                    className="p-2.5 rounded-xl text-content-muted hover:text-accent hover:bg-surface-raised transition-colors shrink-0 cursor-pointer"
                     title="Attach photo of prescription or medicine strip"
                   >
                     <FolderIcon size={18} />
@@ -1003,9 +1107,9 @@ export function AssistantPage() {
                     type="button"
                     onClick={toggleSpeechRecognition}
                     aria-label={isRecording ? 'Stop voice input' : 'Start voice input'}
-                    className={`p-2 rounded-xl transition-all shrink-0 ${
+                    className={`p-2.5 rounded-xl transition-all shrink-0 cursor-pointer ${
                       isRecording
-                        ? 'bg-warn-bg text-warn-text animate-pulse'
+                        ? 'bg-warn-bg text-warn-text animate-pulse shadow-xs'
                         : 'text-content-muted hover:text-accent hover:bg-surface-raised'
                     }`}
                     title={isRecording ? 'Listening... click to stop' : 'Dictate with voice'}
@@ -1018,27 +1122,35 @@ export function AssistantPage() {
                     type="text"
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
-                    placeholder={isRecording ? 'Listening...' : 'Ask about medications, dosage timing, lab tests, or attach photos...'}
+                    placeholder={
+                      isRecording
+                        ? 'Listening to your voice...'
+                        : 'Ask about medications, dosage timing, lab tests, or attach photos...'
+                    }
                     aria-label="Message the assistant"
-                    className="flex-1 bg-transparent border-0 text-sm text-content placeholder:text-content-subtle focus:outline-none focus:ring-0 px-2 min-w-0"
+                    className="flex-1 bg-transparent border-0 text-sm sm:text-base text-content placeholder:text-content-subtle focus:outline-none focus:ring-0 px-2 min-w-0"
                     disabled={isLoading}
                   />
 
                   {/* Send Button */}
-                  <Button
+                  <button
                     type="submit"
-                    variant="primary"
-                    size="sm"
-                    loading={isLoading}
-                    disabled={!input.trim() && !attachedImage}
-                    className="h-9 px-4 rounded-xl font-bold shrink-0 text-xs shadow-xs"
+                    disabled={(!input.trim() && !attachedImage) || isLoading}
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all shrink-0 cursor-pointer ${
+                      input.trim() || attachedImage
+                        ? 'bg-accent text-accent-onaccent shadow-xs hover:opacity-90 active:scale-95'
+                        : 'bg-surface-raised border border-line text-content-subtle cursor-not-allowed opacity-50'
+                    }`}
+                    title="Send message"
+                    aria-label="Send message"
                   >
-                    Send
-                  </Button>
+                    <SendIcon size={16} />
+                  </button>
                 </form>
 
-                <p className="text-center text-2xs text-content-subtle">
-                  Clinical AI assistant &bull; Grounded in your health records &bull; Always follow your doctor's instructions.
+                <p className="text-center text-[11px] text-content-subtle flex items-center justify-center gap-1.5">
+                  <ShieldIcon size={12} className="text-accent shrink-0" />
+                  <span>Clinical AI assistant &bull; Grounded in your health records &bull; Always follow your doctor's instructions.</span>
                 </p>
               </div>
             </div>
