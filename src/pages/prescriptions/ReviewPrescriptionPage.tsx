@@ -80,6 +80,12 @@ const FREQUENCY_OPTIONS = [
   { value: 'CUSTOM', label: 'Custom routine...' },
 ];
 
+const MEAL_TIMING_OPTIONS = [
+  { value: 'after', label: 'After Food (Post-meal)' },
+  { value: 'before', label: 'Before Food (Empty stomach)' },
+  { value: 'anytime', label: 'Anytime (With or without food)' },
+];
+
 export function ReviewPrescriptionPage() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -813,30 +819,26 @@ export function ReviewPrescriptionPage() {
                       {/* Row 3: Meal Timing & Special Instructions (Uniform h-12 height across both columns!) */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div className="flex flex-col gap-2">
-                          <label className="text-sm font-semibold text-content min-h-[20px] flex items-center">
+                          <label htmlFor={`med-food-${m.id}`} className="text-sm font-semibold text-content min-h-[20px] flex items-center">
                             Meal Timing
                           </label>
-                          <div className="h-12 p-1 bg-surface-sunken border border-line-strong rounded-[var(--radius-md)] grid grid-cols-3 gap-1 items-center">
-                            {[
-                              { label: 'After Meal', shortLabel: 'After', val: true },
-                              { label: 'Before Meal', shortLabel: 'Before', val: false },
-                              { label: 'Anytime', shortLabel: 'Anytime', val: null },
-                            ].map((opt) => (
-                              <button
-                                key={String(opt.val)}
-                                type="button"
-                                onClick={() => handleUpdateMedicine(m.id, { with_food: opt.val })}
-                                className={`h-full rounded-md text-xs font-semibold flex items-center justify-center transition-all cursor-pointer select-none whitespace-nowrap px-1.5 ${
-                                  m.with_food === opt.val
-                                    ? 'bg-accent text-accent-onaccent shadow-xs font-bold'
-                                    : 'text-content-muted hover:text-content hover:bg-surface-raised'
-                                }`}
-                              >
-                                <span className="hidden xl:inline">{opt.label}</span>
-                                <span className="xl:hidden">{opt.shortLabel}</span>
-                              </button>
-                            ))}
-                          </div>
+                          <Select
+                            id={`med-food-${m.id}`}
+                            value={
+                              m.with_food === true
+                                ? 'after'
+                                : m.with_food === false
+                                  ? 'before'
+                                  : 'anytime'
+                            }
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              handleUpdateMedicine(m.id, {
+                                with_food: val === 'after' ? true : val === 'before' ? false : null,
+                              });
+                            }}
+                            options={MEAL_TIMING_OPTIONS}
+                          />
                         </div>
 
                         <div className="flex flex-col gap-2">
