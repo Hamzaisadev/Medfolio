@@ -141,6 +141,14 @@ export function MedicalDatePicker({
     setCalendarView('days');
   };
 
+  const openToView = (view: 'days' | 'months' | 'years') => {
+    if (disabled) return;
+    if (year) setViewYear(Number(year));
+    if (month) setViewMonth(Number(month) - 1);
+    setCalendarView(view);
+    setIsCalendarOpen(true);
+  };
+
   // Age calculation
   let ageDisplay: string | null = null;
   if (year && month && day && Number(year) >= 1900) {
@@ -155,9 +163,6 @@ export function MedicalDatePicker({
       ageDisplay = `${age} years old`;
     }
   }
-
-  const daysInMonth = month && year ? new Date(Number(year), Number(month), 0).getDate() : 31;
-  const DAYS = Array.from({ length: daysInMonth }, (_, i) => String(i + 1).padStart(2, '0'));
 
   // Calendar Day Cells Calculation
   const calendarDays = useMemo(() => {
@@ -221,114 +226,66 @@ export function MedicalDatePicker({
     return cells;
   }, [viewYear, viewMonth, todayStr]);
 
-  const selectStyle = clsx(
-    'h-12 bg-surface-raised border border-line-strong rounded-[var(--radius-md)] px-3 text-xs sm:text-sm text-content',
-    'focus:border-accent focus:outline-2 focus:outline-offset-2 focus:outline-accent transition cursor-pointer appearance-none',
+  const triggerButtonStyle = clsx(
+    'h-12 bg-surface-raised border border-line-strong rounded-[var(--radius-md)] px-3 text-xs sm:text-sm text-content flex items-center justify-between transition-all select-none cursor-pointer',
+    'hover:border-accent hover:bg-surface-hover focus:border-accent focus:outline-2 focus:outline-offset-2 focus:outline-accent',
     'disabled:opacity-50 disabled:cursor-not-allowed'
   );
 
+  const selectedMonthObj = MONTHS.find((m) => m.value === month);
+
   return (
     <div className={twMerge('space-y-2 relative', className)} id={id}>
-      {/* Top Controls Row: 3 Selects + Themed Calendar Modal Button */}
-      <div className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 items-center">
-        {/* Month */}
-        <div className="relative">
-          <select
-            aria-label="Month"
-            value={month}
-            onChange={(e) => {
-              const m = e.target.value;
-              setMonth(m);
-              handleUpdate(day, m, year);
-              if (m) setViewMonth(Number(m) - 1);
-            }}
+      <Popover.Root open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+        {/* Top Controls Row: 3 Interactive Themed Triggers + Calendar Icon Button */}
+        <div className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 items-center">
+          {/* Month Trigger */}
+          <button
+            type="button"
+            onClick={() => openToView('months')}
             disabled={disabled}
-            className={twMerge(selectStyle, 'w-full pr-7')}
+            aria-label="Select month"
+            className={twMerge(triggerButtonStyle, month && 'font-medium text-content')}
           >
-            <option value="" className="bg-surface text-content-muted">Month</option>
-            {MONTHS.map((m) => (
-              <option key={m.value} value={m.value} className="bg-surface text-content">
-                {m.label}
-              </option>
-            ))}
-          </select>
-          <span className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-content-subtle">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <polyline points="6 9 12 15 18 9" />
-            </svg>
-          </span>
-        </div>
+            <span className={month ? 'text-content' : 'text-content-muted'}>
+              {selectedMonthObj ? selectedMonthObj.label : 'Month'}
+            </span>
+            <ChevronDownIcon size={13} className="text-content-subtle shrink-0 ml-1" />
+          </button>
 
-        {/* Day */}
-        <div className="relative">
-          <select
-            aria-label="Day"
-            value={day}
-            onChange={(e) => {
-              const d = e.target.value;
-              setDay(d);
-              handleUpdate(d, month, year);
-            }}
+          {/* Day Trigger */}
+          <button
+            type="button"
+            onClick={() => openToView('days')}
             disabled={disabled}
-            className={twMerge(selectStyle, 'w-full pr-7')}
+            aria-label="Select day"
+            className={twMerge(triggerButtonStyle, day && 'font-medium text-content')}
           >
-            <option value="" className="bg-surface text-content-muted">Day</option>
-            {DAYS.map((d) => (
-              <option key={d} value={d} className="bg-surface text-content">
-                {d}
-              </option>
-            ))}
-          </select>
-          <span className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-content-subtle">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <polyline points="6 9 12 15 18 9" />
-            </svg>
-          </span>
-        </div>
+            <span className={day ? 'text-content' : 'text-content-muted'}>
+              {day ? String(Number(day)) : 'Day'}
+            </span>
+            <ChevronDownIcon size={13} className="text-content-subtle shrink-0 ml-1" />
+          </button>
 
-        {/* Year */}
-        <div className="relative">
-          <select
-            aria-label="Year"
-            value={year}
-            onChange={(e) => {
-              const y = e.target.value;
-              setYear(y);
-              handleUpdate(day, month, y);
-              if (y) setViewYear(Number(y));
-            }}
+          {/* Year Trigger */}
+          <button
+            type="button"
+            onClick={() => openToView('years')}
             disabled={disabled}
-            className={twMerge(selectStyle, 'w-full pr-7')}
+            aria-label="Select year"
+            className={twMerge(triggerButtonStyle, year && 'font-medium text-content')}
           >
-            <option value="" className="bg-surface text-content-muted">Year</option>
-            {YEARS.map((y) => (
-              <option key={y} value={y} className="bg-surface text-content">
-                {y}
-              </option>
-            ))}
-          </select>
-          <span className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-content-subtle">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <polyline points="6 9 12 15 18 9" />
-            </svg>
-          </span>
-        </div>
+            <span className={year ? 'text-content' : 'text-content-muted'}>
+              {year || 'Year'}
+            </span>
+            <ChevronDownIcon size={13} className="text-content-subtle shrink-0 ml-1" />
+          </button>
 
-        {/* Themed Calendar Popover Trigger Button via Radix Popover */}
-        <Popover.Root
-          open={isCalendarOpen}
-          onOpenChange={(open) => {
-            if (open) {
-              if (year) setViewYear(Number(year));
-              if (month) setViewMonth(Number(month) - 1);
-              setCalendarView('days');
-            }
-            setIsCalendarOpen(open);
-          }}
-        >
+          {/* Dedicated Calendar Trigger Button */}
           <Popover.Trigger asChild>
             <button
               type="button"
+              onClick={() => openToView('days')}
               disabled={disabled}
               aria-label="Open themed calendar picker"
               className={clsx(
@@ -341,262 +298,268 @@ export function MedicalDatePicker({
               <CalendarIcon size={18} />
             </button>
           </Popover.Trigger>
+        </div>
 
-          <Popover.Portal>
-            <Popover.Content
-              side="bottom"
-              align="end"
-              sideOffset={6}
-              collisionPadding={{ top: 80, bottom: 24, left: 16, right: 16 }}
-              avoidCollisions
-              className="w-76 max-w-[calc(100vw-2rem)] p-3 rounded-2xl bg-surface-raised border border-line-strong shadow-over z-[100] animate-in fade-in zoom-in-95 duration-150 focus:outline-none"
-            >
-              {/* Header with Custom Month & Year Buttons + Navigation */}
-              <div className="flex items-center justify-between pb-2 mb-2 border-b border-line">
-                <div className="flex items-center gap-1">
-                  {/* Switch to Month Grid */}
-                  <button
-                    type="button"
-                    onClick={() => setCalendarView((v) => (v === 'months' ? 'days' : 'months'))}
-                    className={clsx(
-                      'flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold transition-all',
-                      calendarView === 'months'
-                        ? 'bg-accent text-accent-onaccent'
-                        : 'bg-surface-hover text-content hover:bg-surface-sunken'
-                    )}
-                    aria-label="Choose month"
-                  >
-                    <span>{MONTHS[viewMonth]?.full || 'Month'}</span>
-                    <ChevronDownIcon size={11} className={clsx(calendarView === 'months' && 'rotate-180')} />
-                  </button>
+        {/* Themed Floating Popover */}
+        <Popover.Portal>
+          <Popover.Content
+            side="bottom"
+            align="end"
+            sideOffset={6}
+            collisionPadding={{ top: 80, bottom: 24, left: 16, right: 16 }}
+            avoidCollisions
+            className="w-76 max-w-[calc(100vw-2rem)] p-3 rounded-2xl bg-surface-raised border border-line-strong shadow-over z-[100] animate-in fade-in zoom-in-95 duration-150 focus:outline-none"
+          >
+            {/* Header with Custom Month & Year Buttons + Navigation */}
+            <div className="flex items-center justify-between pb-2 mb-2 border-b border-line">
+              <div className="flex items-center gap-1">
+                {/* Switch to Month Grid */}
+                <button
+                  type="button"
+                  onClick={() => setCalendarView((v) => (v === 'months' ? 'days' : 'months'))}
+                  className={clsx(
+                    'flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer',
+                    calendarView === 'months'
+                      ? 'bg-accent text-accent-onaccent'
+                      : 'bg-surface-hover text-content hover:bg-surface-sunken'
+                  )}
+                  aria-label="Choose month"
+                >
+                  <span>{MONTHS[viewMonth]?.full || 'Month'}</span>
+                  <ChevronDownIcon size={11} className={clsx(calendarView === 'months' && 'rotate-180')} />
+                </button>
 
-                  {/* Switch to Custom Year Grid */}
-                  <button
-                    type="button"
-                    onClick={() => setCalendarView((v) => (v === 'years' ? 'days' : 'years'))}
-                    className={clsx(
-                      'flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold transition-all',
-                      calendarView === 'years'
-                        ? 'bg-accent text-accent-onaccent'
-                        : 'bg-surface-hover text-content hover:bg-surface-sunken'
-                    )}
-                    aria-label="Choose year"
-                  >
-                    <span>{viewYear}</span>
-                    <ChevronDownIcon size={11} className={clsx(calendarView === 'years' && 'rotate-180')} />
-                  </button>
-                </div>
-
-                {/* Step Navigation Buttons */}
-                <div className="flex items-center gap-0.5">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (calendarView === 'years') {
-                        setViewYear((y) => Math.max(1900, y - 12));
-                      } else if (calendarView === 'months') {
-                        setViewYear((y) => Math.max(1900, y - 1));
-                      } else {
-                        if (viewMonth === 0) {
-                          setViewMonth(11);
-                          setViewYear((y) => y - 1);
-                        } else {
-                          setViewMonth((m) => m - 1);
-                        }
-                      }
-                    }}
-                    className="h-6.5 w-6.5 rounded-md flex items-center justify-center text-content-muted hover:text-content hover:bg-surface-hover transition"
-                    aria-label="Previous page"
-                  >
-                    <ChevronLeftIcon size={14} />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (calendarView === 'years') {
-                        setViewYear((y) => Math.min(currentYear + (mode === 'recent' ? 5 : 0), y + 12));
-                      } else if (calendarView === 'months') {
-                        setViewYear((y) => Math.min(currentYear + (mode === 'recent' ? 5 : 0), y + 1));
-                      } else {
-                        if (viewMonth === 11) {
-                          setViewMonth(0);
-                          setViewYear((y) => y + 1);
-                        } else {
-                          setViewMonth((m) => m + 1);
-                        }
-                      }
-                    }}
-                    className="h-6.5 w-6.5 rounded-md flex items-center justify-center text-content-muted hover:text-content hover:bg-surface-hover transition"
-                    aria-label="Next page"
-                  >
-                    <ChevronRightIcon size={14} />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setIsCalendarOpen(false)}
-                    className="h-6.5 w-6.5 rounded-md flex items-center justify-center text-content-muted hover:text-content hover:bg-surface-hover transition ml-0.5"
-                    aria-label="Close calendar"
-                  >
-                    <XIcon size={13} />
-                  </button>
-                </div>
+                {/* Switch to Custom Year Grid */}
+                <button
+                  type="button"
+                  onClick={() => setCalendarView((v) => (v === 'years' ? 'days' : 'years'))}
+                  className={clsx(
+                    'flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer',
+                    calendarView === 'years'
+                      ? 'bg-accent text-accent-onaccent'
+                      : 'bg-surface-hover text-content hover:bg-surface-sunken'
+                  )}
+                  aria-label="Choose year"
+                >
+                  <span>{viewYear}</span>
+                  <ChevronDownIcon size={11} className={clsx(calendarView === 'years' && 'rotate-180')} />
+                </button>
               </div>
 
-              {/* VIEW 1: Custom Themed Year Picker Grid */}
-              {calendarView === 'years' && (
-                <div className="space-y-1.5">
-                  <div className="text-[10px] font-bold text-content-subtle uppercase px-1">
-                    Select Year (1900 – {currentYear})
-                  </div>
-                  <div
-                    ref={yearListRef}
-                    className="grid grid-cols-4 gap-1 max-h-44 overflow-y-auto pr-1 custom-scrollbar py-0.5"
-                  >
-                    {YEARS.map((y) => {
-                      const isSelectedYear = String(viewYear) === y;
-                      return (
-                        <button
-                          key={y}
-                          type="button"
-                          data-selected={isSelectedYear}
-                          onClick={() => {
-                            const numericY = Number(y);
-                            setViewYear(numericY);
-                            setYear(y);
-                            handleUpdate(day, month, y);
-                            setCalendarView('days');
-                          }}
-                          className={clsx(
-                            'h-8 rounded-lg text-xs font-semibold flex items-center justify-center transition-all',
-                            isSelectedYear
-                              ? 'bg-accent text-accent-onaccent font-bold shadow-xs'
-                              : 'bg-surface-hover text-content hover:bg-surface-sunken hover:text-accent'
-                          )}
-                        >
-                          {y}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+              {/* Step Navigation Buttons */}
+              <div className="flex items-center gap-0.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (calendarView === 'years') {
+                      setViewYear((y) => Math.max(1900, y - 12));
+                    } else if (calendarView === 'months') {
+                      setViewYear((y) => Math.max(1900, y - 1));
+                    } else {
+                      if (viewMonth === 0) {
+                        setViewMonth(11);
+                        setViewYear((y) => y - 1);
+                      } else {
+                        setViewMonth((m) => m - 1);
+                      }
+                    }
+                  }}
+                  className="h-6.5 w-6.5 rounded-md flex items-center justify-center text-content-muted hover:text-content hover:bg-surface-hover transition cursor-pointer"
+                  aria-label="Previous page"
+                >
+                  <ChevronLeftIcon size={14} />
+                </button>
 
-              {/* VIEW 2: Custom Themed Month Picker Grid */}
-              {calendarView === 'months' && (
-                <div className="space-y-1.5">
-                  <div className="text-[10px] font-bold text-content-subtle uppercase px-1">
-                    Select Month ({viewYear})
-                  </div>
-                  <div className="grid grid-cols-3 gap-1.5 py-0.5">
-                    {MONTHS.map((m, idx) => {
-                      const isSelectedMonth = viewMonth === idx;
-                      return (
-                        <button
-                          key={m.value}
-                          type="button"
-                          onClick={() => {
-                            setViewMonth(idx);
-                            setMonth(m.value);
-                            handleUpdate(day, m.value, year);
-                            setCalendarView('days');
-                          }}
-                          className={clsx(
-                            'h-8 rounded-lg text-xs font-semibold flex items-center justify-center transition-all',
-                            isSelectedMonth
-                              ? 'bg-accent text-accent-onaccent font-bold shadow-xs'
-                              : 'bg-surface-hover text-content hover:bg-surface-sunken hover:text-accent'
-                          )}
-                        >
-                          {m.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (calendarView === 'years') {
+                      setViewYear((y) => Math.min(currentYear + (mode === 'recent' ? 5 : 0), y + 12));
+                    } else if (calendarView === 'months') {
+                      setViewYear((y) => Math.min(currentYear + (mode === 'recent' ? 5 : 0), y + 1));
+                    } else {
+                      if (viewMonth === 11) {
+                        setViewMonth(0);
+                        setViewYear((y) => y + 1);
+                      } else {
+                        setViewMonth((m) => m + 1);
+                      }
+                    }
+                  }}
+                  className="h-6.5 w-6.5 rounded-md flex items-center justify-center text-content-muted hover:text-content hover:bg-surface-hover transition cursor-pointer"
+                  aria-label="Next page"
+                >
+                  <ChevronRightIcon size={14} />
+                </button>
 
-              {/* VIEW 3: Standard Themed Days Grid */}
-              {calendarView === 'days' && (
-                <div>
-                  {/* Weekday headers */}
-                  <div className="grid grid-cols-7 gap-0.5 text-center mb-1">
-                    {WEEKDAYS.map((wd) => (
-                      <span key={wd} className="text-[10px] font-bold text-content-subtle uppercase">
-                        {wd}
-                      </span>
-                    ))}
-                  </div>
-
-                  {/* Day numbers */}
-                  <div className="grid grid-cols-7 gap-0.5">
-                    {calendarDays.map((cell) => {
-                      const isSelected = cell.dateStr === value;
-                      const isTodayCell = cell.dateStr === todayStr;
-                      const isFutureDisabled = mode === 'birthdate' && cell.isFuture;
-
-                      return (
-                        <button
-                          key={cell.dateStr}
-                          type="button"
-                          disabled={isFutureDisabled}
-                          onClick={() => handleSelectDateFromCalendar(cell.dateStr)}
-                          className={clsx(
-                            'h-7 w-7 text-xs font-semibold rounded-lg flex items-center justify-center transition-all relative mx-auto',
-                            isSelected
-                              ? 'bg-accent text-accent-onaccent font-bold shadow-xs'
-                              : isFutureDisabled
-                                ? 'text-content-subtle opacity-20 cursor-not-allowed'
-                                : cell.isCurrentMonth
-                              ? 'text-content hover:bg-surface-hover'
-                              : 'text-content-subtle opacity-40 hover:opacity-100 hover:bg-surface-hover',
-                            isTodayCell && !isSelected && 'ring-1 ring-accent font-bold text-accent'
-                          )}
-                        >
-                          {cell.dayNum}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Calendar Bottom Bar: Today Shortcut / Clear */}
-              <div className="flex items-center justify-between pt-2 mt-2 border-t border-line text-xs">
-                {mode !== 'birthdate' ? (
-                  <button
-                    type="button"
-                    onClick={() => handleSelectDateFromCalendar(todayStr)}
-                    className="text-accent font-bold hover:underline"
-                  >
-                    Today
-                  </button>
-                ) : (
-                  <span className="text-[11px] text-content-subtle">
-                    {ageDisplay || 'Select date of birth'}
-                  </span>
-                )}
-
-                {value && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onChange('');
-                      setDay('');
-                      setMonth('');
-                      setYear('');
-                    }}
-                    className="text-content-muted hover:text-content font-medium transition text-xs"
-                  >
-                    Clear
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => setIsCalendarOpen(false)}
+                  className="h-6.5 w-6.5 rounded-md flex items-center justify-center text-content-muted hover:text-content hover:bg-surface-hover transition ml-0.5 cursor-pointer"
+                  aria-label="Close calendar"
+                >
+                  <XIcon size={13} />
+                </button>
               </div>
-            </Popover.Content>
-          </Popover.Portal>
-        </Popover.Root>
-      </div>
+            </div>
+
+            {/* VIEW 1: Custom Themed Year Picker Grid */}
+            {calendarView === 'years' && (
+              <div className="space-y-1.5">
+                <div className="text-[10px] font-bold text-content-subtle uppercase px-1">
+                  Select Year (1900 – {currentYear})
+                </div>
+                <div
+                  ref={yearListRef}
+                  className="grid grid-cols-4 gap-1 max-h-44 overflow-y-auto pr-1 custom-scrollbar py-0.5"
+                >
+                  {YEARS.map((y) => {
+                    const isSelectedYear = String(viewYear) === y;
+                    return (
+                      <button
+                        key={y}
+                        type="button"
+                        data-selected={isSelectedYear}
+                        onClick={() => {
+                          const numericY = Number(y);
+                          setViewYear(numericY);
+                          setYear(y);
+                          handleUpdate(day, month, y);
+                          // If month is not chosen yet, go to months, otherwise go to days
+                          if (!month) {
+                            setCalendarView('months');
+                          } else {
+                            setCalendarView('days');
+                          }
+                        }}
+                        className={clsx(
+                          'h-8 rounded-lg text-xs font-semibold flex items-center justify-center transition-all cursor-pointer',
+                          isSelectedYear
+                            ? 'bg-accent text-accent-onaccent font-bold shadow-xs'
+                            : 'bg-surface-hover text-content hover:bg-surface-sunken hover:text-accent'
+                        )}
+                      >
+                        {y}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* VIEW 2: Custom Themed Month Picker Grid */}
+            {calendarView === 'months' && (
+              <div className="space-y-1.5">
+                <div className="text-[10px] font-bold text-content-subtle uppercase px-1">
+                  Select Month ({viewYear})
+                </div>
+                <div className="grid grid-cols-3 gap-1.5 py-0.5">
+                  {MONTHS.map((m, idx) => {
+                    const isSelectedMonth = viewMonth === idx;
+                    return (
+                      <button
+                        key={m.value}
+                        type="button"
+                        onClick={() => {
+                          setViewMonth(idx);
+                          setMonth(m.value);
+                          handleUpdate(day, m.value, year);
+                          setCalendarView('days');
+                        }}
+                        className={clsx(
+                          'h-8 rounded-lg text-xs font-semibold flex items-center justify-center transition-all cursor-pointer',
+                          isSelectedMonth
+                            ? 'bg-accent text-accent-onaccent font-bold shadow-xs'
+                            : 'bg-surface-hover text-content hover:bg-surface-sunken hover:text-accent'
+                        )}
+                      >
+                        {m.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* VIEW 3: Standard Themed Days Grid */}
+            {calendarView === 'days' && (
+              <div>
+                {/* Weekday headers */}
+                <div className="grid grid-cols-7 gap-0.5 text-center mb-1">
+                  {WEEKDAYS.map((wd) => (
+                    <span key={wd} className="text-[10px] font-bold text-content-subtle uppercase">
+                      {wd}
+                    </span>
+                  ))}
+                </div>
+
+                {/* Day numbers */}
+                <div className="grid grid-cols-7 gap-0.5">
+                  {calendarDays.map((cell) => {
+                    const isSelected = cell.dateStr === value;
+                    const isTodayCell = cell.dateStr === todayStr;
+                    const isFutureDisabled = mode === 'birthdate' && cell.isFuture;
+
+                    return (
+                      <button
+                        key={cell.dateStr}
+                        type="button"
+                        disabled={isFutureDisabled}
+                        onClick={() => handleSelectDateFromCalendar(cell.dateStr)}
+                        className={clsx(
+                          'h-7 w-7 text-xs font-semibold rounded-lg flex items-center justify-center transition-all relative mx-auto cursor-pointer',
+                          isSelected
+                            ? 'bg-accent text-accent-onaccent font-bold shadow-xs'
+                            : isFutureDisabled
+                              ? 'text-content-subtle opacity-20 cursor-not-allowed'
+                              : cell.isCurrentMonth
+                            ? 'text-content hover:bg-surface-hover'
+                            : 'text-content-subtle opacity-40 hover:opacity-100 hover:bg-surface-hover',
+                          isTodayCell && !isSelected && 'ring-1 ring-accent font-bold text-accent'
+                        )}
+                      >
+                        {cell.dayNum}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Calendar Bottom Bar: Today Shortcut / Clear */}
+            <div className="flex items-center justify-between pt-2 mt-2 border-t border-line text-xs">
+              {mode !== 'birthdate' ? (
+                <button
+                  type="button"
+                  onClick={() => handleSelectDateFromCalendar(todayStr)}
+                  className="text-accent font-bold hover:underline cursor-pointer"
+                >
+                  Today
+                </button>
+              ) : (
+                <span className="text-[11px] text-content-subtle">
+                  {ageDisplay || 'Select date of birth'}
+                </span>
+              )}
+
+              {value && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onChange('');
+                    setDay('');
+                    setMonth('');
+                    setYear('');
+                  }}
+                  className="text-content-muted hover:text-content font-medium transition text-xs cursor-pointer"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          </Popover.Content>
+        </Popover.Portal>
+      </Popover.Root>
 
       {/* Age preview below input */}
       {showAge && ageDisplay && (
