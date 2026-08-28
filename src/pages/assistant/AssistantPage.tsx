@@ -48,6 +48,15 @@ interface Message {
     type: string;
     detail: string;
   }>;
+  sentinelAlerts?: Array<{
+    type: string;
+    severity: 'critical' | 'high' | 'moderate';
+    genericName: string;
+    drugClass: string;
+    involvedBrands: string[];
+    clinicalMessage: string;
+    actionRecommendation: string;
+  }>;
 }
 
 const DEEP_CLINICAL_PROMPTS = [
@@ -449,6 +458,15 @@ export function AssistantPage() {
         safetyAlerts?: string[];
         suggestions?: string[];
         citations?: Array<{ source: string; type: string; detail: string }>;
+        sentinelAlerts?: Array<{
+          type: string;
+          severity: 'critical' | 'high' | 'moderate';
+          genericName: string;
+          drugClass: string;
+          involvedBrands: string[];
+          clinicalMessage: string;
+          actionRecommendation: string;
+        }>;
         error?: string;
       } = {};
 
@@ -472,6 +490,7 @@ export function AssistantPage() {
         safetyAlerts: data.safetyAlerts || [],
         suggestions: data.suggestions || [],
         citations: data.citations || [],
+        sentinelAlerts: data.sentinelAlerts || [],
       };
 
       setMessages((prev) => [...prev, botMsg]);
@@ -701,6 +720,52 @@ export function AssistantPage() {
                               loadData();
                             }}
                           />
+                        </div>
+                      )}
+
+                      {/* Clinical Safety Sentinel (Duplicate / Overdose Alerts) */}
+                      {m.sentinelAlerts && m.sentinelAlerts.length > 0 && (
+                        <div className="space-y-2 pt-1">
+                          {m.sentinelAlerts.map((sentinel, sIdx) => {
+                            const isCritical = sentinel.severity === 'critical';
+                            return (
+                              <div
+                                key={sIdx}
+                                className={`p-3.5 rounded-xl border text-xs sm:text-sm space-y-1.5 shadow-2xs ${
+                                  isCritical
+                                    ? 'border-risk-border bg-risk-bg text-risk-text'
+                                    : 'border-warn-border bg-warn-bg text-warn-text'
+                                }`}
+                              >
+                                <div className="flex items-center justify-between font-bold">
+                                  <span className="flex items-center gap-1.5">
+                                    <AlertTriangleIcon size={16} className="shrink-0" />
+                                    <span>
+                                      {sentinel.type === 'cumulative_overdose'
+                                        ? 'Cumulative Overdose Sentinel Alert'
+                                        : sentinel.type === 'duplicate_generic'
+                                        ? 'Duplicate Active Ingredient Alert'
+                                        : 'Therapeutic Class Overlap Alert'}
+                                    </span>
+                                  </span>
+                                  <span
+                                    className={`px-2 py-0.5 rounded-full text-2xs uppercase tracking-wider font-extrabold ${
+                                      isCritical
+                                        ? 'bg-risk-fill text-content-onaccent'
+                                        : 'bg-warn-border text-content'
+                                    }`}
+                                  >
+                                    {sentinel.severity}
+                                  </span>
+                                </div>
+                                <p className="font-semibold text-xs">{sentinel.clinicalMessage}</p>
+                                <div className="flex items-center gap-1.5 text-2xs pt-0.5 opacity-90">
+                                  <span className="font-bold">Action:</span>
+                                  <span>{sentinel.actionRecommendation}</span>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
 

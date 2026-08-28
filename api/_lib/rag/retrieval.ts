@@ -1,11 +1,13 @@
 import {
   DRUG_KNOWLEDGE_CORPUS,
   BIOMARKER_KNOWLEDGE_CORPUS,
+  GENERIC_MOLECULE_REGISTRY,
 } from './clinicalKnowledge';
+import { analyzeSafetySentinel, type SentinelAlert } from './sentinel';
 
 export interface RetrievedCitation {
   source: string;
-  type: 'clinical_guideline' | 'patient_prescription' | 'patient_lab_result' | 'patient_consultation';
+  type: 'clinical_guideline' | 'patient_prescription' | 'patient_lab_result' | 'patient_consultation' | 'safety_sentinel';
   detail: string;
 }
 
@@ -13,7 +15,9 @@ export interface RagRetrievalResult {
   retrievedClinicalRules: string[];
   retrievedPatientEvidence: string[];
   citations: RetrievedCitation[];
-  queryIntent: 'interaction_check' | 'lab_interpretation' | 'dosing_timing' | 'pregnancy_lactation' | 'pre_op' | 'general_clinical';
+  sentinelAlerts: SentinelAlert[];
+  queryIntent: 'interaction_check' | 'lab_interpretation' | 'dosing_timing' | 'pregnancy_lactation' | 'pre_op' | 'overdose_sentinel' | 'general_clinical';
+  resolvedContextQuery: string;
 }
 
 export interface PatientContextInput {
@@ -58,44 +62,157 @@ export interface PatientContextInput {
 }
 
 /**
- * Executes hybrid semantic + clinical rule retrieval for a user query.
+ * Multi-Turn Conversational Context Resolver:
+ * Resolves pronouns ("it", "this med", "the antibiotic") using recent conversation turns.
+ */
+export function resolveMultiTurnQuery(
+  latestQuery: string,
+  previousMessages: Array<{ role: string; content: string }> = []
+): string {
+  const q = latestQuery.trim();
+  const lower = q.toLowerCase();
+
+  // If query explicitly contains medicine names, return as is
+  const hasDirectDrug = GENERIC_MOLECULE_REGISTRY.some(
+    (m) =>
+      lower.includes(m.genericName.toLowerCase()) ||
+      m.brandAliases.some((alias) => lower.includes(alias.toLowerCase()))
+  );
+
+  if (hasDirectDrug || previousMessages.length === 0) {
+    return q;
+  }
+
+  // Look for pronoun patterns
+  const pronounPatterns = [
+    /\b(it|this|that|this medicine|this drug|this tablet|the medicine|the pill|the antibiotic)\b/i,
+  ];
+  const hasPronoun = pronounPatterns.some((pattern) => pattern.test(lower));
+
+  if (!hasPronoun) {
+    return q;
+  }
+
+  // Scan backwards through previous assistant and user messages to find the most recently mentioned drug
+  for (let i = previousMessages.length - 1; i >= 0; i--) {
+    const msg = previousMessages[i];
+    if (!msg || !msg.content) continue;
+    const prevContent = msg.content.toLowerCase();
+    for (const mol of GENERIC_MOLECULE_REGISTRY) {
+      if (prevContent.includes(mol.genericName.toLowerCase())) {
+        return `${q} (referring to ${mol.genericName})`;
+      }
+      for (const alias of mol.brandAliases) {
+        if (prevContent.includes(alias.toLowerCase())) {
+          return `${q} (referring to ${alias} / ${mol.genericName})`;
+        }
+      }
+    }
+  }
+
+  return q;
+}
+
+/**
+ * Executes hybrid semantic + clinical rule retrieval + safety sentinel analysis.
  */
 export function executeClinicalRag(
   query: string,
-  patientContext?: PatientContextInput
+  patientContext?: PatientContextInput,
+  previousMessages: Array<{ role: string; content: string }> = []
 ): RagRetrievalResult {
-  const qLower = query.toLowerCase();
+  // 1. Resolve Multi-Turn Context
+  const resolvedContextQuery = resolveMultiTurnQuery(query, previousMessages);
+  const qLower = resolvedContextQuery.toLowerCase();
+
   const retrievedClinicalRules: string[] = [];
   const retrievedPatientEvidence: string[] = [];
   const citations: RetrievedCitation[] = [];
 
-  // 1. Detect Query Intent
+  // 2. Run Duplicate Drug & Cumulative Overdose Sentinel
+  const sentinel = analyzeSafetySentinel(patientContext?.activeMedicines || [], resolvedContextQuery);
+  const sentinelAlerts = sentinel.alerts;
+
+  if (sentinel.alertPromptDirectives.length > 0) {
+    retrievedClinicalRules.push(...sentinel.alertPromptDirectives);
+  }
+
+  sentinelAlerts.forEach((alert) => {
+    citations.push({
+      source: `Clinical Safety Sentinel: ${alert.genericName}`,
+      type: 'safety_sentinel',
+      detail: alert.clinicalMessage,
+    });
+  });
+
+  // 3. Detect Query Intent
   let queryIntent: RagRetrievalResult['queryIntent'] = 'general_clinical';
-  if (qLower.includes('interact') || qLower.includes('safe to take') || qLower.includes('together') || qLower.includes('combination')) {
+  if (sentinelAlerts.length > 0) {
+    queryIntent = 'overdose_sentinel';
+  } else if (
+    qLower.includes('interact') ||
+    qLower.includes('safe to take') ||
+    qLower.includes('together') ||
+    qLower.includes('combination')
+  ) {
     queryIntent = 'interaction_check';
-  } else if (qLower.includes('lab') || qLower.includes('test') || qLower.includes('report') || qLower.includes('hba1c') || qLower.includes('sugar') || qLower.includes('cholesterol') || qLower.includes('creatinine') || qLower.includes('sgpt') || qLower.includes('alt') || qLower.includes('blood')) {
+  } else if (
+    qLower.includes('lab') ||
+    qLower.includes('test') ||
+    qLower.includes('report') ||
+    qLower.includes('hba1c') ||
+    qLower.includes('sugar') ||
+    qLower.includes('cholesterol') ||
+    qLower.includes('creatinine') ||
+    qLower.includes('sgpt') ||
+    qLower.includes('alt') ||
+    qLower.includes('potassium') ||
+    qLower.includes('blood')
+  ) {
     queryIntent = 'lab_interpretation';
-  } else if (qLower.includes('when') || qLower.includes('time') || qLower.includes('food') || qLower.includes('empty stomach') || qLower.includes('meal') || qLower.includes('schedule') || qLower.includes('missed') || qLower.includes('forgot')) {
+  } else if (
+    qLower.includes('when') ||
+    qLower.includes('time') ||
+    qLower.includes('food') ||
+    qLower.includes('empty stomach') ||
+    qLower.includes('meal') ||
+    qLower.includes('schedule') ||
+    qLower.includes('missed') ||
+    qLower.includes('forgot')
+  ) {
     queryIntent = 'dosing_timing';
-  } else if (qLower.includes('pregnant') || qLower.includes('pregnancy') || qLower.includes('breastfeed') || qLower.includes('lactation') || qLower.includes('baby')) {
+  } else if (
+    qLower.includes('pregnant') ||
+    qLower.includes('pregnancy') ||
+    qLower.includes('breastfeed') ||
+    qLower.includes('lactation') ||
+    qLower.includes('baby')
+  ) {
     queryIntent = 'pregnancy_lactation';
-  } else if (qLower.includes('surgery') || qLower.includes('operation') || qLower.includes('dental') || qLower.includes('extraction') || qLower.includes('pre-op') || qLower.includes('stop before')) {
+  } else if (
+    qLower.includes('surgery') ||
+    qLower.includes('operation') ||
+    qLower.includes('dental') ||
+    qLower.includes('extraction') ||
+    qLower.includes('pre-op') ||
+    qLower.includes('stop before')
+  ) {
     queryIntent = 'pre_op';
   }
 
-  // 2. Retrieve Matching Drug Monographs from Pharmacopeia
+  // 4. Retrieve Matching Drug Monographs from Pharmacopeia
   const activeMedNames = (patientContext?.activeMedicines || []).map((m) => m.medicine_name.toLowerCase());
-  
+
   const relevantDrugs = DRUG_KNOWLEDGE_CORPUS.filter((drug) => {
     const isDirectlyQueried =
       qLower.includes(drug.genericName.toLowerCase()) ||
       drug.brandAliases.some((alias) => qLower.includes(alias.toLowerCase()));
-    
-    const isPatientActiveMed =
-      activeMedNames.some((pMed) =>
+
+    const isPatientActiveMed = activeMedNames.some(
+      (pMed) =>
         pMed.includes(drug.genericName.toLowerCase()) ||
         drug.brandAliases.some((alias) => pMed.includes(alias.toLowerCase()))
-      );
+    );
 
     return isDirectlyQueried || isPatientActiveMed;
   });
@@ -126,33 +243,32 @@ export function executeClinicalRag(
     }
 
     citations.push({
-      source: `BNF / FDA Drug Monograph: ${drug.genericName}`,
+      source: `BNF / FDA Monograph: ${drug.genericName}`,
       type: 'clinical_guideline',
       detail: `Class: ${drug.drugClass}; Food: ${drug.foodRules.rule}`,
     });
   });
 
-  // 3. Retrieve Matching Biomarkers & Reference Ranges
+  // 5. Retrieve Matching Biomarkers & Reference Ranges
   BIOMARKER_KNOWLEDGE_CORPUS.forEach((bio) => {
     const isRelevantBio =
       qLower.includes(bio.name.toLowerCase()) ||
       bio.aliases.some((alias) => qLower.includes(alias.toLowerCase())) ||
-      (queryIntent === 'lab_interpretation');
+      queryIntent === 'lab_interpretation';
 
     if (isRelevantBio) {
       retrievedClinicalRules.push(
         `[Diagnostic Reference: ${bio.name}] Standard Range: ${bio.standardReferenceRange}. High Interpretation: ${bio.elevatedInterpretation}. Decreased: ${bio.decreasedInterpretation}`
       );
       citations.push({
-        source: `Clinical Diagnostic Range: ${bio.name}`,
+        source: `Diagnostic Range: ${bio.name}`,
         type: 'clinical_guideline',
-        detail: `Standard Reference: ${bio.standardReferenceRange}`,
+        detail: `Reference: ${bio.standardReferenceRange}`,
       });
     }
   });
 
-  // 4. Retrieve Grounded Patient Records Evidence
-  // Active Medicines Evidence
+  // 6. Retrieve Grounded Patient Records Evidence
   if (patientContext?.activeMedicines && patientContext.activeMedicines.length > 0) {
     patientContext.activeMedicines.forEach((m) => {
       retrievedPatientEvidence.push(
@@ -166,7 +282,6 @@ export function executeClinicalRag(
     });
   }
 
-  // Lab Reports Evidence
   if (patientContext?.recentReports && patientContext.recentReports.length > 0) {
     patientContext.recentReports.forEach((rep) => {
       rep.results.forEach((res) => {
@@ -174,7 +289,7 @@ export function executeClinicalRag(
           `[Patient Lab Report: ${rep.title} (${rep.report_date})] ${res.test_name} = ${res.value_text} ${res.unit || ''} (Reference: ${res.reference_range || 'N/A'}, Status: ${res.range_status || 'Normal'})`
         );
         citations.push({
-          source: `Lab Report: ${rep.title} (${rep.report_date})`,
+          source: `Lab: ${rep.title} (${rep.report_date})`,
           type: 'patient_lab_result',
           detail: `${res.test_name}: ${res.value_text} ${res.unit || ''}`,
         });
@@ -182,7 +297,6 @@ export function executeClinicalRag(
     });
   }
 
-  // Consultations & Doctor Advice Evidence
   if (patientContext?.recentVisits && patientContext.recentVisits.length > 0) {
     patientContext.recentVisits.forEach((v) => {
       retrievedPatientEvidence.push(
@@ -196,7 +310,6 @@ export function executeClinicalRag(
     });
   }
 
-  // Side Effects Evidence
   if (patientContext?.sideEffectsHistory && patientContext.sideEffectsHistory.length > 0) {
     patientContext.sideEffectsHistory.forEach((s) => {
       retrievedPatientEvidence.push(
@@ -205,15 +318,16 @@ export function executeClinicalRag(
     });
   }
 
-  // Limit total citations to top 6 distinct items
   const uniqueCitations = Array.from(
     new Map(citations.map((c) => [c.source, c])).values()
   ).slice(0, 6);
 
   return {
-    retrievedClinicalRules: retrievedClinicalRules.slice(0, 8),
-    retrievedPatientEvidence: retrievedPatientEvidence.slice(0, 10),
+    retrievedClinicalRules: retrievedClinicalRules.slice(0, 10),
+    retrievedPatientEvidence: retrievedPatientEvidence.slice(0, 12),
     citations: uniqueCitations,
+    sentinelAlerts,
     queryIntent,
+    resolvedContextQuery,
   };
 }

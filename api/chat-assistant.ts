@@ -100,13 +100,14 @@ export default async function handler(req: IncomingMessage & { body?: unknown },
     const ai = getGeminiClient();
     const model = getGeminiModel();
 
-    // Execute Clinical RAG Retrieval Pipeline
+    // Execute Upgraded Clinical RAG & Multi-Turn Context Pipeline
     const latestUserMessage = messages.filter((m) => m.role === 'user').slice(-1)[0];
     const latestQuery = latestUserMessage?.content || 'Patient health inquiry';
-    const ragResult = executeClinicalRag(latestQuery, patientContext);
+    const previousMessages = messages.slice(0, -1);
+    const ragResult = executeClinicalRag(latestQuery, patientContext, previousMessages);
 
     // High-IQ Autonomous Clinical Operating System Prompt with Strict Medfolio Domain Boundaries
-    let systemInstruction = `You are the Medfolio Master Clinical Health Assistant — an advanced medical AI intelligence operating with Retrieval-Augmented Generation (RAG).
+    let systemInstruction = `You are the Medfolio Master Clinical Health Assistant — an advanced medical AI intelligence operating with Hybrid Retrieval-Augmented Generation (RAG) and Safety Sentinel.
 
 STRICT DOMAIN BOUNDARY & REFUSAL POLICY:
 1. EXCLUSIVE HEALTHCARE & MEDFOLIO SCOPE:
@@ -126,8 +127,19 @@ JSON Schema:
   "citations": [
     {
       "source": "Name of clinical guideline or patient record (e.g. BNF / FDA Monograph: Atorvastatin, Lab: Lipid Panel 2026-08-20)",
-      "type": "clinical_guideline" | "patient_prescription" | "patient_lab_result",
+      "type": "clinical_guideline" | "patient_prescription" | "patient_lab_result" | "safety_sentinel",
       "detail": "Specific finding or rule referenced"
+    }
+  ],
+  "sentinelAlerts": [
+    {
+      "type": "duplicate_generic" | "cumulative_overdose" | "class_overlap",
+      "severity": "critical" | "high" | "moderate",
+      "genericName": "Generic molecule name",
+      "drugClass": "Drug therapeutic class",
+      "involvedBrands": ["Brand1", "Brand2"],
+      "clinicalMessage": "Direct explanation of duplication or overdose risk",
+      "actionRecommendation": "Clear action for patient"
     }
   ],
   "medicines": [
@@ -314,6 +326,10 @@ ${ragResult.retrievedPatientEvidence.length > 0 ? ragResult.retrievedPatientEvid
 
     if (!Array.isArray(data.citations) || data.citations.length === 0) {
       data.citations = ragResult.citations;
+    }
+
+    if (!Array.isArray(data.sentinelAlerts) || data.sentinelAlerts.length === 0) {
+      data.sentinelAlerts = ragResult.sentinelAlerts;
     }
 
     sendJson(res, 200, data);
