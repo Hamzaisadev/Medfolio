@@ -775,11 +775,12 @@ export function ReviewPrescriptionPage() {
                         {/* Duration Column */}
                         <div className="flex flex-col gap-2">
                           <div className="flex items-center justify-between min-h-[20px]">
-                            <label htmlFor={`med-dur-${m.id}`} className="text-sm font-semibold text-content">
-                              Duration {!m.is_ongoing && <span className="text-risk-text" aria-hidden="true">*</span>}
+                            <label htmlFor={`med-dur-${m.id}`} className="text-sm font-semibold text-content flex items-center gap-1.5">
+                              <span>Duration</span>
+                              {!m.is_ongoing && <span className="text-risk-text" aria-hidden="true">*</span>}
                               {durResult.kind === 'days' && (
-                                <span className="ml-1 text-xs font-normal text-content-subtle">
-                                  ({durResult.days} days)
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-accent/10 text-accent font-medium text-xs">
+                                  {durResult.days} days
                                 </span>
                               )}
                             </label>
@@ -799,42 +800,13 @@ export function ReviewPrescriptionPage() {
                             </label>
                           </div>
 
-                          <div className="relative flex items-center w-full">
-                            <Input
-                              id={`med-dur-${m.id}`}
-                              value={m.duration_raw || ''}
-                              onChange={(e) => handleUpdateMedicine(m.id, { duration_raw: e.target.value })}
-                              placeholder={m.is_ongoing ? 'Ongoing medication' : 'e.g. 5 days, 1 month'}
-                              disabled={m.is_ongoing}
-                              className={!m.is_ongoing ? 'pr-40' : ''}
-                            />
-                            {!m.is_ongoing && (
-                              <div className="absolute right-1.5 flex items-center gap-1">
-                                {['3d', '5d', '7d', '14d', '1m'].map((dLabel) => {
-                                  const fullDur =
-                                    dLabel === '3d'
-                                      ? '3 days'
-                                      : dLabel === '5d'
-                                        ? '5 days'
-                                        : dLabel === '7d'
-                                          ? '7 days'
-                                          : dLabel === '14d'
-                                            ? '14 days'
-                                            : '1 month';
-                                  return (
-                                    <button
-                                      key={dLabel}
-                                      type="button"
-                                      onClick={() => handleUpdateMedicine(m.id, { duration_raw: fullDur })}
-                                      className="h-7 px-1.5 text-[11px] font-semibold rounded bg-surface-sunken hover:bg-accent/15 hover:text-accent border border-line text-content-muted transition-colors cursor-pointer"
-                                    >
-                                      {dLabel}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </div>
+                          <Input
+                            id={`med-dur-${m.id}`}
+                            value={m.duration_raw || ''}
+                            onChange={(e) => handleUpdateMedicine(m.id, { duration_raw: e.target.value })}
+                            placeholder={m.is_ongoing ? 'Ongoing medication' : 'e.g. 5 days, 1 month, 6 months'}
+                            disabled={m.is_ongoing}
+                          />
                         </div>
                       </div>
 
