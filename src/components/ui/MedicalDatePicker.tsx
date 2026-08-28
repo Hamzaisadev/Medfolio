@@ -10,12 +10,13 @@ import {
   XIcon,
 } from './icons';
 
-interface MedicalDatePickerProps {
+export interface MedicalDatePickerProps {
   id?: string;
   value?: string; // YYYY-MM-DD format
   onChange: (isoDate: string) => void;
   disabled?: boolean;
   className?: string;
+  placeholder?: string;
   mode?: 'recent' | 'birthdate' | 'all';
   showAge?: boolean;
 }
@@ -43,13 +44,10 @@ export function MedicalDatePicker({
   onChange,
   disabled = false,
   className,
+  placeholder,
   mode = 'recent',
   showAge = false,
 }: MedicalDatePickerProps) {
-  const [day, setDay] = useState('');
-  const [month, setMonth] = useState('');
-  const [year, setYear] = useState('');
-
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [calendarView, setCalendarView] = useState<'days' | 'months' | 'years'>('days');
 
@@ -65,7 +63,7 @@ export function MedicalDatePicker({
     return `${y}-${m}-${dayNum}`;
   }, []);
 
-  // Dynamic year options for dropdown and grid
+  // Dynamic year options for grid
   const YEARS = useMemo(() => {
     if (mode === 'recent') {
       const list: string[] = [];
@@ -92,22 +90,14 @@ export function MedicalDatePicker({
     return currentMonth;
   });
 
-  // Sync state with value prop
+  // Sync internal view year/month when value changes externally
   useEffect(() => {
     if (value && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
       const parts = value.split('-');
-      const y = parts[0] || '';
-      const m = parts[1] || '';
-      const d = parts[2] || '';
-      setYear(y);
-      setMonth(m);
-      setDay(d);
-      setViewYear(Number(y));
-      setViewMonth(Number(m) - 1);
-    } else if (!value) {
-      setDay('');
-      setMonth('');
-      setYear('');
+      const y = Number(parts[0]);
+      const m = Number(parts[1]) - 1;
+      if (!isNaN(y)) setViewYear(y);
+      if (!isNaN(m)) setViewMonth(m);
     }
   }, [value]);
 
@@ -121,48 +111,42 @@ export function MedicalDatePicker({
     }
   }, [isCalendarOpen, calendarView]);
 
-  const handleUpdate = (newDay: string, newMonth: string, newYear: string) => {
-    if (newYear && newMonth && newDay) {
-      const paddedDay = newDay.padStart(2, '0');
-      const iso = `${newYear}-${newMonth}-${paddedDay}`;
-      onChange(iso);
-    } else {
-      onChange('');
-    }
-  };
-
   const handleSelectDateFromCalendar = (dateIso: string) => {
-    const parts = dateIso.split('-');
-    setYear(parts[0] || '');
-    setMonth(parts[1] || '');
-    setDay(parts[2] || '');
     onChange(dateIso);
     setIsCalendarOpen(false);
     setCalendarView('days');
   };
 
-  const openToView = (view: 'days' | 'months' | 'years') => {
-    if (disabled) return;
-    if (year) setViewYear(Number(year));
-    if (month) setViewMonth(Number(month) - 1);
-    setCalendarView(view);
-    setIsCalendarOpen(true);
-  };
+  // Formatted date string for display
+  const formattedDisplayDate = useMemo(() => {
+    if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      return placeholder || (mode === 'birthdate' ? 'Select date of birth' : 'Select date');
+    }
+    const [y, m, d] = value.split('-');
+    const monthObj = MONTHS.find((item) => item.value === m);
+    const monthLabel = monthObj ? monthObj.label : m;
+    const dayNum = Number(d);
+    return `${dayNum} ${monthLabel}, ${y}`;
+  }, [value, placeholder, mode]);
 
   // Age calculation
-  let ageDisplay: string | null = null;
-  if (year && month && day && Number(year) >= 1900) {
-    const dob = new Date(Number(year), Number(month) - 1, Number(day));
+  const ageDisplay = useMemo(() => {
+    if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+    const [y, m, d] = value.split('-');
+    const numY = Number(y);
+    if (numY < 1900) return null;
+    const dob = new Date(numY, Number(m) - 1, Number(d));
     const today = new Date();
     let age = today.getFullYear() - dob.getFullYear();
-    const m = today.getMonth() - dob.getMonth();
-    if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) {
+    const monthDiff = today.getMonth() - dob.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
       age--;
     }
     if (age >= 0 && age <= 130) {
-      ageDisplay = `${age} years old`;
+      return `${age} years old`;
     }
-  }
+    return null;
+  }, [value]);
 
   // Calendar Day Cells Calculation
   const calendarDays = useMemo(() => {
@@ -226,85 +210,82 @@ export function MedicalDatePicker({
     return cells;
   }, [viewYear, viewMonth, todayStr]);
 
-  const triggerButtonStyle = clsx(
-    'h-12 bg-surface-raised border border-line-strong rounded-[var(--radius-md)] px-3 text-xs sm:text-sm text-content flex items-center justify-between transition-all select-none cursor-pointer',
-    'hover:border-accent hover:bg-surface-hover focus:border-accent focus:outline-2 focus:outline-offset-2 focus:outline-accent',
-    'disabled:opacity-50 disabled:cursor-not-allowed'
-  );
-
-  const selectedMonthObj = MONTHS.find((m) => m.value === month);
+  const isSelected = Boolean(value && /^\d{4}-\d{2}-\d{2}$/.test(value));
 
   return (
-    <div className={twMerge('space-y-2 relative', className)} id={id}>
-      <Popover.Root open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
-        {/* Top Controls Row: 3 Interactive Themed Triggers + Calendar Icon Button */}
-        <div className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 items-center">
-          {/* Month Trigger */}
+    <div className={twMerge('space-y-1.5 relative w-full', className)}>
+      <Popover.Root
+        open={isCalendarOpen}
+        onOpenChange={(open) => {
+          if (open) {
+            if (value && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+              const [y, m] = value.split('-');
+              setViewYear(Number(y));
+              setViewMonth(Number(m) - 1);
+            }
+            setCalendarView('days');
+          }
+          setIsCalendarOpen(open);
+        }}
+      >
+        {/* Unified, Responsive Date Picker Input Trigger */}
+        <Popover.Trigger asChild>
           <button
             type="button"
-            onClick={() => openToView('months')}
+            id={id}
             disabled={disabled}
-            aria-label="Select month"
-            className={twMerge(triggerButtonStyle, month && 'font-medium text-content')}
+            aria-label={placeholder || (mode === 'birthdate' ? 'Select date of birth' : 'Select date')}
+            className={twMerge(
+              'h-12 w-full bg-surface-raised border border-line-strong rounded-[var(--radius-md)] px-3.5 text-xs sm:text-sm text-content flex items-center justify-between transition-all select-none cursor-pointer',
+              'hover:border-accent hover:bg-surface-hover focus:border-accent focus:outline-2 focus:outline-offset-2 focus:outline-accent',
+              'disabled:opacity-50 disabled:cursor-not-allowed',
+              isCalendarOpen && 'border-accent ring-2 ring-accent/20'
+            )}
           >
-            <span className={month ? 'text-content' : 'text-content-muted'}>
-              {selectedMonthObj ? selectedMonthObj.label : 'Month'}
-            </span>
-            <ChevronDownIcon size={13} className="text-content-subtle shrink-0 ml-1" />
-          </button>
+            <div className="flex items-center gap-2.5 min-w-0 overflow-hidden">
+              <CalendarIcon
+                size={16}
+                className={clsx('shrink-0 transition-colors', isSelected ? 'text-accent' : 'text-content-subtle')}
+              />
+              <span className={clsx('truncate', isSelected ? 'font-medium text-content' : 'text-content-muted')}>
+                {formattedDisplayDate}
+              </span>
+            </div>
 
-          {/* Day Trigger */}
-          <button
-            type="button"
-            onClick={() => openToView('days')}
-            disabled={disabled}
-            aria-label="Select day"
-            className={twMerge(triggerButtonStyle, day && 'font-medium text-content')}
-          >
-            <span className={day ? 'text-content' : 'text-content-muted'}>
-              {day ? String(Number(day)) : 'Day'}
-            </span>
-            <ChevronDownIcon size={13} className="text-content-subtle shrink-0 ml-1" />
-          </button>
-
-          {/* Year Trigger */}
-          <button
-            type="button"
-            onClick={() => openToView('years')}
-            disabled={disabled}
-            aria-label="Select year"
-            className={twMerge(triggerButtonStyle, year && 'font-medium text-content')}
-          >
-            <span className={year ? 'text-content' : 'text-content-muted'}>
-              {year || 'Year'}
-            </span>
-            <ChevronDownIcon size={13} className="text-content-subtle shrink-0 ml-1" />
-          </button>
-
-          {/* Dedicated Calendar Trigger Button */}
-          <Popover.Trigger asChild>
-            <button
-              type="button"
-              onClick={() => openToView('days')}
-              disabled={disabled}
-              aria-label="Open themed calendar picker"
-              className={clsx(
-                'h-12 w-12 flex items-center justify-center rounded-[var(--radius-md)] border transition-all shrink-0 cursor-pointer',
-                isCalendarOpen
-                  ? 'bg-accent text-accent-onaccent border-accent shadow-xs'
-                  : 'bg-surface-raised border-line-strong text-accent hover:bg-surface-hover hover:border-accent'
+            <div className="flex items-center gap-1.5 shrink-0 ml-2">
+              {value && !disabled && (
+                <span
+                  role="button"
+                  tabIndex={0}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onChange('');
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.stopPropagation();
+                      onChange('');
+                    }
+                  }}
+                  className="p-1 rounded-md text-content-subtle hover:text-content hover:bg-surface-sunken transition cursor-pointer"
+                  aria-label="Clear selected date"
+                >
+                  <XIcon size={13} />
+                </span>
               )}
-            >
-              <CalendarIcon size={18} />
-            </button>
-          </Popover.Trigger>
-        </div>
+              <ChevronDownIcon
+                size={14}
+                className={clsx('text-content-subtle transition-transform duration-200', isCalendarOpen && 'rotate-180 text-accent')}
+              />
+            </div>
+          </button>
+        </Popover.Trigger>
 
-        {/* Themed Floating Popover */}
+        {/* Floating Themed Popover with 80px Top Header Clearance */}
         <Popover.Portal>
           <Popover.Content
             side="bottom"
-            align="end"
+            align="start"
             sideOffset={6}
             collisionPadding={{ top: 80, bottom: 24, left: 16, right: 16 }}
             avoidCollisions
@@ -407,7 +388,7 @@ export function MedicalDatePicker({
             {calendarView === 'years' && (
               <div className="space-y-1.5">
                 <div className="text-[10px] font-bold text-content-subtle uppercase px-1">
-                  Select Year (1900 – {currentYear})
+                  Select Year (1900 – {mode === 'recent' ? currentYear + 5 : currentYear})
                 </div>
                 <div
                   ref={yearListRef}
@@ -423,14 +404,7 @@ export function MedicalDatePicker({
                         onClick={() => {
                           const numericY = Number(y);
                           setViewYear(numericY);
-                          setYear(y);
-                          handleUpdate(day, month, y);
-                          // If month is not chosen yet, go to months, otherwise go to days
-                          if (!month) {
-                            setCalendarView('months');
-                          } else {
-                            setCalendarView('days');
-                          }
+                          setCalendarView('days');
                         }}
                         className={clsx(
                           'h-8 rounded-lg text-xs font-semibold flex items-center justify-center transition-all cursor-pointer',
@@ -462,8 +436,6 @@ export function MedicalDatePicker({
                         type="button"
                         onClick={() => {
                           setViewMonth(idx);
-                          setMonth(m.value);
-                          handleUpdate(day, m.value, year);
                           setCalendarView('days');
                         }}
                         className={clsx(
@@ -496,7 +468,7 @@ export function MedicalDatePicker({
                 {/* Day numbers */}
                 <div className="grid grid-cols-7 gap-0.5">
                   {calendarDays.map((cell) => {
-                    const isSelected = cell.dateStr === value;
+                    const isSelectedDay = cell.dateStr === value;
                     const isTodayCell = cell.dateStr === todayStr;
                     const isFutureDisabled = mode === 'birthdate' && cell.isFuture;
 
@@ -508,14 +480,14 @@ export function MedicalDatePicker({
                         onClick={() => handleSelectDateFromCalendar(cell.dateStr)}
                         className={clsx(
                           'h-7 w-7 text-xs font-semibold rounded-lg flex items-center justify-center transition-all relative mx-auto cursor-pointer',
-                          isSelected
+                          isSelectedDay
                             ? 'bg-accent text-accent-onaccent font-bold shadow-xs'
                             : isFutureDisabled
                               ? 'text-content-subtle opacity-20 cursor-not-allowed'
                               : cell.isCurrentMonth
                             ? 'text-content hover:bg-surface-hover'
                             : 'text-content-subtle opacity-40 hover:opacity-100 hover:bg-surface-hover',
-                          isTodayCell && !isSelected && 'ring-1 ring-accent font-bold text-accent'
+                          isTodayCell && !isSelectedDay && 'ring-1 ring-accent font-bold text-accent'
                         )}
                       >
                         {cell.dayNum}
@@ -547,9 +519,6 @@ export function MedicalDatePicker({
                   type="button"
                   onClick={() => {
                     onChange('');
-                    setDay('');
-                    setMonth('');
-                    setYear('');
                   }}
                   className="text-content-muted hover:text-content font-medium transition text-xs cursor-pointer"
                 >
@@ -561,7 +530,7 @@ export function MedicalDatePicker({
         </Popover.Portal>
       </Popover.Root>
 
-      {/* Age preview below input */}
+      {/* Calculated Age Preview (if showAge enabled) */}
       {showAge && ageDisplay && (
         <div className="flex items-center gap-1.5 text-xs text-content-muted pl-0.5 animate-in fade-in duration-200">
           <span>Calculated age:</span>
