@@ -827,20 +827,21 @@ export function ReviewPrescriptionPage() {
                             </label>
                           </div>
 
-                          <Input
-                            id={`med-dur-${m.id}`}
-                            value={m.duration_raw || ''}
-                            onChange={(e) => handleUpdateMedicine(m.id, { duration_raw: e.target.value })}
-                            placeholder={m.is_ongoing ? 'Ongoing medication' : 'e.g. 5 days, 1 month, 6 months'}
-                            disabled={m.is_ongoing}
-                          />
-
-                          {!m.is_ongoing && durResult.kind === 'days' && (
-                            <span className="text-xs text-content-muted font-medium flex items-center gap-1.5">
-                              <span className="w-1.5 h-1.5 rounded-full bg-accent shrink-0 inline-block" />
-                              Calculated duration: <strong className="text-accent font-semibold">{durResult.days} days</strong>
-                            </span>
-                          )}
+                          <div className="relative flex items-center w-full">
+                            <Input
+                              id={`med-dur-${m.id}`}
+                              value={m.duration_raw || ''}
+                              onChange={(e) => handleUpdateMedicine(m.id, { duration_raw: e.target.value })}
+                              placeholder={m.is_ongoing ? 'Ongoing medication' : 'e.g. 5 days, 1 month, 6 months'}
+                              disabled={m.is_ongoing}
+                              className={!m.is_ongoing && durResult.kind === 'days' ? 'pr-20' : ''}
+                            />
+                            {!m.is_ongoing && durResult.kind === 'days' && (
+                              <span className="absolute right-2.5 px-2 py-0.5 rounded-md bg-accent/10 text-accent font-bold text-xs pointer-events-none select-none">
+                                {durResult.days} days
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
 
