@@ -21,8 +21,9 @@ import {
   CopyIcon,
   CheckIcon,
 } from '../../components/ui/icons';
-import { medicinesRepo, visitsRepo, reportsRepo, profilesRepo, sideEffectsRepo } from '../../lib/db';
+import { medicinesRepo, visitsRepo, reportsRepo, profilesRepo, sideEffectsRepo, vitalsRepo } from '../../lib/db';
 import { activeMedicines, type MedicineRecord } from '../../domain/activeMedicines';
+import type { GlucoseReading, BloodPressureReading } from '../../domain/vitals';
 import { todayInAppTz } from '../../lib/time';
 import { DrugInteractionRadar } from '../../components/assistant/DrugInteractionRadar';
 import { DoctorPrepBrief } from '../../components/assistant/DoctorPrepBrief';
@@ -75,23 +76,23 @@ interface Message {
 const DEEP_CLINICAL_PROMPTS = [
   {
     title: 'Check Drug Interactions',
-    prompt: 'Check all my active medicines for potential interactions and food timing conflicts.',
+    prompt: 'Perform a comprehensive interaction and timing analysis on all my active medications.',
     icon: <MedicineIcon size={14} />,
   },
   {
-    title: 'Analyze Lab Trends',
-    prompt: 'Correlate my recent lab report results with my prescribed medicines.',
+    title: 'Review Glucose & Vitals',
+    prompt: 'Analyze my recent blood glucose and blood pressure readings and evaluate how my metrics are trending.',
+    icon: <BarChartIcon size={14} />,
+  },
+  {
+    title: 'Analyze Lab Biomarkers',
+    prompt: 'Correlate my recent lab report results with my prescribed medicines and flag any abnormal findings.',
     icon: <BarChartIcon size={14} />,
   },
   {
     title: 'Doctor Visit Prep Plan',
-    prompt: 'Review advice from my last visit and give me follow-up questions for my next checkup.',
+    prompt: 'Prepare a consultation summary with my recent vitals, medications, and questions for my next doctor checkup.',
     icon: <DoctorIcon size={14} />,
-  },
-  {
-    title: 'Daily Meal & Dose Schedule',
-    prompt: 'Generate an exact daily timetable showing what time to take each medicine relative to food.',
-    icon: <MessageSquareIcon size={14} />,
   },
 ];
 
@@ -120,7 +121,7 @@ export function AssistantPage() {
       {
         id: 'welcome',
         role: 'assistant',
-        content: 'Welcome to your Clinical Health Assistant. I am specialized in managing your active prescriptions, dosage timings, and lab results. Ask health questions, check drug interactions, or upload prescription photos.',
+        content: 'Welcome to Shifa — your Clinical Health Co-Pilot. I am grounded directly in your active prescriptions, glucose & vitals logs, and lab results. Ask health questions, check drug interactions, or upload prescription slips.',
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       },
     ];
@@ -150,6 +151,8 @@ export function AssistantPage() {
   const [reports, setReports] = useState<Tables<'reports'>[]>([]);
   const [resultsMap, setResultsMap] = useState<Record<string, Tables<'report_results'>[]>>({});
   const [sideEffects, setSideEffects] = useState<Tables<'side_effects'>[]>([]);
+  const [glucoseLogs, setGlucoseLogs] = useState<GlucoseReading[]>([]);
+  const [bpLogs, setBpLogs] = useState<BloodPressureReading[]>([]);
 
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -162,18 +165,22 @@ export function AssistantPage() {
   const loadData = useCallback(async () => {
     if (!effectiveUserId) return;
     try {
-      const [p, mList, vList, rList, sList] = await Promise.all([
+      const [p, mList, vList, rList, sList, gList, bpList] = await Promise.all([
         profilesRepo.getDefaultProfile(effectiveUserId),
         medicinesRepo.listMedicines(effectiveProfileId),
         visitsRepo.listVisits(effectiveProfileId),
         reportsRepo.listReports(effectiveProfileId),
         sideEffectsRepo.listSideEffects(effectiveProfileId),
+        vitalsRepo.listGlucoseReadings(effectiveProfileId),
+        vitalsRepo.listBloodPressureReadings(effectiveProfileId),
       ]);
       setProfile(p);
       setMedicines(mList);
       setVisits(vList);
       setReports(rList);
       setSideEffects(sList);
+      setGlucoseLogs(gList);
+      setBpLogs(bpList);
 
       const map: Record<string, Tables<'report_results'>[]> = {};
       await Promise.all(
@@ -449,6 +456,21 @@ export function AssistantPage() {
           doctor_advice: v.doctor_advice,
         })),
         recentReports: reportsWithResults,
+        glucoseLogs: glucoseLogs.map((g) => ({
+          measured_at: g.measured_at,
+          value_mg_dl: g.value_mg_dl,
+          type: g.type,
+          notes: g.notes || null,
+        })),
+        bloodPressureLogs: bpLogs.map((b) => ({
+          measured_at: b.measured_at,
+          systolic: b.systolic,
+          diastolic: b.diastolic,
+          pulse_bpm: b.pulse_bpm ?? null,
+          arm: b.arm ?? null,
+          posture: b.posture ?? null,
+          notes: b.notes || null,
+        })),
         sideEffectsHistory: sideEffects.map((s) => ({
           medicine_name: s.medicine_name,
           note: s.note,
@@ -554,7 +576,7 @@ export function AssistantPage() {
             {/* Left: Title & Record Badge */}
             <div className="flex items-center gap-2 sm:gap-3">
               <span className="font-bold text-sm sm:text-base text-content">
-                Health Assistant
+                Shifa AI
               </span>
               <button
                 type="button"
@@ -567,7 +589,7 @@ export function AssistantPage() {
                 title="Click to view active health context"
               >
                 <FolderIcon size={13} />
-                <span>{activeMedsList.length} Active Med{activeMedsList.length === 1 ? '' : 's'}</span>
+                <span>{activeMedsList.length} Meds • {glucoseLogs.length} Glucose Logs</span>
               </button>
             </div>
 
@@ -632,7 +654,7 @@ export function AssistantPage() {
           <div className="shrink-0 p-4 sm:p-5 bg-surface-raised border-b border-line shadow-card animate-in fade-in slide-in-from-top-2 duration-150 px-4 sm:px-6">
             <div className="max-w-5xl mx-auto space-y-2.5">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-content">Patient Record Grounding</span>
+                <span className="text-xs font-bold text-content">Patient Record Grounding (RAG Active)</span>
                 <button
                   type="button"
                   onClick={() => setShowContextDrawer(false)}
@@ -642,7 +664,7 @@ export function AssistantPage() {
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 text-xs">
                 <div className="p-2.5 bg-surface-sunken rounded-xl border border-line">
                   <span className="text-content-subtle font-semibold block text-2xs mb-1">
                     Active Medications ({activeMedsList.length})
@@ -657,6 +679,24 @@ export function AssistantPage() {
                         </Badge>
                       ))}
                     </div>
+                  )}
+                </div>
+
+                <div className="p-2.5 bg-surface-sunken rounded-xl border border-line">
+                  <span className="text-content-subtle font-semibold block text-2xs mb-1">
+                    Vitals & Glucose Logs
+                  </span>
+                  {glucoseLogs.length > 0 && glucoseLogs[0] ? (
+                    <p className="text-content font-bold text-2xs">
+                      Latest Glucose: {glucoseLogs[0].value_mg_dl} mg/dL ({glucoseLogs[0].type})
+                    </p>
+                  ) : (
+                    <p className="text-content-subtle italic text-2xs">No glucose logs recorded.</p>
+                  )}
+                  {bpLogs.length > 0 && bpLogs[0] && (
+                    <p className="text-content-muted text-2xs mt-0.5 font-medium">
+                      Latest BP: {bpLogs[0].systolic}/{bpLogs[0].diastolic} mmHg
+                    </p>
                   )}
                 </div>
 
@@ -718,7 +758,7 @@ export function AssistantPage() {
                                 <SparklesIcon size={14} />
                               </div>
                               <div className="flex items-center gap-1.5">
-                                <span className="font-bold text-xs sm:text-sm text-content">Medfolio AI</span>
+                                <span className="font-bold text-xs sm:text-sm text-content">Shifa AI</span>
                                 <span className="px-1.5 py-0.5 rounded-md bg-accent/10 text-accent font-bold text-[10px] uppercase tracking-wider">
                                   Clinical Copilot
                                 </span>
@@ -1033,9 +1073,9 @@ export function AssistantPage() {
                         <SparklesIcon size={14} />
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <span className="font-bold text-xs sm:text-sm text-content">Medfolio AI</span>
+                        <span className="font-bold text-xs sm:text-sm text-content">Shifa AI</span>
                         <span className="px-1.5 py-0.5 rounded-md bg-accent/10 text-accent font-bold text-[10px] uppercase tracking-wider">
-                          Analyzing Records
+                          Analyzing Records (RAG Mesh)
                         </span>
                       </div>
                     </div>

@@ -9,7 +9,6 @@ import {
   ReceiptIcon,
   LinkIcon,
   QuestionIcon,
-  FileTextIcon,
   TargetIcon,
   StethoscopeIcon,
   BarChartIcon,
@@ -21,11 +20,11 @@ import {
   WifiIcon,
   FlameIcon,
   TrophyIcon,
-  AlertTriangleIcon,
   HeartPulseIcon,
   UserIcon,
   SparklesIcon,
   CheckIcon,
+  DoctorIcon,
 } from '../../components/ui/icons';
 
 /* ─── Intersection Observer Hook ─── */
@@ -401,47 +400,44 @@ export function LandingPage() {
       </Section>
 
       {/* ═══════════════════════════════════════
-           SECTION 3 — AI ASSISTANT SPOTLIGHT
+           SECTION 3 — SHIFA AI CO-PILOT SPOTLIGHT
          ═══════════════════════════════════════ */}
       <Section id="assistant" dark>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-teal-400 mb-4">
-              Reads Handwritten Prescriptions
-            </p>
-            <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight leading-tight">
-              Your personal health<br />
-              <span className="bg-linear-to-r from-teal-400 to-emerald-400 bg-clip-text text-transparent">
-                intelligence assistant
-              </span>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
+          <div className="lg:col-span-6">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-teal-500/10 border border-teal-500/30 text-teal-300 text-xs font-black uppercase tracking-[0.2em] mb-4">
+              <SparklesIcon className="w-3.5 h-3.5 text-teal-400" />
+              Powered by Multi-Source Clinical RAG
+            </div>
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight leading-tight">
+              Meet <span className="bg-linear-to-r from-teal-400 via-cyan-300 to-emerald-400 bg-clip-text text-transparent">Shifa AI</span>
+              <br />Your Clinical Health Co-Pilot
             </h2>
-            <p className="text-base text-ink-400 mt-6 leading-relaxed">
-              Ask questions about your medications, lab results, or dosage instructions. The assistant
-              cross-references your actual clinical records to deliver grounded,
-              evidence-aware explanations — never generic hallucinations.
+            <p className="text-base text-ink-300 mt-6 leading-relaxed">
+              Shifa is grounded directly in your personal health record data mesh — uniting daily blood glucose logs, blood pressure vitals, lab biomarker trends, active prescriptions, and doctor notes into one clinical reasoning engine.
             </p>
 
             <div className="mt-8 space-y-4">
               {[
                 {
-                  icon: <MedicineIcon className="w-5 h-5 text-teal-400" />,
-                  title: 'Drug Interaction Radar',
-                  desc: 'Flags potential combinations in active prescriptions for your doctor to review',
+                  icon: <BarChartIcon className="w-5 h-5 text-teal-400" />,
+                  title: 'Daily Glucose & Vitals Mesh',
+                  desc: 'Correlates home glucose logs and blood pressure with your prescribed antidiabetics and recent HbA1c tests',
+                },
+                {
+                  icon: <MedicineIcon className="w-5 h-5 text-emerald-400" />,
+                  title: 'Drug Interaction & Safety Sentinel',
+                  desc: 'Cross-references active prescriptions with BNF & FDA pharmacopeia to prevent duplicate generics and adverse combinations',
                 },
                 {
                   icon: <LabFlaskIcon className="w-5 h-5 text-blue-400" />,
-                  title: 'Biomarker Trend Analysis',
-                  desc: 'Identifies velocity changes and evaluates against clinical reference intervals',
+                  title: 'Biomarker Velocity & Trajectory',
+                  desc: 'Evaluates biomarker deltas and flags out-of-range shifts against standard clinical reference intervals',
                 },
                 {
-                  icon: <QuestionIcon className="w-5 h-5 text-amber-400" />,
-                  title: 'Smart Doctor Questions',
-                  desc: 'Generates targeted clinical questions for your next consultation',
-                },
-                {
-                  icon: <FileTextIcon className="w-5 h-5 text-purple-400" />,
-                  title: 'Second-Opinion Dossier',
-                  desc: 'Creates anonymized clinical packages with one click for specialist review',
+                  icon: <DoctorIcon className="w-5 h-5 text-purple-400" />,
+                  title: '1-Click Doctor Consultation Brief',
+                  desc: 'Synthesizes your recent vitals, active regimens, and high-yield questions before every clinic visit',
                 },
               ].map((item, i) => (
                 <div key={i} className="flex items-start gap-4 group">
@@ -456,74 +452,111 @@ export function LandingPage() {
               ))}
             </div>
 
-            <Link
-              to="/signup"
-              className="inline-flex items-center gap-2 mt-10 px-6 py-3 text-sm font-bold text-teal-950 bg-linear-to-r from-teal-400 to-emerald-400 rounded-xl hover:from-teal-300 hover:to-emerald-300 transition-all shadow-lg"
-            >
-              Explore Clinical Assistant
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-              </svg>
-            </Link>
+            <div className="mt-10 flex flex-wrap items-center gap-4">
+              <Link
+                to="/signup"
+                className="inline-flex items-center gap-2 px-6 py-3 text-sm font-bold text-teal-950 bg-linear-to-r from-teal-400 to-emerald-400 rounded-xl hover:from-teal-300 hover:to-emerald-300 transition-all shadow-lg active:scale-[0.98]"
+              >
+                Experience Shifa AI
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
+              </Link>
+              <div className="flex items-center gap-2 text-xs font-semibold text-ink-400">
+                <ShieldIcon className="w-4 h-4 text-teal-400" />
+                <span>Zero Hallucinations • Record Grounded</span>
+              </div>
+            </div>
           </div>
 
-          {/* Mock Chat Interface */}
-          <div className="relative">
-            <div className="bg-ink-800 rounded-3xl border border-ink-700/50 shadow-2xl overflow-hidden">
-              <div className="px-5 py-3 border-b border-ink-700/50 flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-linear-to-br from-teal-500 to-emerald-500 flex items-center justify-center">
-                  <span className="text-white text-xs font-black">M</span>
+          {/* Interactive RAG Showcase Card */}
+          <div className="lg:col-span-6 relative">
+            <div className="bg-ink-900/90 backdrop-blur-xl rounded-3xl border border-ink-700/70 shadow-2xl overflow-hidden">
+              {/* Card Header */}
+              <div className="px-5 py-3.5 border-b border-ink-800 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-linear-to-br from-teal-500 to-emerald-500 flex items-center justify-center shadow-xs">
+                    <SparklesIcon className="w-4 h-4 text-white" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs font-bold text-white">Shifa AI</p>
+                      <span className="px-1.5 py-0.5 rounded-md bg-teal-500/20 border border-teal-500/30 text-teal-300 font-bold text-[9px] uppercase tracking-wider">
+                        RAG Data Mesh
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-teal-400">Grounded in 4 verified clinical sources</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs font-bold text-white">Medfolio Clinical Assistant</p>
-                  <p className="text-[10px] text-teal-400">Cross-referencing verified records...</p>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="text-[10px] font-bold text-ink-300">Live</span>
                 </div>
               </div>
 
-              <div className="p-5 space-y-4 min-h-[380px]">
+              {/* Chat Stream Preview */}
+              <div className="p-5 space-y-4 min-h-[380px] bg-ink-950/50">
                 {/* User Message */}
                 <div className="flex justify-end">
-                  <div className="bg-teal-700 rounded-2xl rounded-br-sm px-4 py-2.5 max-w-[280px]">
-                    <p className="text-xs text-teal-50 leading-relaxed">
-                      Can I take my Metformin with the new antibiotic my doctor prescribed?
+                  <div className="bg-teal-700 rounded-2xl rounded-br-sm px-4 py-2.5 max-w-[320px] shadow-sm">
+                    <p className="text-xs text-teal-50 leading-relaxed font-medium">
+                      What is my recent glucose reading and how does it correlate with my Metformin?
                     </p>
                   </div>
                 </div>
 
-                {/* Assistant Response */}
+                {/* Shifa AI Grounded Response */}
                 <div className="flex justify-start">
-                  <div className="bg-ink-700/60 rounded-2xl rounded-bl-sm px-4 py-3 max-w-[320px] border border-ink-600/30">
+                  <div className="bg-ink-800/90 rounded-2xl rounded-bl-sm p-4 max-w-[400px] border border-ink-700 space-y-3">
                     <p className="text-xs text-ink-200 leading-relaxed">
-                      Based on your active prescriptions, you are taking{' '}
-                      <span className="font-bold text-teal-400">Metformin 500mg BD</span> and newly added{' '}
-                      <span className="font-bold text-amber-400">Augmentin 625mg TDS</span>.
+                      Your latest recorded fasting blood glucose was <span className="font-bold text-teal-300">108 mg/dL (6.0 mmol/L)</span> on Aug 28, which falls within the <span className="text-emerald-400 font-bold">Impaired / Near Target</span> range (ADA fasting goal: 70–99 mg/dL).
                     </p>
-                    <div className="mt-3 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-start gap-2">
-                      <AlertTriangleIcon className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                      <div>
-                        <p className="text-[11px] font-bold text-amber-400">Moderate Interaction Note</p>
-                        <p className="text-[10px] text-ink-300 mt-0.5 leading-relaxed">
-                          Amoxicillin-Clavulanate may slightly alter glucose readings. Monitor blood sugar closely during the course and inform your physician if levels spike.
-                        </p>
+
+                    {/* Integrated Clinical Trajectory Callout */}
+                    <div className="p-2.5 rounded-xl bg-teal-500/10 border border-teal-500/25 space-y-1.5">
+                      <div className="flex items-center justify-between text-[11px] font-bold text-teal-300">
+                        <span className="flex items-center gap-1.5">
+                          <BarChartIcon className="w-3.5 h-3.5 text-teal-400" />
+                          Regimen Correlation
+                        </span>
+                        <span className="text-emerald-400">Stable Glycemic Trend</span>
                       </div>
+                      <p className="text-[10px] text-ink-300 leading-relaxed">
+                        Coupled with your active <span className="text-white font-semibold">Metformin 500mg BD</span> and recent <span className="text-white font-semibold">HbA1c of 6.1%</span>, your fasting baseline has improved by 14 mg/dL over the past 30 days.
+                      </p>
                     </div>
-                    <p className="text-[10px] text-ink-500 mt-2">
-                      Source: Grounded in your 3 active prescriptions • Assistive only, consult physician
-                    </p>
+
+                    {/* Citations / Grounding Pills */}
+                    <div className="pt-1 border-t border-ink-700/60 flex flex-wrap gap-1.5">
+                      <span className="px-2 py-0.5 rounded-md bg-ink-900 border border-ink-700 text-[10px] text-teal-400 font-medium">
+                        🩸 Vitals: Glucose (108 mg/dL)
+                      </span>
+                      <span className="px-2 py-0.5 rounded-md bg-ink-900 border border-ink-700 text-[10px] text-emerald-400 font-medium">
+                        💊 Prescription: Metformin 500mg
+                      </span>
+                      <span className="px-2 py-0.5 rounded-md bg-ink-900 border border-ink-700 text-[10px] text-blue-400 font-medium">
+                        🔬 Lab: HbA1c 6.1% (Aug 20)
+                      </span>
+                    </div>
                   </div>
                 </div>
 
-                {/* Typing Indicator */}
-                <div className="flex items-center gap-1.5 px-3">
-                  <div className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-bounce [animation-delay:0ms]" />
-                  <div className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-bounce [animation-delay:200ms]" />
-                  <div className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-bounce [animation-delay:400ms]" />
+                {/* Follow-up Chips Preview */}
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  <span className="px-2.5 py-1 rounded-lg bg-ink-800 border border-ink-700 text-[10px] font-medium text-ink-300 flex items-center gap-1">
+                    <SparklesIcon className="w-3 h-3 text-teal-400" />
+                    Should I take Metformin before or after breakfast?
+                  </span>
+                  <span className="px-2.5 py-1 rounded-lg bg-ink-800 border border-ink-700 text-[10px] font-medium text-ink-300 flex items-center gap-1">
+                    <SparklesIcon className="w-3 h-3 text-teal-400" />
+                    Generate doctor visit summary
+                  </span>
                 </div>
               </div>
             </div>
 
-            {/* Glow Effect */}
-            <div className="absolute -inset-4 bg-linear-to-br from-teal-500/10 to-emerald-500/5 rounded-[2rem] blur-2xl -z-10" />
+            {/* Ambient Background Glow */}
+            <div className="absolute -inset-4 bg-linear-to-br from-teal-500/15 via-cyan-500/10 to-emerald-500/10 rounded-[2.5rem] blur-2xl -z-10" />
           </div>
         </div>
       </Section>

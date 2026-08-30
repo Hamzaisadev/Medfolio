@@ -14,6 +14,7 @@ import {
   HospitalIcon,
   SparklesIcon,
   ClockIcon,
+  ReceiptIcon,
 } from '../ui/icons';
 import { sideEffectsRepo, testOrdersRepo, visitsRepo, medicinesRepo } from '../../lib/db';
 import { todayInAppTz, addDaysAppTz } from '../../lib/time';
@@ -31,7 +32,8 @@ export interface ClinicalActionCall {
     | 'generic_substitution'
     | 'pre_op_cessation'
     | 'pregnancy_lactation'
-    | 'travel_timezone';
+    | 'travel_timezone'
+    | 'log_expense';
   title?: string;
   data: {
     symptom?: string;
@@ -53,7 +55,15 @@ export interface ClinicalActionCall {
     safe_alternative?: string;
     emergency_title?: string;
     emergency_reasons?: string[];
-    // New tools data
+    // Receipt & Expense tool data
+    expense_title?: string;
+    expense_category?: 'doctor' | 'medicine' | 'lab' | 'other';
+    expense_amount?: number;
+    expense_currency?: string;
+    expense_date?: string;
+    pharmacy_name?: string;
+    receipt_items?: Array<{ name: string; price?: number; quantity?: number }>;
+    // Catchup / Caregiver / Travel
     missed_time?: string;
     catchup_instructions?: string;
     do_not_double?: boolean;
@@ -605,50 +615,183 @@ export function ClinicalActionCards({ action, profileId, onExecuted }: ClinicalA
     );
   }
 
-  // 11. Tool: Emergency Triage Card
+  // 11. Tool: Emergency Triage Card (Geo-Aware)
   if (action.type === 'emergency_triage') {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+    let emergencyContacts = [
+      { label: 'Rescue 1122', tel: '1122', icon: <EmergencyAmbulanceIcon size={18} /> },
+      { label: 'Edhi 115', tel: '115', icon: <HospitalIcon size={18} /> },
+      { label: 'Chhipa 1020', tel: '1020', icon: <EmergencyAmbulanceIcon size={18} /> },
+    ];
+
+    if (tz.includes('America') || tz.includes('New_York') || tz.includes('Los_Angeles') || tz.includes('Chicago')) {
+      emergencyContacts = [
+        { label: 'Emergency 911', tel: '911', icon: <EmergencyAmbulanceIcon size={18} /> },
+        { label: 'Poison Control', tel: '18002221222', icon: <HospitalIcon size={18} /> },
+        { label: 'Crisis 988', tel: '988', icon: <HospitalIcon size={18} /> },
+      ];
+    } else if (tz.includes('London') || tz.includes('Europe/London')) {
+      emergencyContacts = [
+        { label: 'Emergency 999', tel: '999', icon: <EmergencyAmbulanceIcon size={18} /> },
+        { label: 'NHS 111', tel: '111', icon: <HospitalIcon size={18} /> },
+        { label: 'Emergency 112', tel: '112', icon: <EmergencyAmbulanceIcon size={18} /> },
+      ];
+    } else if (tz.includes('India') || tz.includes('Kolkata')) {
+      emergencyContacts = [
+        { label: 'Emergency 112', tel: '112', icon: <EmergencyAmbulanceIcon size={18} /> },
+        { label: 'Ambulance 102', tel: '102', icon: <EmergencyAmbulanceIcon size={18} /> },
+        { label: 'Disaster 108', tel: '108', icon: <HospitalIcon size={18} /> },
+      ];
+    } else if (tz.includes('Riyadh') || tz.includes('Dubai') || tz.includes('Qatar') || tz.includes('Asia/Kuwait')) {
+      emergencyContacts = [
+        { label: 'Ambulance 997', tel: '997', icon: <EmergencyAmbulanceIcon size={18} /> },
+        { label: 'Police 999', tel: '999', icon: <EmergencyAmbulanceIcon size={18} /> },
+        { label: 'Civil Defense 998', tel: '998', icon: <HospitalIcon size={18} /> },
+      ];
+    }
+
     return (
-      <div className="my-3 p-4 bg-red-900 text-white rounded-2xl shadow-lg space-y-3">
+      <div className="my-3 p-4 bg-risk-bg border border-risk-border text-risk-text rounded-2xl shadow-lg space-y-3">
         <div className="flex items-center gap-2">
-          <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-risk-text/15 flex items-center justify-center shrink-0">
             <EmergencyAmbulanceIcon size={24} />
           </div>
           <div>
-            <h4 className="font-black text-sm text-red-100">EMERGENCY CLINICAL RED FLAG DETECTED</h4>
-            <p className="text-xs text-red-200">Immediate emergency evaluation required. Do not delay.</p>
+            <h4 className="font-black text-sm text-risk-text">EMERGENCY CLINICAL RED FLAG DETECTED</h4>
+            <p className="text-xs text-risk-text/80">Immediate emergency medical evaluation required. Do not delay.</p>
           </div>
         </div>
 
         {action.data.emergency_reasons && (
-          <ul className="list-disc list-inside text-xs text-red-100 space-y-0.5">
+          <ul className="list-disc list-inside text-xs text-risk-text/90 space-y-0.5">
             {action.data.emergency_reasons.map((r, rIdx) => (
               <li key={rIdx}>{r}</li>
             ))}
           </ul>
         )}
 
-        <div className="pt-2 border-t border-red-700/80 grid grid-cols-3 gap-2">
-          <a
-            href="tel:1122"
-            className="p-2 rounded-xl bg-red-800 hover:bg-red-700 text-center font-bold text-xs text-white border border-red-500 transition-all flex flex-col items-center gap-1"
+        <div className="pt-2 border-t border-risk-border grid grid-cols-3 gap-2">
+          {emergencyContacts.map((c, cIdx) => (
+            <a
+              key={cIdx}
+              href={`tel:${c.tel}`}
+              className="p-2.5 rounded-xl bg-surface-raised hover:bg-surface-hover text-center font-bold text-xs text-risk-text border border-risk-border transition-all flex flex-col items-center gap-1 shadow-2xs"
+            >
+              {c.icon}
+              <span>{c.label}</span>
+            </a>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // 12. Tool: Receipt & Pharmacy Expense OCR Card
+  if (action.type === 'log_expense') {
+    const title = action.data.expense_title || `${action.data.pharmacy_name || 'Pharmacy'} Medicine Bill`;
+    const amount = action.data.expense_amount || 0;
+    const category = action.data.expense_category || 'medicine';
+    const date = action.data.expense_date || todayInAppTz();
+    const currency = action.data.expense_currency || 'Rs.';
+    const pharmacy = action.data.pharmacy_name;
+    const items = action.data.receipt_items || [];
+
+    const handleSaveExpense = () => {
+      setIsExecuting(true);
+      try {
+        const newExpense = {
+          id: `receipt-${Date.now()}`,
+          title,
+          amount,
+          category,
+          date,
+          currency,
+          note: pharmacy ? `Scanned bill from ${pharmacy}` : undefined,
+        };
+
+        const existing = localStorage.getItem('medfolio_health_expenses_v1');
+        const list = existing ? JSON.parse(existing) : [];
+        list.unshift(newExpense);
+        localStorage.setItem('medfolio_health_expenses_v1', JSON.stringify(list));
+
+        setIsDone(true);
+        setToastMsg(`Saved ${currency} ${amount.toLocaleString()} to Medical Expense Tracker!`);
+        if (onExecuted) onExecuted(`Expense of ${currency} ${amount.toLocaleString()} logged to Medical Expenses.`);
+      } catch (err) {
+        console.error('Failed to save expense:', err);
+      } finally {
+        setIsExecuting(false);
+      }
+    };
+
+    return (
+      <div className="my-3 p-4 bg-surface-raised border border-line-strong rounded-2xl shadow-card space-y-3">
+        <Toast
+          open={Boolean(toastMsg)}
+          onClose={() => setToastMsg(null)}
+          message={toastMsg || ''}
+          tone="ok"
+        />
+
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-accent/10 flex items-center justify-center text-accent shrink-0">
+              <ReceiptIcon size={16} />
+            </div>
+            <div>
+              <span className="font-bold text-xs sm:text-sm text-content block">
+                Pharmacy Receipt & Expense OCR
+              </span>
+              <span className="text-2xs text-content-muted">
+                {pharmacy ? `${pharmacy} • ${date}` : date}
+              </span>
+            </div>
+          </div>
+          <Badge tone={isDone ? 'ok' : 'accent'} size="sm">
+            {currency} {amount.toLocaleString()}
+          </Badge>
+        </div>
+
+        {items.length > 0 && (
+          <div className="p-2.5 rounded-xl bg-surface-sunken border border-line text-xs space-y-1">
+            <span className="text-2xs font-bold text-content-muted uppercase tracking-wider block">
+              Extracted Items ({items.length})
+            </span>
+            <div className="divide-y divide-line">
+              {items.map((it, idx) => (
+                <div key={idx} className="py-1 flex items-center justify-between text-2xs">
+                  <span className="font-medium text-content">
+                    {it.name} {it.quantity && it.quantity > 1 ? `× ${it.quantity}` : ''}
+                  </span>
+                  {it.price ? (
+                    <span className="font-bold text-content-muted">
+                      {currency} {it.price.toLocaleString()}
+                    </span>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="pt-2 border-t border-line flex items-center justify-between text-xs">
+          <Link
+            to="/finance"
+            className="text-2xs font-bold text-accent hover:underline flex items-center gap-1"
           >
-            <EmergencyAmbulanceIcon size={18} />
-            <span>Rescue 1122</span>
-          </a>
-          <a
-            href="tel:115"
-            className="p-2 rounded-xl bg-red-800 hover:bg-red-700 text-center font-bold text-xs text-white border border-red-500 transition-all flex flex-col items-center gap-1"
+            View Expense Tracker &rarr;
+          </Link>
+          <Button
+            variant={isDone ? 'outline' : 'primary'}
+            size="sm"
+            loading={isExecuting}
+            onClick={handleSaveExpense}
+            disabled={isDone}
+            className="text-xs font-bold shadow-xs"
+            leftIcon={isDone ? <CheckIcon size={14} className="text-ok-text" /> : <ReceiptIcon size={14} />}
           >
-            <HospitalIcon size={18} />
-            <span>Edhi 115</span>
-          </a>
-          <a
-            href="tel:1020"
-            className="p-2 rounded-xl bg-red-800 hover:bg-red-700 text-center font-bold text-xs text-white border border-red-500 transition-all flex flex-col items-center gap-1"
-          >
-            <EmergencyAmbulanceIcon size={18} />
-            <span>Chhipa 1020</span>
-          </a>
+            {isDone ? 'Logged in Expenses' : `Add ${currency} ${amount.toLocaleString()} to Tracker`}
+          </Button>
         </div>
       </div>
     );

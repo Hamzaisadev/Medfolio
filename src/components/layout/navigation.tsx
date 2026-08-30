@@ -35,7 +35,7 @@ export const PRIMARY_NAV: NavItem[] = [
   { label: 'Home', path: '/', icon: (s) => <HomeIcon size={s} /> },
   { label: 'Schedule', path: '/medicines', icon: (s) => <MedicineIcon size={s} /> },
   { label: 'Timeline', path: '/timeline', icon: (s) => <StethoscopeIcon size={s} /> },
-  { label: 'Assistant', path: '/assistant', icon: (s) => <SparklesIcon size={s} /> },
+  { label: 'Shifa AI', path: '/assistant', icon: (s) => <SparklesIcon size={s} /> },
 ];
 
 export const SECONDARY_NAV: NavItem[] = [

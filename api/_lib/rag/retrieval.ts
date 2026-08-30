@@ -21,7 +21,7 @@ export interface RagRetrievalResult {
   citations: RetrievedCitation[];
   sentinelAlerts: SentinelAlert[];
   biomarkerTrajectories: BiomarkerTrajectoryItem[];
-  queryIntent: 'interaction_check' | 'lab_interpretation' | 'dosing_timing' | 'pregnancy_lactation' | 'pre_op' | 'overdose_sentinel' | 'general_clinical';
+  queryIntent: 'interaction_check' | 'lab_interpretation' | 'vitals_interpretation' | 'dosing_timing' | 'pregnancy_lactation' | 'pre_op' | 'overdose_sentinel' | 'general_clinical';
   resolvedContextQuery: string;
 }
 
@@ -57,6 +57,21 @@ export interface PatientContextInput {
       reference_range?: string | null;
       range_status?: string | null;
     }>;
+  }>;
+  glucoseLogs?: Array<{
+    measured_at: string;
+    value_mg_dl: number;
+    type?: string | null;
+    notes?: string | null;
+  }>;
+  bloodPressureLogs?: Array<{
+    measured_at: string;
+    systolic: number;
+    diastolic: number;
+    pulse_bpm?: number | null;
+    arm?: string | null;
+    posture?: string | null;
+    notes?: string | null;
   }>;
   sideEffectsHistory?: Array<{
     medicine_name?: string | null;
@@ -174,6 +189,21 @@ export function executeClinicalRag(
   if (sentinelAlerts.length > 0) {
     queryIntent = 'overdose_sentinel';
   } else if (
+    qLower.includes('glucose') ||
+    qLower.includes('sugar') ||
+    qLower.includes('fasting') ||
+    qLower.includes('postprandial') ||
+    qLower.includes('ppbs') ||
+    qLower.includes('rbs') ||
+    qLower.includes('diabetes') ||
+    qLower.includes('blood pressure') ||
+    qLower.includes('bp reading') ||
+    qLower.includes('systolic') ||
+    qLower.includes('diastolic') ||
+    qLower.includes('vital')
+  ) {
+    queryIntent = 'vitals_interpretation';
+  } else if (
     qLower.includes('interact') ||
     qLower.includes('safe to take') ||
     qLower.includes('together') ||
@@ -185,7 +215,6 @@ export function executeClinicalRag(
     qLower.includes('test') ||
     qLower.includes('report') ||
     qLower.includes('hba1c') ||
-    qLower.includes('sugar') ||
     qLower.includes('cholesterol') ||
     qLower.includes('creatinine') ||
     qLower.includes('sgpt') ||
@@ -278,7 +307,8 @@ export function executeClinicalRag(
     const isRelevantBio =
       qLower.includes(bio.name.toLowerCase()) ||
       bio.aliases.some((alias) => qLower.includes(alias.toLowerCase())) ||
-      queryIntent === 'lab_interpretation';
+      queryIntent === 'lab_interpretation' ||
+      queryIntent === 'vitals_interpretation';
 
     if (isRelevantBio) {
       retrievedClinicalRules.push(
@@ -293,6 +323,7 @@ export function executeClinicalRag(
   });
 
   // 6. Retrieve Grounded Patient Records Evidence
+  // A. Active Prescriptions
   if (patientContext?.activeMedicines && patientContext.activeMedicines.length > 0) {
     patientContext.activeMedicines.forEach((m) => {
       retrievedPatientEvidence.push(
@@ -306,6 +337,83 @@ export function executeClinicalRag(
     });
   }
 
+  // B. Blood Glucose Logs (Vitals)
+  if (patientContext?.glucoseLogs && patientContext.glucoseLogs.length > 0) {
+    const sortedGlucose = [...patientContext.glucoseLogs].sort(
+      (a, b) => new Date(b.measured_at).getTime() - new Date(a.measured_at).getTime()
+    );
+
+    sortedGlucose.forEach((g, idx) => {
+      let evalStatus = 'In Target';
+      const val = g.value_mg_dl;
+      const type = g.type || 'random';
+
+      if (val < 70) {
+        evalStatus = 'Low (Hypoglycemia Risk)';
+      } else if (type === 'fasting') {
+        if (val >= 126) evalStatus = 'Elevated (Diabetic threshold >=126)';
+        else if (val >= 100) evalStatus = 'Impaired Fasting Glucose (100-125)';
+        else evalStatus = 'Normal Fasting (70-99)';
+      } else if (type === 'postprandial') {
+        if (val >= 200) evalStatus = 'Elevated (Diabetic threshold >=200)';
+        else if (val >= 140) evalStatus = 'Impaired Glucose Tolerance (140-199)';
+        else evalStatus = 'Normal Post-Meal (<140)';
+      } else {
+        if (val >= 200) evalStatus = 'Elevated (>=200)';
+        else evalStatus = 'Normal (70-140)';
+      }
+
+      const dateStr = g.measured_at.includes('T') ? g.measured_at.split('T')[0] : g.measured_at;
+      const mmol = (val / 18.0182).toFixed(1);
+
+      retrievedPatientEvidence.push(
+        `[Patient Glucose Log (${dateStr}${idx === 0 ? ' - MOST RECENT' : ''})] Type: ${type.toUpperCase()}, Value: ${val} mg/dL (${mmol} mmol/L), Status: ${evalStatus}${g.notes ? `, Note: "${g.notes}"` : ''}`
+      );
+
+      if (idx < 4) {
+        citations.push({
+          source: `Vitals: Glucose ${dateStr} (${type})`,
+          type: 'patient_lab_result',
+          detail: `${val} mg/dL (${mmol} mmol/L) - ${evalStatus}`,
+        });
+      }
+    });
+  }
+
+  // C. Blood Pressure Logs (Vitals)
+  if (patientContext?.bloodPressureLogs && patientContext.bloodPressureLogs.length > 0) {
+    const sortedBp = [...patientContext.bloodPressureLogs].sort(
+      (a, b) => new Date(b.measured_at).getTime() - new Date(a.measured_at).getTime()
+    );
+
+    sortedBp.forEach((bp, idx) => {
+      let bpStatus = 'Normal (<120/80)';
+      const s = bp.systolic;
+      const d = bp.diastolic;
+
+      if (s > 180 || d > 120) bpStatus = 'Hypertensive Crisis (>180/>120)';
+      else if (s >= 140 || d >= 90) bpStatus = 'Stage 2 Hypertension (>=140/>=90)';
+      else if (s >= 130 || d >= 80) bpStatus = 'Stage 1 Hypertension (130-139/80-89)';
+      else if (s >= 120 && d < 80) bpStatus = 'Elevated Systolic (120-129/<80)';
+      else if (s < 90 || d < 60) bpStatus = 'Low / Hypotension (<90/60)';
+
+      const dateStr = bp.measured_at.includes('T') ? bp.measured_at.split('T')[0] : bp.measured_at;
+
+      retrievedPatientEvidence.push(
+        `[Patient Blood Pressure Log (${dateStr}${idx === 0 ? ' - MOST RECENT' : ''})] ${s}/${d} mmHg, Pulse: ${bp.pulse_bpm ? `${bp.pulse_bpm} bpm` : 'N/A'}, Status: ${bpStatus}${bp.posture ? `, Posture: ${bp.posture}` : ''}${bp.arm ? `, Arm: ${bp.arm}` : ''}${bp.notes ? `, Note: "${bp.notes}"` : ''}`
+      );
+
+      if (idx < 3) {
+        citations.push({
+          source: `Vitals: BP ${dateStr}`,
+          type: 'patient_lab_result',
+          detail: `${s}/${d} mmHg - ${bpStatus}`,
+        });
+      }
+    });
+  }
+
+  // D. Lab Reports & Diagnostic Panels
   if (patientContext?.recentReports && patientContext.recentReports.length > 0) {
     patientContext.recentReports.forEach((rep) => {
       rep.results.forEach((res) => {
@@ -321,6 +429,7 @@ export function executeClinicalRag(
     });
   }
 
+  // E. Doctor Consultations
   if (patientContext?.recentVisits && patientContext.recentVisits.length > 0) {
     patientContext.recentVisits.forEach((v) => {
       retrievedPatientEvidence.push(
@@ -334,6 +443,7 @@ export function executeClinicalRag(
     });
   }
 
+  // F. Side Effects / Adverse Reactions
   if (patientContext?.sideEffectsHistory && patientContext.sideEffectsHistory.length > 0) {
     patientContext.sideEffectsHistory.forEach((s) => {
       retrievedPatientEvidence.push(
@@ -344,11 +454,11 @@ export function executeClinicalRag(
 
   const uniqueCitations = Array.from(
     new Map(citations.map((c) => [c.source, c])).values()
-  ).slice(0, 6);
+  ).slice(0, 8);
 
   return {
-    retrievedClinicalRules: retrievedClinicalRules.slice(0, 12),
-    retrievedPatientEvidence: retrievedPatientEvidence.slice(0, 14),
+    retrievedClinicalRules: retrievedClinicalRules.slice(0, 15),
+    retrievedPatientEvidence: retrievedPatientEvidence.slice(0, 25),
     citations: uniqueCitations,
     sentinelAlerts,
     biomarkerTrajectories: trajectories,

@@ -58,6 +58,25 @@ const chatRequestSchema = z.object({
         ).optional().default([]),
       })
     ).optional().default([]),
+    glucoseLogs: z.array(
+      z.object({
+        measured_at: z.string(),
+        value_mg_dl: z.number(),
+        type: z.string().optional().nullable(),
+        notes: z.string().optional().nullable(),
+      })
+    ).optional().default([]),
+    bloodPressureLogs: z.array(
+      z.object({
+        measured_at: z.string(),
+        systolic: z.number(),
+        diastolic: z.number(),
+        pulse_bpm: z.number().optional().nullable(),
+        arm: z.string().optional().nullable(),
+        posture: z.string().optional().nullable(),
+        notes: z.string().optional().nullable(),
+      })
+    ).optional().default([]),
     sideEffectsHistory: z.array(
       z.object({
         medicine_name: z.string().optional().nullable(),
@@ -107,17 +126,20 @@ export default async function handler(req: IncomingMessage & { body?: unknown },
     const ragResult = executeClinicalRag(latestQuery, patientContext, previousMessages);
 
     // High-IQ Autonomous Clinical Operating System Prompt with Strict Medfolio Domain Boundaries
-    let systemInstruction = `You are the Medfolio Master Clinical Health Assistant — an advanced medical AI intelligence operating with Hybrid Retrieval-Augmented Generation (RAG) and Safety Sentinel.
+    let systemInstruction = `You are Shifa (Shifa AI) — the Medfolio Master Clinical Health Co-Pilot & Autonomous Medical Intelligence operating with Hybrid Retrieval-Augmented Generation (RAG) and Safety Sentinel.
 
 STRICT DOMAIN BOUNDARY & REFUSAL POLICY:
 1. EXCLUSIVE HEALTHCARE & MEDFOLIO SCOPE:
-   - Your capabilities are STRICTLY AND EXCLUSIVELY limited to medical records, prescriptions, medications, dosage scheduling, lab tests, vital signs, doctor consultations, symptom triage, drug interactions, and healthcare management.
+   - Your capabilities are STRICTLY AND EXCLUSIVELY limited to medical records, prescriptions, medications, dosage scheduling, lab tests, vital signs (glucose, blood pressure), doctor consultations, symptom triage, drug interactions, and healthcare management.
 2. ABSOLUTE REFUSAL OF OUT-OF-SCOPE QUERIES:
    - If the user asks about ANYTHING unrelated to health, medicine, pharmacology, or Medfolio (for example: coding/programming, mathematics, general trivia, politics, recipes, or non-medical advice), POLITELY REFUSE.
    - When refusing an out-of-scope question, set your "summary" to:
-     "I am your Medfolio Clinical Health Assistant, strictly specialized in your medications, lab reports, dosage schedules, and health records. I cannot assist with non-health topics such as programming or general queries. How can I assist you with your health records or medications today?"
+     "I am Shifa, your Medfolio Clinical Health Assistant, strictly specialized in your medications, lab reports, dosage schedules, and health records. I cannot assist with non-health topics such as programming or general queries. How can I assist you with your health records or medications today?"
 3. SAFETY GUARDRAIL (ASSIST — DO NOT DIAGNOSE):
    - Assist, do not diagnose. Make limitations explicit. Never pretend to replace a physician.
+   - For emergency red flags (e.g., severe chest pain, acute shortness of breath, sudden weakness), immediately trigger emergency_triage.
+4. GLUCOSE & VITALS REASONING:
+   - When asked about blood glucose, blood sugar, or blood pressure, ALWAYS reference the exact values from the patient's retrieved records, noting their measurement date, type (fasting vs. postprandial), and target ranges (e.g. ADA Fasting target 70-99 mg/dL; post-meal <140 mg/dL).
    - For emergency red flags (e.g., severe chest pain, acute shortness of breath, sudden weakness), immediately trigger emergency_triage.
 
 CRITICAL INSTRUCTION: You MUST ALWAYS respond in valid, pure JSON without markdown backticks.

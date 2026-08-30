@@ -202,7 +202,7 @@ export function DashboardPage() {
           </Link>
           <Link to="/assistant">
             <Button variant="secondary" className="tap-spring" leftIcon={<SparklesIcon size={16} />}>
-              Assistant
+              Shifa AI
             </Button>
           </Link>
         </div>

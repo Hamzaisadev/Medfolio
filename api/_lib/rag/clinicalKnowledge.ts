@@ -549,11 +549,41 @@ export const BIOMARKER_KNOWLEDGE_CORPUS: BiomarkerMonograph[] = [
     name: 'Fasting Blood Glucose (FBS)',
     aliases: ['Fasting Sugar', 'Fasting Plasma Glucose', 'BSR Fasting'],
     category: 'Metabolic / Glycemic',
-    standardReferenceRange: '70 - 99 mg/dL (Normal), 100 - 125 mg/dL (Impaired), >= 126 mg/dL (Diabetic threshold)',
+    standardReferenceRange: '70 - 99 mg/dL (Normal), 100 - 125 mg/dL (Impaired / Prediabetes), >= 126 mg/dL (Diabetic threshold)',
     unit: 'mg/dL',
     elevatedInterpretation: 'Acute glycemic elevation. Needs clinical correlation with HbA1c and dietary intake.',
     decreasedInterpretation: 'Hypoglycemia (< 70 mg/dL). Symptoms: shakiness, sweating, palpitations. Requires rapid glucose intake (Rule of 15).',
-    drugCorrelates: ['Sulfonylureas (Amaryl)', 'Insulin', 'Metformin']
+    drugCorrelates: ['Sulfonylureas (Amaryl)', 'Insulin', 'Metformin', 'Empagliflozin']
+  },
+  {
+    name: 'Post-Prandial Blood Glucose (PPBS / After Meals)',
+    aliases: ['PPBS', 'Post-Meal Sugar', '2 Hours Post Prandial', 'Postprandial Glucose'],
+    category: 'Metabolic / Glycemic',
+    standardReferenceRange: '< 140 mg/dL (Normal), 140 - 199 mg/dL (Impaired Glucose Tolerance), >= 200 mg/dL (Diabetic threshold)',
+    unit: 'mg/dL',
+    elevatedInterpretation: 'Elevated post-meal blood sugar indicates impaired insulin secretion or severe insulin resistance. Target for diabetics is generally < 180 mg/dL.',
+    decreasedInterpretation: 'Reactive hypoglycemia if < 70 mg/dL after meals.',
+    drugCorrelates: ['Metformin', 'Sitagliptin', 'DPP-4 inhibitors', 'Rapid-acting Insulin', 'Acarbose']
+  },
+  {
+    name: 'Random Blood Sugar (RBS)',
+    aliases: ['RBS', 'Random Glucose', 'Spot Sugar', 'BSR'],
+    category: 'Metabolic / Glycemic',
+    standardReferenceRange: '70 - 140 mg/dL (Normal non-fasting), >= 200 mg/dL with classic symptoms indicates Diabetes',
+    unit: 'mg/dL',
+    elevatedInterpretation: 'Non-fasting hyperglycemia. If >= 200 mg/dL with polydipsia/polyuria, diagnostic of diabetes mellitus.',
+    decreasedInterpretation: 'Hypoglycemia (< 70 mg/dL). Prompt intervention needed.',
+    drugCorrelates: ['Metformin', 'Insulin', 'Glimepiride', 'Gliclazide']
+  },
+  {
+    name: 'Blood Pressure (Systolic & Diastolic)',
+    aliases: ['BP', 'Blood Pressure', 'Hypertension Reading', 'Systolic', 'Diastolic'],
+    category: 'Cardiac',
+    standardReferenceRange: '< 120/80 mmHg (Normal), 120-129/<80 (Elevated), 130-139/80-89 (Stage 1 HTN), >= 140/90 (Stage 2 HTN), > 180/120 (Hypertensive Crisis)',
+    unit: 'mmHg',
+    elevatedInterpretation: 'Hypertension increases risk of stroke, myocardial infarction, heart failure, and renal disease.',
+    decreasedInterpretation: 'Hypotension (< 90/60 mmHg). May cause dizziness, syncope, or orthostatic falls.',
+    drugCorrelates: ['Amlodipine', 'Lisinopril', 'Losartan', 'Bisoprolol', 'Valsartan']
   },
   {
     name: 'Serum Creatinine',

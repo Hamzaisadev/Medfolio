@@ -6,5 +6,6 @@ export * as testOrdersRepo from './testOrders';
 export * as reportsRepo from './reports';
 export * as sideEffectsRepo from './sideEffects';
 export * as remindersRepo from './reminders';
+export * as vitalsRepo from './vitals';
 export * as sharesRepo from './shares';
 export * as extractionAuditRepo from './extractionAudit';
