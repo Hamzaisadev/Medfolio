@@ -287,24 +287,66 @@ const SHIFA_SCENARIOS: ShifaQueryScenario[] = [
   },
 ];
 
+/* Navigation Tab Definitions */
+const NAV_SECTIONS = [
+  { id: 'shifa-ai', label: 'Shifa AI', icon: <SparklesIcon className="w-3.5 h-3.5" /> },
+  { id: 'architecture', label: 'How It Works' },
+  { id: 'shifa-features', label: 'Clinical Suite' },
+  { id: 'comparison', label: 'Why Shifa AI' },
+  { id: 'safety-boundaries', label: 'Safety & Ethics' },
+  { id: 'vitals', label: 'Vitals' },
+];
+
 /* ═══════════════════════════════════════════════
    MAIN LANDING PAGE COMPONENT
    ═══════════════════════════════════════════════ */
 
 export function LandingPage() {
   const [scrollY, setScrollY] = useState(0);
+  const [activeSection, setActiveSection] = useState<string>('shifa-ai');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [selectedScenario, setSelectedScenario] = useState<ShifaQueryScenario>(SHIFA_SCENARIOS[0] as ShifaQueryScenario);
   const [activeFeatureTab, setActiveFeatureTab] = useState<'sentinel' | 'trajectory' | 'doctor' | 'chronotherapy'>('sentinel');
 
+  // Track scroll position and current active section for dynamic tab highlight
   useEffect(() => {
-    const onScroll = () => setScrollY(window.scrollY);
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
+    const handleScroll = () => {
+      setScrollY(window.scrollY);
+      const sectionIds = ['vitals', 'safety-boundaries', 'comparison', 'shifa-features', 'architecture', 'shifa-ai'];
+      const scrollPos = window.scrollY + 160;
+      for (const sectionId of sectionIds) {
+        const el = document.getElementById(sectionId);
+        if (el && scrollPos >= el.offsetTop) {
+          setActiveSection(sectionId);
+          break;
+        }
+      }
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // Smooth sliding scroll to target section with fixed navbar offset
+  const scrollToSection = (e: React.MouseEvent<HTMLAnchorElement>, targetId: string) => {
+    e.preventDefault();
+    const cleanId = targetId.replace('#', '');
+    const element = document.getElementById(cleanId);
+    if (element) {
+      const navOffset = 76;
+      const elementPosition = element.getBoundingClientRect().top + window.pageYOffset;
+      const offsetPosition = elementPosition - navOffset;
+
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: 'smooth',
+      });
+      setActiveSection(cleanId);
+      window.history.pushState(null, '', `#${cleanId}`);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-white overflow-x-hidden selection:bg-teal-200 selection:text-teal-900">
+    <div className="min-h-screen bg-white overflow-x-hidden selection:bg-teal-200 selection:text-teal-900 scroll-smooth">
       {/* ═══════════════════════════════════════
            FLOATING NAVBAR
          ═══════════════════════════════════════ */}
@@ -323,16 +365,28 @@ export function LandingPage() {
             <span className="text-lg font-black tracking-tight text-ink-900">Medfolio</span>
           </Link>
 
-          {/* Desktop Nav */}
-          <div className="hidden md:flex items-center gap-5 lg:gap-7 text-xs lg:text-sm font-semibold text-ink-600">
-            <a href="#shifa-ai" className="hover:text-teal-800 transition-colors flex items-center gap-1 font-bold text-teal-700">
-              <SparklesIcon className="w-3.5 h-3.5 text-teal-600" /> Shifa AI
-            </a>
-            <a href="#architecture" className="hover:text-teal-800 transition-colors">How It Works</a>
-            <a href="#shifa-features" className="hover:text-teal-800 transition-colors">Clinical Suite</a>
-            <a href="#comparison" className="hover:text-teal-800 transition-colors">Why Shifa AI</a>
-            <a href="#safety-boundaries" className="hover:text-teal-800 transition-colors">Safety & Ethics</a>
-            <a href="#vitals" className="hover:text-teal-800 transition-colors">Vitals</a>
+          {/* Desktop Sliding Nav Tabs */}
+          <div className="hidden md:flex items-center gap-1 p-1 rounded-full bg-ink-100/60 border border-ink-200/60 shadow-2xs backdrop-blur-md text-xs font-semibold">
+            {NAV_SECTIONS.map((item) => {
+              const isActive = activeSection === item.id;
+              return (
+                <a
+                  key={item.id}
+                  href={`#${item.id}`}
+                  onClick={(e) => scrollToSection(e, item.id)}
+                  className={`px-3 py-1.5 rounded-full transition-all duration-300 flex items-center gap-1.5 ${
+                    isActive
+                      ? 'bg-white text-teal-900 font-bold shadow-xs border border-teal-200/80 scale-[1.02]'
+                      : 'text-ink-600 hover:text-teal-900 hover:bg-white/60'
+                  }`}
+                >
+                  {item.icon && (
+                    <span className={isActive ? 'text-teal-600' : 'text-ink-400'}>{item.icon}</span>
+                  )}
+                  {item.label}
+                </a>
+              );
+            })}
           </div>
 
           <div className="hidden md:flex items-center gap-3">
@@ -369,49 +423,28 @@ export function LandingPage() {
 
         {/* Mobile Menu Dropdown */}
         {mobileMenuOpen && (
-          <div className="md:hidden bg-white/95 backdrop-blur-xl border-t border-ink-200/50 px-6 py-4 space-y-3 animate-in slide-in-from-top">
-            <a
-              href="#shifa-ai"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block text-sm font-semibold text-ink-700 py-2 hover:text-teal-800"
-            >
-              Shifa AI Co-Pilot
-            </a>
-            <a
-              href="#architecture"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block text-sm font-semibold text-ink-700 py-2 hover:text-teal-800"
-            >
-              How AI Works
-            </a>
-            <a
-              href="#shifa-features"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block text-sm font-semibold text-ink-700 py-2 hover:text-teal-800"
-            >
-              Clinical Suite
-            </a>
-            <a
-              href="#comparison"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block text-sm font-semibold text-ink-700 py-2 hover:text-teal-800"
-            >
-              Why Shifa AI
-            </a>
-            <a
-              href="#safety-boundaries"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block text-sm font-semibold text-ink-700 py-2 hover:text-teal-800"
-            >
-              Safety & Ethics
-            </a>
-            <a
-              href="#vitals"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block text-sm font-semibold text-ink-700 py-2 hover:text-teal-800"
-            >
-              Vitals & Reports
-            </a>
+          <div className="md:hidden bg-white/95 backdrop-blur-xl border-t border-ink-200/50 px-6 py-4 space-y-2 animate-in slide-in-from-top duration-300">
+            {NAV_SECTIONS.map((item) => {
+              const isActive = activeSection === item.id;
+              return (
+                <a
+                  key={item.id}
+                  href={`#${item.id}`}
+                  onClick={(e) => {
+                    scrollToSection(e, item.id);
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`block text-sm font-semibold py-2 px-3 rounded-xl transition-colors flex items-center gap-2 ${
+                    isActive ? 'bg-teal-50 text-teal-900 font-bold' : 'text-ink-700 hover:bg-ink-50'
+                  }`}
+                >
+                  {item.icon && (
+                    <span className={isActive ? 'text-teal-600' : 'text-ink-400'}>{item.icon}</span>
+                  )}
+                  {item.label}
+                </a>
+              );
+            })}
             <div className="pt-2 border-t border-ink-200/50 flex gap-3">
               <Link to="/login" className="flex-1 text-center px-4 py-2.5 text-sm font-bold rounded-xl border border-ink-200 text-ink-700">
                 Sign In
@@ -477,7 +510,8 @@ export function LandingPage() {
             </Link>
             <a
               href="#shifa-ai"
-              className="w-full sm:w-auto text-center px-8 py-3.5 sm:py-4 text-base font-bold text-ink-700 border border-ink-200 bg-white/70 backdrop-blur-xs rounded-2xl hover:bg-ink-50 transition-all"
+              onClick={(e) => scrollToSection(e, 'shifa-ai')}
+              className="w-full sm:w-auto text-center px-8 py-3.5 sm:py-4 text-base font-bold text-ink-700 border border-ink-200 bg-white/70 backdrop-blur-xs rounded-2xl hover:bg-ink-50 transition-all cursor-pointer"
             >
               See How Shifa Works
             </a>
@@ -518,8 +552,9 @@ export function LandingPage() {
         <div className="mt-8 text-center animate-bounce">
           <a
             href="#shifa-ai"
+            onClick={(e) => scrollToSection(e, 'shifa-ai')}
             aria-label="Scroll to Shifa AI demo"
-            className="inline-block p-1 text-ink-400 hover:text-teal-700 transition-colors"
+            className="inline-block p-1 text-ink-400 hover:text-teal-700 transition-colors cursor-pointer"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
@@ -1627,11 +1662,11 @@ export function LandingPage() {
           </div>
 
           <div className="flex items-center gap-6 text-xs text-ink-400">
-            <a href="#shifa-ai" className="hover:text-teal-400 transition-colors">Shifa AI</a>
-            <a href="#architecture" className="hover:text-teal-400 transition-colors">Architecture</a>
-            <a href="#shifa-features" className="hover:text-teal-400 transition-colors">Clinical Suite</a>
-            <a href="#comparison" className="hover:text-teal-400 transition-colors">Why Shifa AI</a>
-            <a href="#safety-boundaries" className="hover:text-teal-400 transition-colors">Safety</a>
+            <a href="#shifa-ai" onClick={(e) => scrollToSection(e, 'shifa-ai')} className="hover:text-teal-400 transition-colors cursor-pointer">Shifa AI</a>
+            <a href="#architecture" onClick={(e) => scrollToSection(e, 'architecture')} className="hover:text-teal-400 transition-colors cursor-pointer">Architecture</a>
+            <a href="#shifa-features" onClick={(e) => scrollToSection(e, 'shifa-features')} className="hover:text-teal-400 transition-colors cursor-pointer">Clinical Suite</a>
+            <a href="#comparison" onClick={(e) => scrollToSection(e, 'comparison')} className="hover:text-teal-400 transition-colors cursor-pointer">Why Shifa AI</a>
+            <a href="#safety-boundaries" onClick={(e) => scrollToSection(e, 'safety-boundaries')} className="hover:text-teal-400 transition-colors cursor-pointer">Safety</a>
             <Link to="/login" className="hover:text-teal-400 transition-colors">Sign In</Link>
           </div>
 

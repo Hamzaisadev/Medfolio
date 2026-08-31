@@ -231,6 +231,7 @@
     -webkit-text-size-adjust: 100%;
     text-rendering: optimizeLegibility;
     height: 100%;
+    scroll-behavior: smooth;
   }
 
   body {
