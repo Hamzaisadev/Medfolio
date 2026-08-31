@@ -1297,7 +1297,7 @@ export function AssistantPage() {
                                 </div>
                               )}
 
-                              {m.actionCall && (
+                              {m.actionCall && m.actionCall.type && m.actionCall.data && (
                                 <div className="pt-1">
                                   <ClinicalActionCards
                                     action={m.actionCall}

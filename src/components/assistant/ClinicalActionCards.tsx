@@ -94,8 +94,12 @@ export function ClinicalActionCards({ action, profileId, onExecuted }: ClinicalA
   const [isDone, setIsDone] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [severity, setSeverity] = useState<'mild' | 'moderate' | 'severe'>(
-    action.data.severity || 'mild'
+    action?.data?.severity || 'mild'
   );
+
+  if (!action || !action.data || !action.type) {
+    return null;
+  }
 
   // 0. Tool: Adjust Schedule / Food Timing (1-Click Sync)
   if (action.type === 'adjust_schedule') {
