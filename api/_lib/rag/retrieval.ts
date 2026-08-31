@@ -149,46 +149,9 @@ export function executeClinicalRag(
   const retrievedPatientEvidence: string[] = [];
   const citations: RetrievedCitation[] = [];
 
-  // 2. Run Duplicate Drug & Cumulative Overdose Sentinel
-  const sentinel = analyzeSafetySentinel(patientContext?.activeMedicines || [], resolvedContextQuery);
-  const sentinelAlerts = sentinel.alerts;
-
-  if (sentinel.alertPromptDirectives.length > 0) {
-    retrievedClinicalRules.push(...sentinel.alertPromptDirectives);
-  }
-
-  sentinelAlerts.forEach((alert) => {
-    citations.push({
-      source: `Clinical Safety Sentinel: ${alert.genericName}`,
-      type: 'safety_sentinel',
-      detail: alert.clinicalMessage,
-    });
-  });
-
-  // 3. Run Longitudinal Biomarker Trajectory & Predictive Trend Engine
-  const { trajectories, trajectoryPromptDirectives } = analyzeBiomarkerTrajectories(
-    patientContext?.recentReports || []
-  );
-
-  if (trajectoryPromptDirectives.length > 0) {
-    retrievedClinicalRules.push(...trajectoryPromptDirectives);
-  }
-
-  trajectories.forEach((traj) => {
-    if (traj.predictiveAlert || traj.trendStatus === 'worsening' || traj.trendStatus === 'improving') {
-      citations.push({
-        source: `Biomarker Trajectory: ${traj.displayName}`,
-        type: 'biomarker_trajectory',
-        detail: traj.clinicalSignificance,
-      });
-    }
-  });
-
-  // 4. Detect Query Intent
+  // 2. Detect Specific Query Intent
   let queryIntent: RagRetrievalResult['queryIntent'] = 'general_clinical';
-  if (sentinelAlerts.length > 0) {
-    queryIntent = 'overdose_sentinel';
-  } else if (
+  if (
     qLower.includes('glucose') ||
     qLower.includes('sugar') ||
     qLower.includes('fasting') ||
@@ -207,7 +170,12 @@ export function executeClinicalRag(
     qLower.includes('interact') ||
     qLower.includes('safe to take') ||
     qLower.includes('together') ||
-    qLower.includes('combination')
+    qLower.includes('combination') ||
+    qLower.includes('duplicate') ||
+    qLower.includes('overdose') ||
+    qLower.includes('check my medicine') ||
+    qLower.includes('check my prescription') ||
+    qLower.includes('interactions')
   ) {
     queryIntent = 'interaction_check';
   } else if (
@@ -220,7 +188,7 @@ export function executeClinicalRag(
     qLower.includes('sgpt') ||
     qLower.includes('alt') ||
     qLower.includes('potassium') ||
-    qLower.includes('blood')
+    qLower.includes('biomarker')
   ) {
     queryIntent = 'lab_interpretation';
   } else if (
@@ -253,22 +221,100 @@ export function executeClinicalRag(
     queryIntent = 'pre_op';
   }
 
+  // 3. Run Duplicate Drug & Cumulative Overdose Sentinel (with Query Relevance Gate)
+  const sentinel = analyzeSafetySentinel(patientContext?.activeMedicines || [], resolvedContextQuery);
+  const allSentinelAlerts = sentinel.alerts;
+
+  if (sentinel.alertPromptDirectives.length > 0) {
+    retrievedClinicalRules.push(...sentinel.alertPromptDirectives);
+  }
+
+  // Sentinel alerts only attach to the active conversational turn if relevant to the user's query:
+  const isMedicationFocusQuery =
+    queryIntent === 'interaction_check' ||
+    qLower.includes('prescription') ||
+    qLower.includes('medicine') ||
+    qLower.includes('medication') ||
+    qLower.includes('drug') ||
+    qLower.includes('dose');
+
+  const relevantSentinelAlerts = allSentinelAlerts.filter((alert) => {
+    if (isMedicationFocusQuery) return true;
+    const genericMatch = qLower.includes(alert.genericName.toLowerCase());
+    const brandMatch = alert.involvedBrands.some((b) => qLower.includes(b.toLowerCase()));
+    return genericMatch || brandMatch;
+  });
+
+  if (relevantSentinelAlerts.length > 0) {
+    queryIntent = 'overdose_sentinel';
+  }
+
+  relevantSentinelAlerts.forEach((alert) => {
+    citations.push({
+      source: `Clinical Safety Sentinel: ${alert.genericName}`,
+      type: 'safety_sentinel',
+      detail: alert.clinicalMessage,
+    });
+  });
+
+  // 4. Run Longitudinal Biomarker Trajectory (with Query Relevance Gate)
+  const { trajectories, trajectoryPromptDirectives } = analyzeBiomarkerTrajectories(
+    patientContext?.recentReports || []
+  );
+
+  if (trajectoryPromptDirectives.length > 0) {
+    retrievedClinicalRules.push(...trajectoryPromptDirectives);
+  }
+
+  const isLabFocusQuery =
+    queryIntent === 'lab_interpretation' ||
+    queryIntent === 'vitals_interpretation' ||
+    qLower.includes('report') ||
+    qLower.includes('trend') ||
+    qLower.includes('test');
+
+  const relevantTrajectories = isLabFocusQuery ? trajectories : [];
+
+  relevantTrajectories.forEach((traj) => {
+    if (traj.predictiveAlert || traj.trendStatus === 'worsening' || traj.trendStatus === 'improving') {
+      citations.push({
+        source: `Biomarker Trajectory: ${traj.displayName}`,
+        type: 'biomarker_trajectory',
+        detail: traj.clinicalSignificance,
+      });
+    }
+  });
+
   // 4. Retrieve Matching Drug Monographs from Pharmacopeia
   const activeMedNames = (patientContext?.activeMedicines || []).map((m) => m.medicine_name.toLowerCase());
+
+  const isPharmacopeiaQuery =
+    queryIntent === 'interaction_check' ||
+    queryIntent === 'dosing_timing' ||
+    queryIntent === 'pregnancy_lactation' ||
+    queryIntent === 'pre_op' ||
+    queryIntent === 'overdose_sentinel' ||
+    isMedicationFocusQuery;
 
   const relevantDrugs = DRUG_KNOWLEDGE_CORPUS.filter((drug) => {
     const isDirectlyQueried =
       qLower.includes(drug.genericName.toLowerCase()) ||
       drug.brandAliases.some((alias) => qLower.includes(alias.toLowerCase()));
 
-    const isPatientActiveMed = activeMedNames.some(
-      (pMed) =>
-        pMed.includes(drug.genericName.toLowerCase()) ||
-        drug.brandAliases.some((alias) => pMed.includes(alias.toLowerCase()))
-    );
+    if (isDirectlyQueried) return true;
 
-    return isDirectlyQueried || isPatientActiveMed;
+    // If query is specifically about all meds / routine / interactions, include patient active meds
+    if (isPharmacopeiaQuery) {
+      return activeMedNames.some(
+        (pMed) =>
+          pMed.includes(drug.genericName.toLowerCase()) ||
+          drug.brandAliases.some((alias) => pMed.includes(alias.toLowerCase()))
+      );
+    }
+
+    return false;
   });
+
 
   relevantDrugs.forEach((drug) => {
     // Food & timing rules
@@ -294,12 +340,6 @@ export function executeClinicalRag(
         `[Surgical Pre-Op: ${drug.genericName}] Recommended cessation: ${drug.preOpCessationDays} days prior to elective surgery/dental procedures.`
       );
     }
-
-    citations.push({
-      source: `BNF / FDA Monograph: ${drug.genericName}`,
-      type: 'clinical_guideline',
-      detail: `Class: ${drug.drugClass}; Food: ${drug.foodRules.rule}`,
-    });
   });
 
   // 5. Retrieve Matching Biomarkers & Reference Ranges
@@ -307,20 +347,15 @@ export function executeClinicalRag(
     const isRelevantBio =
       qLower.includes(bio.name.toLowerCase()) ||
       bio.aliases.some((alias) => qLower.includes(alias.toLowerCase())) ||
-      queryIntent === 'lab_interpretation' ||
-      queryIntent === 'vitals_interpretation';
+      (isLabFocusQuery && (queryIntent === 'lab_interpretation' || queryIntent === 'vitals_interpretation'));
 
     if (isRelevantBio) {
       retrievedClinicalRules.push(
-        `[Diagnostic Reference: ${bio.name}] Standard Range: ${bio.standardReferenceRange}. High Interpretation: ${bio.elevatedInterpretation}. Decreased: ${bio.decreasedInterpretation}`
+        `[Diagnostic Reference: ${bio.name}] Standard Range: ${bio.standardReferenceRange}. High: ${bio.elevatedInterpretation}. Low: ${bio.decreasedInterpretation}`
       );
-      citations.push({
-        source: `Diagnostic Range: ${bio.name}`,
-        type: 'clinical_guideline',
-        detail: `Reference: ${bio.standardReferenceRange}`,
-      });
     }
   });
+
 
   // 6. Retrieve Grounded Patient Records Evidence
   // A. Active Prescriptions
@@ -460,8 +495,8 @@ export function executeClinicalRag(
     retrievedClinicalRules: retrievedClinicalRules.slice(0, 15),
     retrievedPatientEvidence: retrievedPatientEvidence.slice(0, 25),
     citations: uniqueCitations,
-    sentinelAlerts,
-    biomarkerTrajectories: trajectories,
+    sentinelAlerts: relevantSentinelAlerts,
+    biomarkerTrajectories: relevantTrajectories,
     queryIntent,
     resolvedContextQuery,
   };

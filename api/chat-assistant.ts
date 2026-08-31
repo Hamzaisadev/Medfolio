@@ -7,10 +7,11 @@ import { executeClinicalRag } from './_lib/rag/retrieval';
 import { z } from 'zod';
 
 const chatRequestSchema = z.object({
+  stream: z.boolean().optional().default(true),
   messages: z.array(
     z.object({
       role: z.enum(['user', 'assistant']),
-      content: z.string().min(1),
+      content: z.string(),
       image_base64: z.string().optional().nullable(),
       image_mime: z.string().optional().nullable(),
     })
@@ -115,7 +116,7 @@ export default async function handler(req: IncomingMessage & { body?: unknown },
       return;
     }
 
-    const { messages, patientContext } = parsed.data;
+    const { messages, patientContext, stream } = parsed.data;
     const ai = getGeminiClient();
     const model = getGeminiModel();
 
@@ -125,123 +126,54 @@ export default async function handler(req: IncomingMessage & { body?: unknown },
     const previousMessages = messages.slice(0, -1);
     const ragResult = executeClinicalRag(latestQuery, patientContext, previousMessages);
 
-    // High-IQ Autonomous Clinical Operating System Prompt with Strict Medfolio Domain Boundaries
-    let systemInstruction = `You are Shifa (Shifa AI) — the Medfolio Master Clinical Health Co-Pilot & Autonomous Medical Intelligence operating with Hybrid Retrieval-Augmented Generation (RAG) and Safety Sentinel.
+    // High-IQ Disciplined Clinical Operating System Prompt with Strict Intent Gating
+    let systemInstruction = `You are Shifa — Medfolio's intelligent Clinical Health Co-Pilot. You communicate like an empathetic, sharp, and concise medical consultant.
 
-STRICT DOMAIN BOUNDARY & REFUSAL POLICY:
-1. EXCLUSIVE HEALTHCARE & MEDFOLIO SCOPE:
-   - Your capabilities are STRICTLY AND EXCLUSIVELY limited to medical records, prescriptions, medications, dosage scheduling, lab tests, vital signs (glucose, blood pressure), doctor consultations, symptom triage, drug interactions, and healthcare management.
-2. ABSOLUTE REFUSAL OF OUT-OF-SCOPE QUERIES:
-   - If the user asks about ANYTHING unrelated to health, medicine, pharmacology, or Medfolio (for example: coding/programming, mathematics, general trivia, politics, recipes, or non-medical advice), POLITELY REFUSE.
-   - When refusing an out-of-scope question, set your "summary" to:
-     "I am Shifa, your Medfolio Clinical Health Assistant, strictly specialized in your medications, lab reports, dosage schedules, and health records. I cannot assist with non-health topics such as programming or general queries. How can I assist you with your health records or medications today?"
-3. SAFETY GUARDRAIL (ASSIST — DO NOT DIAGNOSE):
-   - Assist, do not diagnose. Make limitations explicit. Never pretend to replace a physician.
-   - For emergency red flags (e.g., severe chest pain, acute shortness of breath, sudden weakness), immediately trigger emergency_triage.
-4. GLUCOSE & VITALS REASONING:
-   - When asked about blood glucose, blood sugar, or blood pressure, ALWAYS reference the exact values from the patient's retrieved records, noting their measurement date, type (fasting vs. postprandial), and target ranges (e.g. ADA Fasting target 70-99 mg/dL; post-meal <140 mg/dL).
-   - For emergency red flags (e.g., severe chest pain, acute shortness of breath, sudden weakness), immediately trigger emergency_triage.
+CORE INTELLIGENCE & CONVERSATIONAL DISCIPLINE:
+1. ANSWER ONLY WHAT IS ASKED (ZERO UNPROMPTED DUMPING):
+   - Focus 100% on the patient's specific question.
+   - If asked about blood glucose, answer about blood glucose. NEVER mention, list, or summarize prescriptions or other vitals unprompted.
+   - If asked about a specific medicine, answer about that medicine.
+   - If asked a greeting ("hi", "hello"), respond in 1 cordial sentence. Do NOT list health records or medications.
+2. MULTI-TURN CONVERSATIONAL AWARENESS:
+   - If this is a continuing conversation (previous turns exist), NEVER repeat self-introductions or greetings (do NOT say "Hello Hamza! I am Shifa..."). Jump directly into the focused answer.
+   - Natural human medical tone: Avoid robotic phrases like "Based on retrieved records...", "Operating with hybrid RAG...", or "According to database...".
+3. STRICT INTENT-GATED UI WIDGET RULES:
+   - "medicines" array: MUST BE [] UNLESS a prescription photo is attached OR the user explicitly requests "extract medicines / add to cabinet".
+   - "dailySchedule" array: MUST BE [] UNLESS the user explicitly asks "show my daily schedule", "what is my medication routine?", or "when should I take my medicines?".
+   - "biomarkerTrajectories" array: MUST BE [] UNLESS the user explicitly asks for biomarker trajectory trends or lab history analysis.
+   - "diffAnalysis" array: MUST BE [] UNLESS comparing a new prescription to existing medicines.
+   - "actionCall": MUST BE null UNLESS the patient reports a specific action trigger (e.g., missed dose, surgery pre-op, travel timezone, generic substitution).
+   - "safetyAlerts": MUST BE [] UNLESS there is a critical clinical contradiction directly related to the user's inquiry.
+   - "citations": MUST BE [].
+4. PROACTIVE INTELLIGENCE VIA FIRST-PERSON SUGGESTIONS:
+   - Proactive suggestions belong in the "suggestions" array, NEVER in unprompted text or unprompted widgets.
+   - Provide 2-3 relevant next-step prompts written strictly from the PATIENT's first-person voice (e.g., "Do my medicines affect my blood sugar?", "What foods raise glucose safely?", "Show my daily dose schedule").
+   - NEVER phrase suggestions from the assistant's perspective (NEVER say "Would you like me to..." or "I can show you...").
+5. MEDICAL ACCURACY & SAFETY:
+   - Assist, explain, and educate; never replace a physician or claim diagnostic certainty.
+   - When referencing vitals (glucose, BP), cite the exact value, measurement date, and clinical classification (e.g. hypoglycemia, normal, elevated).
+   - For life-threatening emergencies (acute chest pain, stroke symptoms), immediately trigger emergency_triage.
+6. SCOPE:
+   - Refuse strictly non-health topics (programming, politics, gaming, finance). Lifestyle, exercise, hydration, diet, and wellness are in scope.
 
 CRITICAL INSTRUCTION: You MUST ALWAYS respond in valid, pure JSON without markdown backticks.
 JSON Schema:
 {
-  "summary": "Short, human conversational summary (1-3 sentences). Grounded strictly in the retrieved clinical knowledge and patient records.",
-  "citations": [
-    {
-      "source": "Name of clinical guideline or patient record (e.g. BNF / FDA Monograph: Atorvastatin, Lab: Lipid Panel 2026-08-20)",
-      "type": "clinical_guideline" | "patient_prescription" | "patient_lab_result" | "safety_sentinel",
-      "detail": "Specific finding or rule referenced"
-    }
-  ],
-  "sentinelAlerts": [
-    {
-      "type": "duplicate_generic" | "cumulative_overdose" | "class_overlap",
-      "severity": "critical" | "high" | "moderate",
-      "genericName": "Generic molecule name",
-      "drugClass": "Drug therapeutic class",
-      "involvedBrands": ["Brand1", "Brand2"],
-      "clinicalMessage": "Direct explanation of duplication or overdose risk",
-      "actionRecommendation": "Clear action for patient"
-    }
-  ],
-  "medicines": [
-    {
-      "medicine_name": "Exact name",
-      "strength": "e.g. 625mg",
-      "frequency_raw": "Frequency EXACTLY as stated, e.g. 1-0-1, BD, TDS, PRN",
-      "duration_days": 5,
-      "with_food": true,
-      "instructions": "e.g. Take after meals"
-    }
-  ],
-  "dailySchedule": [
-    {
-      "time": "08:00 AM",
-      "period": "morning",
-      "medicine": "Medicine name",
-      "strength": "Dose",
-      "mealRelation": "After breakfast"
-    }
-  ],
-  "diffAnalysis": [
-    {
-      "name": "Medicine name",
-      "changeType": "added" | "changed" | "stopped",
-      "newDetail": "Details",
-      "reason": "Clinical rationale"
-    }
-  ],
-  "actionCall": {
-    "type": "adjust_schedule" | "log_symptom" | "missed_dose" | "caregiver_brief" | "generic_substitution" | "pre_op_cessation" | "pregnancy_lactation" | "travel_timezone" | "schedule_followup" | "create_refill" | "otc_compatibility" | "emergency_triage",
-    "data": {
-      "medicine_name": "Medicine to adjust",
-      "new_time": "08:00 AM",
-      "meal_relation": "Empty stomach (30 mins before breakfast)" | "After meals" | "With food" | "At bedtime",
-      "adjustment_reason": "Clinical rationale for timing shift",
-      "symptom": "Reported symptom",
-      "severity": "mild" | "moderate" | "severe",
-      "missed_time": "Time missed",
-      "catchup_instructions": "Exact clinical catchup rule",
-      "do_not_double": true,
-      "caregiver_message": "Formatted text for family / WhatsApp",
-      "prescribed_brand": "Original Brand",
-      "dispensed_brand": "Pharmacy Brand",
-      "generic_name": "Active Salt & Strength",
-      "is_equivalent": true,
-      "procedure_name": "Surgery/Dental procedure",
-      "procedure_date": "Date",
-      "meds_to_stop": [{ "name": "Disprin", "stop_days_before": 5, "stop_date": "2026-08-20" }],
-      "pregnancy_category": "Category B",
-      "lactation_safety": "L1 - Safest",
-      "fetal_risk_summary": "Risk evaluation",
-      "destination_city": "London",
-      "flight_plan": [{ "local_time": "14:00", "instruction": "Take afternoon dose" }],
-      "otc_name": "OTC drug queried",
-      "safety_grade": "safe" | "caution" | "prohibited",
-      "safety_note": "Explanation of interaction",
-      "safe_alternative": "Safe alternative drug",
-      "emergency_title": "Emergency heading",
-      "emergency_reasons": ["Severe symptom 1"]
-    }
-  },
-  "biomarkerTrajectories": [
-    {
-      "displayName": "Biomarker Name",
-      "unit": "mg/dL",
-      "deltaValue": 0.5,
-      "deltaPercent": 25.0,
-      "trendStatus": "worsening" | "improving" | "stable" | "fluctuating",
-      "clinicalSignificance": "Clinical insight explaining the trend",
-      "predictiveAlert": "Actionable risk alert if any"
-    }
-  ],
-  "safetyAlerts": [
-    "Alert 1: Key precaution"
-  ],
+  "summary": "Concise, human conversational clinical answer (1-3 sentences). Directly addresses the user's specific prompt.",
+  "medicines": [],
+  "dailySchedule": [],
+  "diffAnalysis": [],
+  "actionCall": null,
+  "biomarkerTrajectories": [],
+  "safetyAlerts": [],
+  "citations": [],
   "suggestions": [
-    "Follow-up question or prompt from the PATIENT's first-person perspective that the patient would ask the assistant next (e.g. 'What is the maximum safe dose for me?', 'Can I take this on an empty stomach?', 'Check interactions with my other medicines'). NEVER phrase suggestions from the assistant's perspective (NEVER say 'Would you like me to...' or 'What symptom are you trying to treat?')."
+    "Patient follow-up question 1",
+    "Patient follow-up question 2"
   ]
 }
+
 
 AUTONOMOUS ACTION TRIGGERS:
 1. "When advising changing/optimizing dose timing (e.g. move Omeprazole to empty stomach or Statin to bedtime)" -> actionCall: type="adjust_schedule"
@@ -300,9 +232,10 @@ ${ragResult.retrievedPatientEvidence.length > 0 ? ragResult.retrievedPatientEvid
         .join('; ')}\n`;
     }
 
+    const cleanIncoming = messages.filter((m) => Boolean(m.content && m.content.trim().length > 0));
     const validMessages: Array<{ role: string; parts: Array<{ text: string } | { inlineData: { mimeType: string; data: string } }> }> = [];
 
-    for (const m of messages) {
+    for (const m of cleanIncoming) {
       const isUser = m.role === 'user';
       if (validMessages.length === 0 && !isUser) continue;
 
@@ -335,6 +268,157 @@ ${ragResult.retrievedPatientEvidence.length > 0 ? ragResult.retrievedPatientEvid
       });
     }
 
+    if (stream) {
+      // Server-Sent Events (SSE) Stream
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream; charset=utf-8',
+        'Cache-Control': 'no-cache, no-transform',
+        Connection: 'keep-alive',
+        'X-Accel-Buffering': 'no',
+      });
+
+      let accumulated = '';
+      let emittedDecodedLength = 0;
+
+      const decodeJsonString = (raw: string): string => {
+        try {
+          return JSON.parse(`"${raw.replace(/\\"/g, '"').replace(/"/g, '\\"')}"`);
+        } catch {
+          return raw
+            .replace(/\\n/g, '\n')
+            .replace(/\\"/g, '"')
+            .replace(/\\\\/g, '\\')
+            .replace(/\\t/g, '\t');
+        }
+      };
+
+      try {
+        const responseStream = await ai.models.generateContentStream({
+          model,
+          contents: validMessages,
+          config: {
+            systemInstruction,
+            temperature: 0.2,
+            responseMimeType: 'application/json',
+          },
+        });
+
+        for await (const chunk of responseStream) {
+          const chunkText = chunk.text || '';
+          accumulated += chunkText;
+
+          // Incrementally extract and stream clean summary text
+          const match = accumulated.match(/"summary"\s*:\s*"/);
+          if (match && match.index !== undefined) {
+            const valueStartIndex = match.index + match[0].length;
+            const currentRaw = accumulated.slice(valueStartIndex);
+
+            // Find where unescaped quote ends or how much clean text is available
+            let isEscaped = false;
+            let endIndex = -1;
+            for (let i = 0; i < currentRaw.length; i++) {
+              if (isEscaped) {
+                isEscaped = false;
+                continue;
+              }
+              if (currentRaw[i] === '\\') {
+                isEscaped = true;
+                continue;
+              }
+              if (currentRaw[i] === '"') {
+                endIndex = i;
+                break;
+              }
+            }
+
+            const validPortion = endIndex !== -1 ? currentRaw.slice(0, endIndex) : (isEscaped ? currentRaw.slice(0, -1) : currentRaw);
+            const decodedFull = decodeJsonString(validPortion);
+            if (decodedFull.length > emittedDecodedLength) {
+              const deltaText = decodedFull.slice(emittedDecodedLength);
+              emittedDecodedLength = decodedFull.length;
+              if (deltaText) {
+                res.write(`data: ${JSON.stringify({ type: 'token', content: deltaText })}\n\n`);
+              }
+            }
+          } else if (!accumulated.trim().startsWith('{') && accumulated.length > emittedDecodedLength) {
+            // Fallback for non-JSON conversational text
+            const delta = accumulated.slice(emittedDecodedLength);
+            emittedDecodedLength = accumulated.length;
+            if (delta) {
+              res.write(`data: ${JSON.stringify({ type: 'token', content: delta })}\n\n`);
+            }
+          }
+        }
+
+        // Parse final accumulated JSON
+        let data: Record<string, unknown> = {};
+        try {
+          data = JSON.parse(accumulated);
+        } catch {
+          const cleaned = accumulated
+            .replace(/```json\s*/gi, '')
+            .replace(/```\s*/g, '')
+            .trim();
+          try {
+            data = JSON.parse(cleaned);
+          } catch {
+            data = {
+              summary: accumulated.replace(/[{}[\]"]/g, '').trim() || 'Analysis complete.',
+              medicines: [],
+              dailySchedule: [],
+              diffAnalysis: [],
+              actionCall: null,
+              safetyAlerts: [],
+              suggestions: [],
+            };
+          }
+        }
+
+        // Detect refusal or general greeting
+        const isRefusalOrGeneral =
+          typeof data.summary === 'string' &&
+          (data.summary.includes('strictly specialized') ||
+            data.summary.includes('cannot assist with non-health') ||
+            data.summary.includes('How can I assist you with your health records'));
+
+        if (isRefusalOrGeneral) {
+          data.sentinelAlerts = [];
+          data.biomarkerTrajectories = [];
+          data.citations = [];
+          data.actionCall = null;
+          data.dailySchedule = [];
+          data.medicines = [];
+          data.diffAnalysis = [];
+          data.safetyAlerts = [];
+        } else {
+          if (!Array.isArray(data.sentinelAlerts)) {
+            data.sentinelAlerts = [];
+          }
+          if (!Array.isArray(data.biomarkerTrajectories)) {
+            data.biomarkerTrajectories = [];
+          }
+          if (!Array.isArray(data.citations)) {
+            data.citations = [];
+          }
+        }
+
+        res.write(`data: ${JSON.stringify({ type: 'complete', data })}\n\n`);
+        res.write('data: [DONE]\n\n');
+        res.end();
+      } catch (streamError) {
+        console.error('Gemini Stream Error:', streamError);
+        res.write(
+          `data: ${JSON.stringify({
+            type: 'error',
+            error: streamError instanceof Error ? streamError.message : 'Streaming failed',
+          })}\n\n`
+        );
+        res.end();
+      }
+      return;
+    }
+
+    // Unary Mode (when stream: false)
     const response = await ai.models.generateContent({
       model,
       contents: validMessages,
@@ -350,7 +434,6 @@ ${ragResult.retrievedPatientEvidence.length > 0 ? ragResult.retrievedPatientEvid
     try {
       data = JSON.parse(rawText);
     } catch {
-      // Strip markdown fences the model may add despite responseMimeType.
       const cleaned = rawText
         .replace(/```json\s*/gi, '')
         .replace(/```\s*/g, '')
@@ -358,7 +441,6 @@ ${ragResult.retrievedPatientEvidence.length > 0 ? ragResult.retrievedPatientEvid
       try {
         data = JSON.parse(cleaned);
       } catch {
-        // Never surface a parse failure as a 500 — degrade to a usable reply.
         data = {
           summary:
             "I couldn't format that answer properly. Please rephrase your question and try again.",
@@ -372,16 +454,31 @@ ${ragResult.retrievedPatientEvidence.length > 0 ? ragResult.retrievedPatientEvid
       }
     }
 
-    if (!Array.isArray(data.citations) || data.citations.length === 0) {
-      data.citations = ragResult.citations;
-    }
+    const isRefusalOrGeneral =
+      typeof data.summary === 'string' &&
+      (data.summary.includes('strictly specialized') ||
+        data.summary.includes('cannot assist with non-health') ||
+        data.summary.includes('How can I assist you with your health records'));
 
-    if (!Array.isArray(data.sentinelAlerts) || data.sentinelAlerts.length === 0) {
-      data.sentinelAlerts = ragResult.sentinelAlerts;
-    }
-
-    if (!Array.isArray(data.biomarkerTrajectories) || data.biomarkerTrajectories.length === 0) {
-      data.biomarkerTrajectories = ragResult.biomarkerTrajectories;
+    if (isRefusalOrGeneral) {
+      data.sentinelAlerts = [];
+      data.biomarkerTrajectories = [];
+      data.citations = [];
+      data.actionCall = null;
+      data.dailySchedule = [];
+      data.medicines = [];
+      data.diffAnalysis = [];
+      data.safetyAlerts = [];
+    } else {
+      if (!Array.isArray(data.sentinelAlerts)) {
+        data.sentinelAlerts = [];
+      }
+      if (!Array.isArray(data.biomarkerTrajectories)) {
+        data.biomarkerTrajectories = [];
+      }
+      if (!Array.isArray(data.citations)) {
+        data.citations = [];
+      }
     }
 
     sendJson(res, 200, data);

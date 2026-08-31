@@ -1,82 +1,105 @@
-# Medfolio — Personal Health & Prescription Records
-
-Medfolio is a privacy-first personal health management web application and PWA designed to digitize handwritten prescriptions, automatically schedule timed medicine doses, track diagnostic lab biomarker trends, and produce clinical doctor briefs.
-
----
-
-## 🌟 Key Features
-
-- **📸 Prescription Digitization**: Photograph paper prescriptions or lab reports. Google Gemini Multimodal AI extracts medications, dosages, frequencies, and durations into structured records.
-- **💊 Deterministic Dose Scheduling**: Generates exact, non-overlapping dose time buckets in Pakistan Standard Time (`Asia/Karachi`), respecting meal relations (`before meals` vs `after meals`), ongoing courses, and PRN cabinet.
-- **🧪 Diagnostic Lab Trends**: Tracks biomarkers (e.g., Fasting Blood Sugar, HbA1c, ALT/SGPT, Serum Creatinine, Hemoglobin) with interactive Recharts visualizations and clinical reference ranges.
-- **⏱️ Longitudinal Timeline**: Unified chronological view interleaving doctor visits, prescriptions, lab results, and patient-logged symptoms.
-- **📋 Printable Doctor Brief**: A4 print-optimized one-page clinical summary sheet with active medicines, allergy callouts, and recent history for consulting physicians.
-- **🔗 Secure Doctor Sharing**: Time-limited (24h, 7d, 30d) view-only shareable links and QR codes with instant revocation and PIN protection.
-- **🚨 Emergency Red-Flag Triage**: Instant client-side check for medical emergency symptoms with one-tap Pakistan emergency helplines (`1122`, `115`, `1020`) before any network request.
-- **📶 Offline Vault**: Full offline capability with local encrypted storage and PWA background caching when connectivity drops.
+# 🌿 Medfolio — Your Personal Health & Prescription Vault
+> **Version 3.0** · *Take control of your health journey with smart prescription scanning, intelligent dose scheduling, lab biomarker tracking, and doctor-ready medical briefs.*
 
 ---
 
-## 🛠️ Tech Stack
+## ✨ Overview
 
-- **Frontend**: React 19, TypeScript, Tailwind CSS v4, Custom SVG Icons, Recharts
-- **Backend / API**: Vercel Serverless Functions (`/api/extract-prescription`, `/api/extract-lab-report`, `/api/explain-medicine`)
-- **AI Model**: Google Gemini API (`gemini-3.6-flash`)
-- **Database & Auth**: Supabase PostgreSQL with tenant-isolated Row-Level Security (RLS)
-- **Testing & Quality**: Vitest, strict TypeScript mode, zero-warnings ESLint rule
+**Medfolio** is an intuitive, privacy-first personal health companion built for real everyday use. It bridges the gap between chaotic paper records and modern digital wellness by turning handwritten prescriptions, complex lab results, and daily medication routines into a clear, unified, and actionable health dashboard.
+
+Whether managing chronic health conditions, caring for elderly parents, or keeping your family's medical history safe and organized, Medfolio ensures you never lose a prescription or miss a dose again.
 
 ---
 
-## 🚀 Getting Started
+## 🎯 What You Can Do With Medfolio
 
-### 1. Prerequisites
-- Node.js 18+
-- npm or yarn
+### 📸 1. Scan & Digitize Paper Prescriptions in Seconds
+- **Snap & Extract**: Take a photo of any doctor's prescription or clinical discharge note. Medfolio’s AI instantly transcribes doctor handwriting, extracting drug names, dosage strengths, intake frequencies, and treatment durations.
+- **Human-in-the-Loop Review**: You always have the final say. Review and verify extracted medicines before saving them to your active cabinet.
+- **Organized Digital Archive**: Keep high-resolution prescription images alongside clean, structured digital entries for easy future retrieval.
 
-### 2. Installation
+### 💊 2. Smart Meal-Timed Medication Schedules & Dose Tracking
+- **Automatic Dose Scheduling**: Automatically maps your prescriptions into realistic daily time buckets (Morning, Afternoon, Evening, Bedtime) aligned with your meal routines (*before meals* / *after meals*).
+- **One-Tap Dose Logging**: Mark medicines as **Taken**, **Skipped**, or **Snoozed** with a single tap from your daily schedule.
+- **PRN & As-Needed Cabinet**: Manage rescue medications (e.g., pain relievers, inhalers, antacids) separately with usage limits and frequency logging.
+- **Refill & Inventory Warnings**: Get proactive reminders when your remaining pill count is running low.
+
+### 🧪 3. Lab Test Visualizer & Biomarker Trends
+- **Instant Lab Report Extraction**: Upload PDF or image lab reports (CBC, Lipid Profile, Liver Function, Renal Function, HbA1c, etc.).
+- **Interactive Visual Trendlines**: Watch your biomarkers evolve over time with clear graphical trend charts.
+- **Standard Clinical Reference Ranges**: Understand if your values are normal, optimal, or out-of-range with easy-to-read color cues.
+
+### 🩺 4. Doctor-Ready Clinical Briefs & Instant Sharing
+- **1-Page A4 Clinical Summary**: Print or export an ultra-clean, one-page health brief summarizing active medications, known allergies, chronic conditions, and recent lab results for your next clinic appointment.
+- **PIN-Protected QR & Expirable Web Links**: Share a time-limited (24 hours, 7 days, or 30 days) read-only snapshot with your consulting physician via QR code or link, with instant revocation control.
+- **Second Opinion Companion**: Prepare organized dossiers ready for specialist consultations without carrying heavy paper folders.
+
+### 📈 5. Vitals & Symptom Diary with Emergency Red-Flag Triage
+- **Log Essential Vitals**: Track Blood Pressure, Blood Sugar (Fasting / Post-Prandial), Heart Rate, Body Temperature, SpO2, and Weight.
+- **Symptom Journaling**: Document symptoms, severity levels, and notes to give your doctor an accurate timeline of how you've been feeling.
+- **🚨 Emergency Red-Flag Safety Alert**: Built-in safety screening flags critical emergency warning signs immediately on your device, providing direct one-tap dialing to emergency helplines.
+
+### 💰 6. Medical Expense & Pharmacy Tracker
+- **Track Healthcare Spending**: Keep a transparent record of doctor consultation fees, pharmacy bills, diagnostic lab charges, and insurance reimbursements.
+- **Monthly Spending Insights**: View visual summaries of your monthly medical budget and recurring medication costs.
+
+### 🤖 7. Friendly AI Health Assistant
+- **Ask Health & Medicine Questions**: Wondering what a prescribed drug is for, how to store it, or general questions about a medical term? Get clear, patient-friendly explanations in plain language.
+- **Multilingual Support**: Communicate in English, Urdu, or Roman Urdu for effortless local accessibility.
+
+### 🛡️ 8. 100% Privacy-First & Offline Vault
+- **Offline First**: Access your medication schedule, emergency contacts, and active prescriptions anytime—even when you have no internet connection.
+- **Encrypted & Isolated**: Your health records are encrypted and protected by strict Row-Level Security. Your sensitive health data belongs exclusively to you.
+
+---
+
+## 🧭 How It Works in 3 Simple Steps
+
+```mermaid
+flowchart LR
+    A[1. Snap or Enter] --> B[2. Review & Organize] --> C[3. Stay on Track & Share]
+    A -.->|Prescriptions, Labs, Vitals| B
+    B -.->|Doses, Trends, Schedules| C
+    C -.->|Daily Reminders, Doctor Briefs| A
+```
+
+1. **Capture**: Upload or photograph your doctor's prescription, lab test report, or log daily vitals.
+2. **Review**: Confirm details, customize your routine meal timings, and let Medfolio build your personalized schedule.
+3. **Live Healthier**: Check off daily doses, monitor your biomarker trends, and present clear clinical briefs to your doctors with total confidence.
+
+---
+
+## 👥 Who Is Medfolio Built For?
+
+- **Patients Managing Chronic Illnesses**: Keep long-term conditions like Hypertension, Diabetes, Thyroid disorders, and Cardiac health precisely tracked and monitored.
+- **Family Caregivers**: Organize medications, dosages, and doctor notes for aging parents or children in one structured place.
+- **Frequent Clinic Visitors**: Never forget to mention a current medication, past allergic reaction, or recent lab result to your doctor.
+- **Health-Conscious Individuals**: Maintain a permanent, portable digital timeline of your personal wellness metrics.
+
+---
+
+## 🛡️ Medical Disclaimer & Safety Pledge
+
+> **Important**: Medfolio is an assistive personal health organization and record management platform. It is **not** a licensed medical provider and does not provide medical diagnoses, treatment decisions, or autonomous medication modifications. Always consult your certified physician or healthcare specialist regarding any medical condition, symptom, or medication change.
+
+---
+
+## 🚀 Quick Launch (For Users & Self-Hosters)
+
+Medfolio runs seamlessly in modern web browsers as a progressive web app (PWA) across mobile, tablet, and desktop devices.
+
 ```bash
-git clone <repository-url>
-cd medfolio
+# Clone the repository
+git clone https://github.com/Hamzaisadev/Medfolio.git
+
+# Enter project directory
+cd "Medfolio v2"
+
+# Install dependencies
 npm install
-```
 
-### 3. Environment Variables
-Copy `.env.example` to `.env`:
-```bash
-cp .env.example .env
-```
-
-Fill in your configuration:
-```env
-# Public Supabase Client Keys
-VITE_SUPABASE_URL=https://<your-project>.supabase.co
-VITE_SUPABASE_ANON_KEY=<your-anon-key>
-
-# Server-Side API Keys (Never prefixed with VITE_)
-SUPABASE_URL=https://<your-project>.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=<your-service-role-key>
-GEMINI_API_KEY=<your-gemini-api-key>
-GEMINI_MODEL=gemini-3.6-flash
-```
-
-### 4. Run Locally
-```bash
+# Start local server
 npm run dev
 ```
-Open [http://localhost:5173](http://localhost:5173) in your browser.
 
-### 5. Verification & Tests
-```bash
-npm run verify
-```
-Runs full TypeScript typecheck, ESLint zero-warnings audit, Vitest domain tests, and production build bundle.
-
----
-
-## 🔒 Clinical Safety & Security Guardrails
-
-- **Assisting Care, Never Replacing Doctors**: Medfolio is a health organization and patient assistance tool. It does not diagnose illnesses or modify prescriptions without licensed physician supervision.
-- **Zero Silent Commits**: All AI-extracted prescription fields and lab values require explicit human review and confirmation before being committed to patient health records.
-- **No Secrets in Client Bundle**: All AI calls and Gemini API keys operate strictly within backend serverless functions (`/api/*`). The frontend bundle contains zero LLM secrets.
-- **Client Offline Resilience**: If the database is unreachable or offline, the client securely stores and serves data via local encrypted storage.
-- **Clinical Neutrality**: Out-of-range lab results and AI extraction suggestions use neutral medical language without speculative diagnosing or exaggerated alerts.
+Visit `http://localhost:5173` to start using your personal health vault.

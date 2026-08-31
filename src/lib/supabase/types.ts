@@ -609,6 +609,72 @@ export type Database = {
         };
         Relationships: [];
       };
+      chat_sessions: {
+        Row: {
+          id: string;
+          user_id: string;
+          profile_id: string;
+          title: string;
+          is_pinned: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          profile_id: string;
+          title?: string;
+          is_pinned?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          profile_id?: string;
+          title?: string;
+          is_pinned?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      chat_messages: {
+        Row: {
+          id: string;
+          session_id: string;
+          user_id: string;
+          profile_id: string;
+          role: 'user' | 'assistant';
+          content: string;
+          image_url: string | null;
+          metadata: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          session_id: string;
+          user_id: string;
+          profile_id: string;
+          role: 'user' | 'assistant';
+          content: string;
+          image_url?: string | null;
+          metadata?: Json;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          session_id?: string;
+          user_id?: string;
+          profile_id?: string;
+          role?: 'user' | 'assistant';
+          content?: string;
+          image_url?: string | null;
+          metadata?: Json;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {

@@ -747,7 +747,7 @@ export function ClinicalActionCards({ action, profileId, onExecuted }: ClinicalA
               </span>
             </div>
           </div>
-          <Badge tone={isDone ? 'ok' : 'accent'} size="sm">
+          <Badge tone={isDone ? 'ok' : 'info'} size="sm">
             {currency} {amount.toLocaleString()}
           </Badge>
         </div>
@@ -782,7 +782,7 @@ export function ClinicalActionCards({ action, profileId, onExecuted }: ClinicalA
             View Expense Tracker &rarr;
           </Link>
           <Button
-            variant={isDone ? 'outline' : 'primary'}
+            variant={isDone ? 'secondary' : 'primary'}
             size="sm"
             loading={isExecuting}
             onClick={handleSaveExpense}

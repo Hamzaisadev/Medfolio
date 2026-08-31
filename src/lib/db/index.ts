@@ -9,3 +9,4 @@ export * as remindersRepo from './reminders';
 export * as vitalsRepo from './vitals';
 export * as sharesRepo from './shares';
 export * as extractionAuditRepo from './extractionAudit';
+export * as chatRepo from './chat';
