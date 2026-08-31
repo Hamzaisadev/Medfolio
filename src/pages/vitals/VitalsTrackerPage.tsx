@@ -22,6 +22,7 @@ import {
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Select } from '../../components/ui/Select';
+import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { Dialog } from '../../components/ui/Dialog';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { VITAL_TONE } from '../../components/ui/vitalTone';
@@ -230,30 +231,23 @@ export function VitalsTrackerPage() {
         </div>
 
         {/* Tab Toggle */}
-        <div className="flex items-center gap-2 p-1 rounded-xl bg-surface-sunken w-fit">
-          <button
-            type="button"
-            onClick={() => setActiveTab('glucose')}
-            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-              activeTab === 'glucose'
-                ? 'bg-surface-raised text-accent shadow-xs'
-                : 'text-content-muted hover:text-content'
-            }`}
-          >
-            🩸 Blood Glucose ({glucoseLogs.length})
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('bp')}
-            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-              activeTab === 'bp'
-                ? 'bg-surface-raised text-risk-text shadow-xs'
-                : 'text-content-muted hover:text-content'
-            }`}
-          >
-            🩺 Blood Pressure ({bpLogs.length})
-          </button>
-        </div>
+        <SegmentedControl<'glucose' | 'bp'>
+          value={activeTab}
+          onChange={(val) => setActiveTab(val)}
+          size="sm"
+          options={[
+            {
+              value: 'glucose',
+              label: `Blood Glucose (${glucoseLogs.length})`,
+              icon: '🩸',
+            },
+            {
+              value: 'bp',
+              label: `Blood Pressure (${bpLogs.length})`,
+              icon: '🩺',
+            },
+          ]}
+        />
 
         {loadError ? (
           <ErrorState

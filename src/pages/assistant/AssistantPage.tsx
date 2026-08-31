@@ -4,6 +4,7 @@ import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Toast } from '../../components/ui/Toast';
 import { Dialog } from '../../components/ui/Dialog';
+import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import {
   MedicineIcon,
   BarChartIcon,
@@ -1007,31 +1008,35 @@ export function AssistantPage() {
               </div>
 
               {/* Center: Sleek Segmented Mode Tabs */}
-              <div className="flex items-center gap-1 bg-surface-sunken p-1 rounded-xl border border-line shrink-0">
-                {[
-                  { id: 'chat', label: 'Chat', icon: <MessageSquareIcon size={13} /> },
-                  { id: 'radar', label: 'Interactions', icon: <MedicineIcon size={13} /> },
-                  { id: 'doctor-prep', label: 'Doctor Prep', icon: <DoctorIcon size={13} /> },
-                  { id: 'biomarkers', label: 'Lab Trends', icon: <BarChartIcon size={13} /> },
-                ].map((tab) => {
-                  const isActive = activeTab === tab.id;
-                  return (
-                    <button
-                      key={tab.id}
-                      type="button"
-                      onClick={() => setActiveTab(tab.id as typeof activeTab)}
-                      className={`px-2.5 sm:px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
-                        isActive
-                          ? 'bg-surface-raised text-accent shadow-xs border border-line'
-                          : 'text-content-muted hover:text-content'
-                      }`}
-                    >
-                      {tab.icon}
-                      <span className="hidden md:inline">{tab.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
+              <SegmentedControl<'chat' | 'radar' | 'doctor-prep' | 'biomarkers'>
+                value={activeTab}
+                onChange={(val) => setActiveTab(val)}
+                size="sm"
+                className="shrink-0"
+                tabClassName="px-2.5 sm:px-3 text-xs"
+                options={[
+                  {
+                    value: 'chat',
+                    label: <><span className="md:hidden">Chat</span><span className="hidden md:inline">Chat</span></>,
+                    icon: <MessageSquareIcon size={13} />,
+                  },
+                  {
+                    value: 'radar',
+                    label: <><span className="md:hidden">Radar</span><span className="hidden md:inline">Interactions</span></>,
+                    icon: <MedicineIcon size={13} />,
+                  },
+                  {
+                    value: 'doctor-prep',
+                    label: <><span className="md:hidden">Prep</span><span className="hidden md:inline">Doctor Prep</span></>,
+                    icon: <DoctorIcon size={13} />,
+                  },
+                  {
+                    value: 'biomarkers',
+                    label: <><span className="md:hidden">Labs</span><span className="hidden md:inline">Lab Trends</span></>,
+                    icon: <BarChartIcon size={13} />,
+                  },
+                ]}
+              />
 
               {/* Right: Actions (Find in Chat, Safety, Clear) */}
               <div className="flex items-center gap-1 shrink-0">

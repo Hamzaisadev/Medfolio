@@ -9,6 +9,7 @@ import { Input } from '../../components/ui/Input';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { Toast } from '../../components/ui/Toast';
 import {
   PrescriptionIcon,
@@ -265,28 +266,18 @@ export function TimelinePage() {
       {/* Filter and Search Bar */}
       <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 mb-6">
         {/* Filter Pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
-          {[
-            { id: 'all', label: 'All History' },
-            { id: 'visit', label: 'Doctor Visits' },
-            { id: 'report', label: 'Lab Reports' },
-            { id: 'medicine', label: 'Medicines' },
-            { id: 'side_effect', label: 'Symptoms' },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setFilterType(tab.id)}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap ${
-                filterType === tab.id
-                  ? 'bg-teal-800 text-white shadow-xs'
-                  : 'bg-ink-100 text-ink-600 hover:bg-ink-200'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl<string>
+          value={filterType}
+          onChange={(val) => setFilterType(val)}
+          size="sm"
+          options={[
+            { value: 'all', label: 'All History' },
+            { value: 'visit', label: 'Doctor Visits' },
+            { value: 'report', label: 'Lab Reports' },
+            { value: 'medicine', label: 'Medicines' },
+            { value: 'side_effect', label: 'Symptoms' },
+          ]}
+        />
 
         {/* Search */}
         <div className="w-full md:w-72">

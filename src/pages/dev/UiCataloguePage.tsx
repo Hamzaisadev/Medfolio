@@ -14,6 +14,7 @@ import { Dialog } from '../../components/ui/Dialog';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Sheet } from '../../components/ui/Sheet';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui/Tabs';
+import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ErrorState } from '../../components/ui/ErrorState';
@@ -74,6 +75,7 @@ export function UiCataloguePage() {
   const [toastOpen, setToastOpen] = useState(false);
   const [inputValue, setInputValue] = useState('');
   const [selectedDate, setSelectedDate] = useState(todayInAppTz());
+  const [segmentedValue, setSegmentedValue] = useState('all');
 
   return (
     <AppShell>
@@ -284,25 +286,41 @@ export function UiCataloguePage() {
         </section>
 
         <section className="space-y-4">
-          <SectionHeader title="Tabs" />
-          <Card>
-            <Tabs defaultValue="today">
-              <TabsList>
-                <TabsTrigger value="today">Today</TabsTrigger>
-                <TabsTrigger value="cabinet">Cabinet</TabsTrigger>
-                <TabsTrigger value="history">History</TabsTrigger>
-              </TabsList>
-              <TabsContent value="today">
-                <p className="text-sm text-content-muted">Today’s timed doses.</p>
-              </TabsContent>
-              <TabsContent value="cabinet">
-                <p className="text-sm text-content-muted">Current medicines and PRN cabinet.</p>
-              </TabsContent>
-              <TabsContent value="history">
-                <p className="text-sm text-content-muted">Completed courses.</p>
-              </TabsContent>
-            </Tabs>
-          </Card>
+          <SectionHeader title="Tabs & iOS Sliding Segmented Controls" />
+          <div className="space-y-4">
+            <Card>
+              <p className="text-xs font-bold text-content-muted mb-3 uppercase tracking-wider">Radix Tabs (Auto iOS Sliding Track)</p>
+              <Tabs defaultValue="today">
+                <TabsList>
+                  <TabsTrigger value="today">Today</TabsTrigger>
+                  <TabsTrigger value="cabinet">Cabinet</TabsTrigger>
+                  <TabsTrigger value="history">History</TabsTrigger>
+                </TabsList>
+                <TabsContent value="today">
+                  <p className="text-sm text-content-muted">Today’s timed doses.</p>
+                </TabsContent>
+                <TabsContent value="cabinet">
+                  <p className="text-sm text-content-muted">Current medicines and PRN cabinet.</p>
+                </TabsContent>
+                <TabsContent value="history">
+                  <p className="text-sm text-content-muted">Completed courses.</p>
+                </TabsContent>
+              </Tabs>
+            </Card>
+
+            <Card>
+              <p className="text-xs font-bold text-content-muted mb-3 uppercase tracking-wider">iOS Spring Segmented Control</p>
+              <SegmentedControl
+                value={segmentedValue}
+                onChange={(val) => setSegmentedValue(val)}
+                options={[
+                  { value: 'all', label: 'All History' },
+                  { value: 'medicines', label: 'Medicines', icon: <MedicineIcon size={14} /> },
+                  { value: 'reports', label: 'Lab Reports', icon: <LabFlaskIcon size={14} /> },
+                ]}
+              />
+            </Card>
+          </div>
         </section>
 
         <section className="space-y-4">

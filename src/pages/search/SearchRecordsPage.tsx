@@ -5,6 +5,7 @@ import { PageHeader } from '../../components/layout/PageHeader';
 import { Input } from '../../components/ui/Input';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
+import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { XIcon } from '../../components/ui/icons';
 import { visitsRepo, reportsRepo, medicinesRepo, sideEffectsRepo } from '../../lib/db';
@@ -207,28 +208,18 @@ export function SearchRecordsPage() {
 
         {/* Filter Chips */}
         {query && (
-          <div className="flex items-center gap-2 overflow-x-auto pb-1">
-            {[
-              { id: 'all', label: `All (${searchResults.length})` },
-              { id: 'medicine', label: 'Medicines' },
-              { id: 'visit', label: 'Doctor Visits' },
-              { id: 'report', label: 'Lab Reports & Tests' },
-              { id: 'symptom', label: 'Symptoms' },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setFilterCategory(tab.id)}
-                className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap ${
-                  filterCategory === tab.id
-                    ? 'bg-teal-800 text-white shadow-xs'
-                    : 'bg-ink-100 text-ink-600 hover:bg-ink-200'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
+          <SegmentedControl<string>
+            value={filterCategory}
+            onChange={(val) => setFilterCategory(val)}
+            size="sm"
+            options={[
+              { value: 'all', label: `All (${searchResults.length})` },
+              { value: 'medicine', label: 'Medicines' },
+              { value: 'visit', label: 'Doctor Visits' },
+              { value: 'report', label: 'Lab Reports & Tests' },
+              { value: 'symptom', label: 'Symptoms' },
+            ]}
+          />
         )}
 
         {/* Search Results List */}
