@@ -571,9 +571,9 @@ export function MedicalDatePicker({
 
       {/* Calculated Age Preview (if showAge enabled) */}
       {showAge && ageDisplay && (
-        <div className="flex items-center gap-1.5 text-xs text-content-muted pl-0.5 animate-in fade-in duration-200">
-          <span>Calculated age:</span>
-          <span className="px-2 py-0.5 rounded-md bg-surface-hover border border-line text-content font-semibold">
+        <div className="flex items-center gap-1.5 text-xs text-content-muted pl-0.5 animate-in fade-in duration-200 whitespace-nowrap overflow-hidden">
+          <span className="text-[11px] font-medium text-content-subtle shrink-0 whitespace-nowrap">Calculated age:</span>
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-surface-hover border border-line text-content font-semibold text-[11px] shrink-0 whitespace-nowrap">
             {ageDisplay}
           </span>
         </div>
