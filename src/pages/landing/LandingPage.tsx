@@ -316,21 +316,16 @@ export function LandingPage() {
         }`}
       >
         <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2.5">
+          <Link to="/" className="flex items-center gap-2.5 shrink-0" aria-label="Medfolio Home">
             <div className="w-8 h-8 rounded-xl bg-linear-to-br from-teal-600 via-teal-700 to-emerald-600 flex items-center justify-center shadow-md">
               <span className="text-white text-sm font-black">M</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <span className="text-lg font-black tracking-tight text-ink-900">Medfolio</span>
-              <span className="text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-teal-50 text-teal-800 border border-teal-200/80">
-                Shifa AI
-              </span>
-            </div>
+            <span className="text-lg font-black tracking-tight text-ink-900">Medfolio</span>
           </Link>
 
           {/* Desktop Nav */}
-          <div className="hidden md:flex items-center gap-6 lg:gap-8 text-xs lg:text-sm font-semibold text-ink-600">
-            <a href="#shifa-ai" className="hover:text-teal-800 transition-colors flex items-center gap-1">
+          <div className="hidden md:flex items-center gap-5 lg:gap-7 text-xs lg:text-sm font-semibold text-ink-600">
+            <a href="#shifa-ai" className="hover:text-teal-800 transition-colors flex items-center gap-1 font-bold text-teal-700">
               <SparklesIcon className="w-3.5 h-3.5 text-teal-600" /> Shifa AI
             </a>
             <a href="#architecture" className="hover:text-teal-800 transition-colors">How It Works</a>
