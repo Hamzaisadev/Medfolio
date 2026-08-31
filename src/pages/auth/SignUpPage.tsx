@@ -9,7 +9,6 @@ import { Input } from '../../components/ui/Input';
 import { Logo } from '../../components/ui/Logo';
 import { MedicalDatePicker } from '../../components/ui/MedicalDatePicker';
 import { BloodGroupPicker } from '../../components/ui/BloodGroupPicker';
-import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import {
   ShieldCheck,
   FileText,
@@ -337,17 +336,27 @@ export function SignUpPage() {
                 {/* Clean Segmented Biological Sex Selector */}
                 <div className="space-y-1.5 pt-1">
                   <span className="text-sm font-semibold text-content block">Biological Sex</span>
-                  <SegmentedControl<'male' | 'female' | 'other' | 'undisclosed'>
-                    value={sex}
-                    onChange={(val) => setSex(val)}
-                    fullWidth
-                    size="sm"
-                    options={[
-                      { value: 'male', label: 'Male' },
-                      { value: 'female', label: 'Female' },
-                      { value: 'undisclosed', label: 'Other / Prefer not to say' },
-                    ]}
-                  />
+                  <div className="grid grid-cols-3 gap-2" role="group" aria-label="Biological Sex">
+                    {[
+                      { id: 'male', label: 'Male' },
+                      { id: 'female', label: 'Female' },
+                      { id: 'undisclosed', label: 'Other / Undisclosed' },
+                    ].map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => setSex(item.id as 'male' | 'female' | 'other' | 'undisclosed')}
+                        disabled={isLoading}
+                        className={`h-11 rounded-[var(--radius-md)] border text-xs font-semibold flex items-center justify-center transition-all ${
+                          sex === item.id
+                            ? 'bg-accent text-accent-onaccent border-accent shadow-sm'
+                            : 'bg-surface-raised border-line-strong text-content hover:bg-surface-hover'
+                        }`}
+                      >
+                        <span>{item.label}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 {/* 2-Column Clinical Demographics: Date of Birth & Blood Group */}
