@@ -310,78 +310,78 @@ export function TimelinePage() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-7 items-start">
         {/* Left Sticky Sidebar (4 cols): Executive Control Deck */}
         <aside className="lg:col-span-4 lg:sticky lg:top-24">
-          <Card className="p-6 shadow-card border border-line bg-surface-raised/95 backdrop-blur-md rounded-3xl space-y-5">
+          <Card bare className="p-4 sm:p-5 shadow-card border border-line bg-surface-raised/95 backdrop-blur-md rounded-3xl space-y-4">
             {/* 1. Header: Health Record Profile */}
-            <div className="flex items-center gap-3.5 pb-1">
-              <div className="w-11 h-11 rounded-2xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-teal-600 dark:text-teal-400 shrink-0 shadow-2xs">
-                <TrendingUp size={20} />
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-teal-600 dark:text-teal-400 shrink-0 shadow-2xs">
+                <TrendingUp size={18} />
               </div>
 
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <h2 className="text-base font-bold text-content tracking-tight">
+                  <h2 className="text-sm font-bold text-content tracking-tight">
                     Medical History
                   </h2>
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-teal-500/10 border border-teal-500/20 text-teal-700 dark:text-teal-400 text-[10px] font-bold shrink-0">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-teal-500/10 border border-teal-500/20 text-teal-700 dark:text-teal-400 text-[10px] font-bold shrink-0">
                     <ShieldCheck size={11} />
                     Verified
                   </span>
                 </div>
-                <p className="mt-1 text-xs text-content-muted">
+                <p className="mt-0.5 text-xs text-content-muted">
                   {historySpan ? `Span: ${historySpan} – Present` : 'Longitudinal health history'}
                 </p>
               </div>
             </div>
 
             {/* 2. Unified 4-Column Metric Strip */}
-            <div className="pt-4 border-t border-line/70">
-              <div className="grid grid-cols-4 gap-1.5 p-3 rounded-2xl bg-surface-sunken/80 border border-line text-center">
-                <div className="py-1">
+            <div className="pt-3.5 border-t border-line/70">
+              <div className="grid grid-cols-4 gap-1 p-2.5 rounded-2xl bg-surface-sunken/80 border border-line text-center">
+                <div className="py-0.5">
                   <span className="text-[10px] font-bold text-content-subtle block uppercase tracking-wider">Visits</span>
-                  <span className="text-sm font-black text-content block mt-1" data-numeric>{counts.visit}</span>
+                  <span className="text-sm font-black text-content block mt-0.5" data-numeric>{counts.visit}</span>
                 </div>
-                <div className="py-1 border-l border-line/60">
+                <div className="py-0.5 border-l border-line/60">
                   <span className="text-[10px] font-bold text-content-subtle block uppercase tracking-wider">Labs</span>
-                  <span className="text-sm font-black text-content block mt-1" data-numeric>{counts.report}</span>
+                  <span className="text-sm font-black text-content block mt-0.5" data-numeric>{counts.report}</span>
                 </div>
-                <div className="py-1 border-l border-line/60">
+                <div className="py-0.5 border-l border-line/60">
                   <span className="text-[10px] font-bold text-content-subtle block uppercase tracking-wider">Meds</span>
-                  <span className="text-sm font-black text-content block mt-1" data-numeric>{counts.medicine}</span>
+                  <span className="text-sm font-black text-content block mt-0.5" data-numeric>{counts.medicine}</span>
                 </div>
-                <div className="py-1 border-l border-line/60">
+                <div className="py-0.5 border-l border-line/60">
                   <span className="text-[10px] font-bold text-teal-700 dark:text-teal-400 block uppercase tracking-wider">Total</span>
-                  <span className="text-sm font-black text-teal-700 dark:text-teal-400 block mt-1" data-numeric>{counts.all}</span>
+                  <span className="text-sm font-black text-teal-700 dark:text-teal-400 block mt-0.5" data-numeric>{counts.all}</span>
                 </div>
               </div>
             </div>
 
             {/* 3. Search Box Section */}
-            <div className="pt-4 border-t border-line/70">
+            <div className="pt-3.5 border-t border-line/70">
               <div className="relative">
                 <Input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search doctor, medicine, lab..."
-                  className="pl-9 pr-8 h-10 text-xs rounded-2xl bg-surface-sunken border border-line"
+                  className="pl-8.5 pr-8 h-9.5 text-xs rounded-xl bg-surface-sunken border border-line"
                 />
-                <Search size={14} className="absolute left-3 top-3 text-content-subtle pointer-events-none" />
+                <Search size={13} className="absolute left-2.5 top-3 text-content-subtle pointer-events-none" />
                 {searchQuery && (
                   <button
                     type="button"
                     onClick={() => setSearchQuery('')}
-                    className="absolute right-3 top-3 text-content-subtle hover:text-content p-0.5 cursor-pointer"
+                    className="absolute right-2.5 top-2.5 text-content-subtle hover:text-content p-0.5 cursor-pointer"
                   >
-                    <X size={13} />
+                    <X size={12} />
                   </button>
                 )}
               </div>
             </div>
 
-            {/* 4. Symmetrical Filter Chips with Generous Gaps */}
-            <div className="space-y-3.5 pt-4 border-t border-line/70">
+            {/* 4. Symmetrical Filter Chips */}
+            <div className="space-y-2.5 pt-3.5 border-t border-line/70">
               <div className="flex items-center justify-between text-xs font-bold text-content uppercase tracking-wider">
                 <span className="flex items-center gap-1.5">
-                  <Filter size={13} className="text-teal-600 dark:text-teal-400" />
+                  <Filter size={12} className="text-teal-600 dark:text-teal-400" />
                   Filter Records
                 </span>
                 {filterType !== 'all' && (
@@ -395,13 +395,13 @@ export function TimelinePage() {
                 )}
               </div>
 
-              {/* Symmetrical Filter Grid with Airy Gaps */}
-              <div className="space-y-2.5">
+              {/* Symmetrical Filter Grid */}
+              <div className="space-y-2">
                 <button
                   type="button"
                   onClick={() => setFilterType('all')}
                   className={clsx(
-                    'w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all tap-spring cursor-pointer border',
+                    'w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all tap-spring cursor-pointer border',
                     filterType === 'all'
                       ? 'bg-teal-600 text-white border-teal-600 shadow-xs'
                       : 'bg-surface-sunken/60 border-line/60 text-content-muted hover:text-content hover:bg-surface-hover hover:border-line'
@@ -415,7 +415,7 @@ export function TimelinePage() {
                   </div>
                   <span
                     className={clsx(
-                      'px-2 py-0.5 rounded-full text-[10px] font-black',
+                      'px-1.5 py-0.2 rounded-full text-[10px] font-black',
                       filterType === 'all'
                         ? 'bg-white/20 text-white'
                         : 'bg-surface-raised border border-line text-content-subtle'
@@ -425,11 +425,11 @@ export function TimelinePage() {
                   </span>
                 </button>
 
-                <div className="grid grid-cols-2 gap-2.5">
+                <div className="grid grid-cols-2 gap-2">
                   {[
-                    { id: 'visit', label: 'Doctor Visits', count: counts.visit, icon: <StethoscopeIcon size={13} /> },
-                    { id: 'report', label: 'Lab Reports', count: counts.report, icon: <LabFlaskIcon size={13} /> },
-                    { id: 'medicine', label: 'Prescriptions', count: counts.medicine, icon: <MedicineIcon size={13} /> },
+                    { id: 'visit', label: 'Visits', count: counts.visit, icon: <StethoscopeIcon size={13} /> },
+                    { id: 'report', label: 'Labs', count: counts.report, icon: <LabFlaskIcon size={13} /> },
+                    { id: 'medicine', label: 'Meds', count: counts.medicine, icon: <MedicineIcon size={13} /> },
                     { id: 'side_effect', label: 'Symptoms', count: counts.side_effect, icon: <AlertTriangleIcon size={13} /> },
                   ].map((tab) => (
                     <button
@@ -437,7 +437,7 @@ export function TimelinePage() {
                       type="button"
                       onClick={() => setFilterType(tab.id)}
                       className={clsx(
-                        'flex items-center justify-between px-3 py-2.5 rounded-2xl text-xs font-semibold transition-all tap-spring cursor-pointer border',
+                        'flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold transition-all tap-spring cursor-pointer border',
                         filterType === tab.id
                           ? 'bg-teal-600 text-white border-teal-600 shadow-xs font-bold'
                           : 'bg-surface-sunken/60 border-line/60 text-content-muted hover:text-content hover:bg-surface-hover hover:border-line'
@@ -466,19 +466,19 @@ export function TimelinePage() {
             </div>
 
             {/* 5. Quick Actions Shortcuts */}
-            <div className="pt-4 border-t border-line/70 space-y-3">
+            <div className="pt-3.5 border-t border-line/70 space-y-2">
               <Link to="/reports/new" className="w-full block">
                 <Button
                   variant="secondary"
-                  size="md"
-                  leftIcon={<LabFlaskIcon size={15} />}
-                  className="w-full h-11 justify-center text-xs font-bold tap-spring shadow-2xs rounded-2xl"
+                  size="sm"
+                  leftIcon={<LabFlaskIcon size={14} />}
+                  className="w-full h-10 justify-center text-xs font-bold tap-spring shadow-2xs rounded-xl"
                 >
                   Upload Lab Report
                 </Button>
               </Link>
-              <div className="flex items-center justify-center gap-1.5 text-[11px] text-content-subtle">
-                <ShieldCheck size={13} className="text-teal-600" />
+              <div className="flex items-center justify-center gap-1.5 text-[10px] text-content-subtle">
+                <ShieldCheck size={12} className="text-teal-600" />
                 <span>EHR Verified Medical Timeline</span>
               </div>
             </div>
