@@ -25,6 +25,7 @@ import {
   X,
   ShieldCheck,
   Calendar,
+  Layers,
   ArrowRight,
   TrendingUp,
   FileText,
@@ -309,113 +310,147 @@ export function TimelinePage() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left Sticky Sidebar (4 cols): Executive Control Deck */}
         <aside className="lg:col-span-4 lg:sticky lg:top-24">
-          <Card className="p-5 sm:p-6 shadow-card border border-line bg-surface-raised/95 backdrop-blur-md rounded-3xl space-y-5">
-            {/* Header: Date / Health Record Profile */}
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-9 h-9 rounded-xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-teal-600 dark:text-teal-400 shrink-0 shadow-2xs">
-                  <TrendingUp size={18} />
-                </div>
+          <Card className="p-6 shadow-card border border-line bg-surface-raised/95 backdrop-blur-md rounded-3xl space-y-6">
+            {/* 1. Header: Health Record Profile */}
+            <div className="flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-teal-600 dark:text-teal-400 shrink-0 shadow-2xs">
+                <TrendingUp size={20} />
+              </div>
 
-                <div className="min-w-0">
-                  <h2 className="text-sm font-bold text-content tracking-tight truncate">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <h2 className="text-base font-bold text-content tracking-tight">
                     Medical History
                   </h2>
-                  <p className="text-[11px] text-content-muted truncate">
-                    {historySpan ? `${historySpan} – Present` : 'Longitudinal history'}
-                  </p>
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-teal-500/10 border border-teal-500/20 text-teal-700 dark:text-teal-400 text-[10px] font-bold shrink-0">
+                    <ShieldCheck size={11} />
+                    Verified
+                  </span>
+                </div>
+                <p className="mt-0.5 text-xs text-content-muted">
+                  {historySpan ? `Span: ${historySpan} – Present` : 'Longitudinal health history'}
+                </p>
+              </div>
+            </div>
+
+            {/* 2. Unified 4-Column Metric Strip (Generous padding & spacing) */}
+            <div className="pt-4 border-t border-line/70">
+              <div className="grid grid-cols-4 gap-1.5 p-3 rounded-2xl bg-surface-sunken/80 border border-line text-center">
+                <div className="py-1">
+                  <span className="text-[10px] font-bold text-content-subtle block uppercase tracking-wider">Visits</span>
+                  <span className="text-sm font-black text-content block mt-1" data-numeric>{counts.visit}</span>
+                </div>
+                <div className="py-1 border-l border-line/60">
+                  <span className="text-[10px] font-bold text-content-subtle block uppercase tracking-wider">Labs</span>
+                  <span className="text-sm font-black text-content block mt-1" data-numeric>{counts.report}</span>
+                </div>
+                <div className="py-1 border-l border-line/60">
+                  <span className="text-[10px] font-bold text-content-subtle block uppercase tracking-wider">Meds</span>
+                  <span className="text-sm font-black text-content block mt-1" data-numeric>{counts.medicine}</span>
+                </div>
+                <div className="py-1 border-l border-line/60">
+                  <span className="text-[10px] font-bold text-teal-700 dark:text-teal-400 block uppercase tracking-wider">Total</span>
+                  <span className="text-sm font-black text-teal-700 dark:text-teal-400 block mt-1" data-numeric>{counts.all}</span>
                 </div>
               </div>
-
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-teal-500/10 border border-teal-500/20 text-teal-700 dark:text-teal-400 text-[10px] font-bold shrink-0">
-                <ShieldCheck size={11} />
-                Verified
-              </span>
             </div>
 
-            {/* Unified 4-Column Metric Strip (Space-Efficient) */}
-            <div className="grid grid-cols-4 gap-1 p-2.5 rounded-2xl bg-surface-sunken/80 border border-line text-center pt-2">
-              <div className="py-1">
-                <span className="text-[10px] font-bold text-content-subtle block uppercase tracking-wider">Visits</span>
-                <span className="text-sm font-black text-content block mt-0.5" data-numeric>{counts.visit}</span>
-              </div>
-              <div className="py-1 border-l border-line/60">
-                <span className="text-[10px] font-bold text-content-subtle block uppercase tracking-wider">Labs</span>
-                <span className="text-sm font-black text-content block mt-0.5" data-numeric>{counts.report}</span>
-              </div>
-              <div className="py-1 border-l border-line/60">
-                <span className="text-[10px] font-bold text-content-subtle block uppercase tracking-wider">Meds</span>
-                <span className="text-sm font-black text-content block mt-0.5" data-numeric>{counts.medicine}</span>
-              </div>
-              <div className="py-1 border-l border-line/60">
-                <span className="text-[10px] font-bold text-teal-700 dark:text-teal-400 block uppercase tracking-wider">Total</span>
-                <span className="text-sm font-black text-teal-700 dark:text-teal-400 block mt-0.5" data-numeric>{counts.all}</span>
-              </div>
-            </div>
-
-            {/* Search Input Box */}
-            <div className="pt-2 border-t border-line/60">
+            {/* 3. Search Box Section */}
+            <div className="pt-4 border-t border-line/70 space-y-2">
               <div className="relative">
                 <Input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search doctor, medicine, lab..."
-                  className="pl-8 pr-7 h-9.5 text-xs rounded-xl bg-surface-sunken border border-line"
+                  className="pl-9 pr-8 h-10 text-xs rounded-2xl bg-surface-sunken border border-line"
                 />
-                <Search size={13} className="absolute left-2.5 top-3 text-content-subtle pointer-events-none" />
+                <Search size={14} className="absolute left-3 top-3 text-content-subtle pointer-events-none" />
                 {searchQuery && (
                   <button
                     type="button"
                     onClick={() => setSearchQuery('')}
-                    className="absolute right-2.5 top-2.5 text-content-subtle hover:text-content p-0.5 cursor-pointer"
+                    className="absolute right-3 top-3 text-content-subtle hover:text-content p-0.5 cursor-pointer"
                   >
-                    <X size={12} />
+                    <X size={13} />
                   </button>
                 )}
               </div>
             </div>
 
-            {/* Compact Filter Capsules Strip */}
-            <div className="space-y-2.5 pt-3 border-t border-line/60">
-              <div className="flex items-center justify-between text-[11px] text-content-subtle font-bold uppercase tracking-wider">
+            {/* 4. Symmetrical Filter Chips */}
+            <div className="space-y-3 pt-4 border-t border-line/70">
+              <div className="flex items-center justify-between text-xs font-bold text-content uppercase tracking-wider">
                 <span className="flex items-center gap-1.5">
-                  <Filter size={11} className="text-teal-600 dark:text-teal-400" />
+                  <Filter size={13} className="text-teal-600 dark:text-teal-400" />
                   Filter Records
                 </span>
                 {filterType !== 'all' && (
                   <button
                     type="button"
                     onClick={() => setFilterType('all')}
-                    className="text-teal-600 hover:underline cursor-pointer normal-case font-bold"
+                    className="text-xs font-bold text-teal-600 hover:underline cursor-pointer normal-case"
                   >
                     Clear Filter
                   </button>
                 )}
               </div>
 
-              <div className="flex flex-wrap gap-2">
+              {/* Clean Symmetrical Filter Grid */}
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setFilterType('all')}
+                  className={clsx(
+                    'col-span-2 flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all tap-spring cursor-pointer border',
+                    filterType === 'all'
+                      ? 'bg-teal-600 text-white border-teal-600 shadow-xs'
+                      : 'bg-surface-sunken/60 border-line/60 text-content-muted hover:text-content hover:bg-surface-hover hover:border-line'
+                  )}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className={clsx(filterType === 'all' ? 'text-white' : 'text-teal-600 dark:text-teal-400')}>
+                      <Layers size={13} />
+                    </span>
+                    <span>All Records</span>
+                  </div>
+                  <span
+                    className={clsx(
+                      'px-2 py-0.5 rounded-full text-[10px] font-black',
+                      filterType === 'all'
+                        ? 'bg-white/20 text-white'
+                        : 'bg-surface-raised border border-line text-content-subtle'
+                    )}
+                  >
+                    {counts.all}
+                  </span>
+                </button>
+
                 {[
-                  { id: 'all', label: 'All', count: counts.all },
-                  { id: 'visit', label: 'Visits', count: counts.visit },
-                  { id: 'report', label: 'Labs', count: counts.report },
-                  { id: 'medicine', label: 'Prescriptions', count: counts.medicine },
-                  { id: 'side_effect', label: 'Symptoms', count: counts.side_effect },
+                  { id: 'visit', label: 'Doctor Visits', count: counts.visit, icon: <StethoscopeIcon size={13} /> },
+                  { id: 'report', label: 'Lab Reports', count: counts.report, icon: <LabFlaskIcon size={13} /> },
+                  { id: 'medicine', label: 'Prescriptions', count: counts.medicine, icon: <MedicineIcon size={13} /> },
+                  { id: 'side_effect', label: 'Symptoms', count: counts.side_effect, icon: <AlertTriangleIcon size={13} /> },
                 ].map((tab) => (
                   <button
                     key={tab.id}
                     type="button"
                     onClick={() => setFilterType(tab.id)}
                     className={clsx(
-                      'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all tap-spring cursor-pointer border',
+                      'flex items-center justify-between px-3 py-2.5 rounded-2xl text-xs font-semibold transition-all tap-spring cursor-pointer border',
                       filterType === tab.id
                         ? 'bg-teal-600 text-white border-teal-600 shadow-xs font-bold'
                         : 'bg-surface-sunken/60 border-line/60 text-content-muted hover:text-content hover:bg-surface-hover hover:border-line'
                     )}
                   >
-                    <span>{tab.label}</span>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className={clsx(filterType === tab.id ? 'text-white' : 'text-teal-600 dark:text-teal-400')}>
+                        {tab.icon}
+                      </span>
+                      <span className="truncate">{tab.label}</span>
+                    </div>
                     <span
                       className={clsx(
-                        'px-1.5 py-0.2 rounded-full text-[10px] font-extrabold',
+                        'px-1.5 py-0.2 rounded-full text-[10px] font-black shrink-0 ml-1',
                         filterType === tab.id
                           ? 'bg-white/20 text-white'
                           : 'bg-surface-raised border border-line text-content-subtle'
@@ -428,18 +463,22 @@ export function TimelinePage() {
               </div>
             </div>
 
-            {/* Quick Actions Shortcuts */}
-            <div className="pt-3 border-t border-line/60 space-y-2">
+            {/* 5. Quick Actions Shortcuts */}
+            <div className="pt-4 border-t border-line/70 space-y-2.5">
               <Link to="/reports/new" className="w-full block">
                 <Button
                   variant="secondary"
-                  size="sm"
-                  leftIcon={<LabFlaskIcon size={14} />}
-                  className="w-full h-10 justify-center text-xs font-bold tap-spring shadow-2xs rounded-xl"
+                  size="md"
+                  leftIcon={<LabFlaskIcon size={15} />}
+                  className="w-full h-11 justify-center text-xs font-bold tap-spring shadow-2xs rounded-2xl"
                 >
                   Upload Lab Report
                 </Button>
               </Link>
+              <div className="flex items-center justify-center gap-1.5 text-[11px] text-content-subtle pt-1">
+                <ShieldCheck size={13} className="text-teal-600" />
+                <span>EHR Verified Medical Timeline</span>
+              </div>
             </div>
           </Card>
         </aside>
