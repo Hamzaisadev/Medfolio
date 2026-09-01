@@ -377,7 +377,7 @@ export function TodaySchedulePage() {
         <div className="flex flex-col">
           <Card
             bare
-            className="h-full p-5 sm:p-6 shadow-card border border-line bg-surface-raised/95 backdrop-blur-md rounded-3xl flex flex-col justify-between space-y-4"
+            className="h-full p-4 sm:p-5 shadow-card border border-line bg-surface-raised/95 backdrop-blur-md rounded-3xl flex flex-col justify-between space-y-3.5"
           >
             {/* Top Row: Date Heading + Progress Ring + Quick Scan Button */}
             <div className="flex items-center justify-between gap-4 flex-wrap">

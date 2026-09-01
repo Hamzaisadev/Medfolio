@@ -164,12 +164,12 @@ export function DateStrip({
   return (
     <div
       className={clsx(
-        'p-5 sm:p-6 rounded-3xl border border-line bg-surface-raised/95 backdrop-blur-md shadow-card flex flex-col justify-between space-y-4 relative',
+        'p-4 sm:p-5 rounded-3xl border border-line bg-surface-raised/95 backdrop-blur-md shadow-card flex flex-col justify-between space-y-3.5 relative',
         className
       )}
     >
-      {/* Tier 1: Month & Year Navigator + Calendar Trigger + Jump to Today / Active Status */}
-      <div className="flex items-center justify-between gap-3 px-0.5">
+      {/* Header: Month & Year Navigator on Left, Prev / Today / Next Quick Steppers on Right */}
+      <div className="flex items-center justify-between gap-2">
         <div className="relative" ref={calendarRef}>
           <button
             type="button"
@@ -295,104 +295,87 @@ export function DateStrip({
           )}
         </div>
 
-        {/* Quick Today Jump or Active Status */}
-        {value !== today ? (
-          <button
-            type="button"
-            onClick={() => onChange(today)}
-            className="px-2.5 py-1 text-xs font-bold text-accent hover:bg-accent-subtle rounded-lg border border-accent/20 transition-all focus-visible:outline-2 focus-visible:outline-accent shadow-2xs tap-spring"
+        {/* Quick Steppers: Prev Day, Today Button / Indicator, Next Day */}
+        <div className="flex items-center gap-1.5">
+          <IconButton
+            aria-label="Previous day"
+            onClick={() => onChange(addDaysAppTz(value, -1))}
+            size="sm"
+            className="h-7 w-7 rounded-lg"
           >
-            Jump to Today
-          </button>
-        ) : (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-teal-500/10 border border-teal-500/20 text-teal-700 dark:text-teal-400 text-[10px] font-bold">
-            <span className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse" />
-            Current Date
-          </span>
-        )}
-      </div>
+            <ChevronLeftIcon size={14} />
+          </IconButton>
 
-      {/* Tier 2: Hero Active Day Showcase Strip */}
-      <div className="pt-3 border-t border-line/70">
-        <div className="p-2.5 rounded-2xl bg-surface-sunken/80 border border-line flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-xl bg-accent/10 border border-accent/20 text-accent flex items-center justify-center shrink-0">
-              <CalendarIcon size={15} />
-            </div>
-            <div className="min-w-0">
-              <div className="text-xs font-black text-content tracking-tight truncate">
-                {formatDayHeading(value, now)}
-              </div>
-              <div className="text-[10px] font-semibold text-content-muted truncate">
-                {value === today ? 'Today’s Active Medication Plan' : 'Viewing Past / Future Schedule'}
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center gap-1 shrink-0">
-            <IconButton
-              aria-label="Previous day"
-              onClick={() => onChange(addDaysAppTz(value, -1))}
-              size="sm"
+          {value !== today ? (
+            <button
+              type="button"
+              onClick={() => onChange(today)}
+              className="px-2 py-1 text-[11px] font-bold text-accent hover:bg-accent-subtle rounded-lg border border-accent/20 transition-all focus-visible:outline-2 focus-visible:outline-accent shadow-2xs tap-spring"
             >
-              <ChevronLeftIcon size={15} />
-            </IconButton>
-            <IconButton
-              aria-label="Next day"
-              onClick={() => onChange(addDaysAppTz(value, 1))}
-              size="sm"
-            >
-              <ChevronRightIcon size={15} />
-            </IconButton>
-          </div>
+              Today
+            </button>
+          ) : (
+            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-teal-500/10 border border-teal-500/20 text-teal-700 dark:text-teal-400 text-[10px] font-bold">
+              <span className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse" />
+              Today
+            </span>
+          )}
+
+          <IconButton
+            aria-label="Next day"
+            onClick={() => onChange(addDaysAppTz(value, 1))}
+            size="sm"
+            className="h-7 w-7 rounded-lg"
+          >
+            <ChevronRightIcon size={14} />
+          </IconButton>
         </div>
       </div>
 
-      {/* Tier 3: Horizontal 7-Day Precision Grid */}
-      <div className="pt-3 border-t border-line/70">
-        <div className="grid grid-cols-7 gap-1.5 w-full" role="group" aria-label="Select a day">
-          {days.map((day) => {
-            const isSelected = day === value;
-            const isTodayCell = day === today;
-            const isFuture = day > today;
+      {/* Symmetrical 7-Day Precision Grid */}
+      <div className="grid grid-cols-7 gap-1.5 w-full pt-1" role="group" aria-label="Select a day">
+        {days.map((day) => {
+          const isSelected = day === value;
+          const isTodayCell = day === today;
+          const isFuture = day > today;
 
-            return (
-              <button
-                key={day}
-                ref={isSelected ? selectedRef : undefined}
-                type="button"
-                onClick={() => onChange(day)}
-                aria-current={isSelected ? 'date' : undefined}
-                aria-label={formatDayHeading(day, now)}
-                className={clsx(
-                  'flex flex-col items-center justify-center h-13 rounded-2xl transition-all duration-150',
-                  'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent tap-spring',
-                  isSelected
-                    ? 'bg-accent text-content-onaccent font-bold shadow-xs scale-[1.03]'
-                    : [
-                        'bg-surface-sunken/60 border border-line/60 hover:bg-surface-hover hover:border-line-strong',
-                        isFuture ? 'text-content-subtle' : 'text-content-muted',
-                      ]
-                )}
-              >
-                <span className="text-[10px] uppercase font-bold tracking-wider leading-none">
-                  {formatDayNameShort(day)}
-                </span>
-                <span className="text-sm font-black leading-tight mt-0.5" data-numeric>
-                  {formatDayOfMonth(day)}
-                </span>
-                {isTodayCell && (
-                  <span
-                    className={clsx(
-                      'mt-0.5 w-1 h-1 rounded-full',
-                      isSelected ? 'bg-content-onaccent' : 'bg-accent'
-                    )}
-                    aria-hidden="true"
-                  />
-                )}
-              </button>
-            );
-          })}
-        </div>
+          return (
+            <button
+              key={day}
+              ref={isSelected ? selectedRef : undefined}
+              type="button"
+              onClick={() => onChange(day)}
+              aria-current={isSelected ? 'date' : undefined}
+              aria-label={formatDayHeading(day, now)}
+              className={clsx(
+                'flex flex-col items-center justify-center h-12 rounded-xl transition-all duration-150',
+                'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent tap-spring',
+                isSelected
+                  ? 'bg-accent text-content-onaccent font-bold shadow-xs scale-[1.02]'
+                  : [
+                      'bg-surface-sunken/60 border border-line/60 hover:bg-surface-hover hover:border-line-strong',
+                      isFuture ? 'text-content-subtle' : 'text-content-muted',
+                    ]
+              )}
+            >
+              <span className="text-[10px] uppercase font-bold tracking-wider leading-none">
+                {formatDayNameShort(day)}
+              </span>
+              <span className="text-sm font-black leading-tight mt-0.5" data-numeric>
+                {formatDayOfMonth(day)}
+              </span>
+              {isTodayCell && (
+                <span
+                  className={clsx(
+                    'mt-0.5 w-1 h-1 rounded-full',
+                    isSelected ? 'bg-content-onaccent' : 'bg-accent'
+                  )}
+                  aria-hidden="true"
+                />
+              )}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
