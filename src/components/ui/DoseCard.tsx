@@ -38,8 +38,8 @@ export interface DoseCardProps {
   onUndo?: () => void;
   /** Disables the actions, e.g. while browsing a past date. */
   readOnly?: boolean;
-  /** Compact row layout for grouped routine cards */
-  variant?: 'card' | 'row';
+  /** Compact row for grouped routine decks or standalone card for dashboard */
+  variant?: 'row' | 'card';
   className?: string;
 }
 
@@ -51,8 +51,9 @@ const statusBadge: Record<DoseStatus, { tone: 'ok' | 'warn' | 'neutral'; label: 
 };
 
 /**
- * Modern Clinical Medication Card & Row Component
- * Used both standalone (hero cards) and grouped inside Chronotherapy Routine Decks.
+ * Modern Clinical Medication Component
+ * Supports compact interactive row format (for chronotherapy decks)
+ * and rich standalone card format (for dashboard widgets).
  */
 export function DoseCard({
   medicineName,
@@ -68,7 +69,7 @@ export function DoseCard({
   onSkip,
   onUndo,
   readOnly = false,
-  variant = 'card',
+  variant = 'row',
   className,
 }: DoseCardProps) {
   const slot = SLOT_META[bucketOf(scheduledMinutes)];
@@ -78,21 +79,21 @@ export function DoseCard({
   const isSettled = status === 'taken' || status === 'skipped';
   const isLowStock = typeof remaining === 'number' && remaining <= 5;
 
-  // Render unified row style (for grouped decks)
+  // 1. Compact Row Layout (Space-efficient for Chronotherapy Routine Decks)
   if (variant === 'row') {
     return (
       <div
         className={clsx(
-          'group relative p-3.5 sm:p-4 hover:bg-surface-hover/50 transition-colors duration-150',
+          'group relative p-3 sm:p-3.5 px-4 sm:px-5 transition-colors duration-150 hover:bg-surface-hover/50',
           status === 'taken' && 'bg-teal-500/[0.015]',
           status === 'missed' && 'bg-amber-500/[0.02]',
           className
         )}
       >
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
-          {/* Left: Checkmark Action Trigger + Medicine Details */}
-          <div className="flex items-start gap-3 min-w-0 flex-1">
-            {/* Quick-action status circle */}
+        <div className="flex items-center justify-between gap-3 sm:gap-4">
+          {/* Left: Quick Tap Circle + Medicine Details */}
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            {/* One-Tap Check Circle */}
             <button
               type="button"
               disabled={readOnly || isSettled}
@@ -105,38 +106,50 @@ export function DoseCard({
                     : `Mark ${medicineName} as taken`
               }
               className={clsx(
-                'w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-all mt-0.5 sm:mt-0',
+                'w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center shrink-0 transition-all cursor-pointer',
                 status === 'taken'
-                  ? 'bg-teal-500 text-white shadow-2xs cursor-default'
+                  ? 'bg-teal-500 text-white shadow-2xs cursor-default ring-2 ring-teal-500/20'
                   : status === 'missed'
-                    ? 'border-2 border-amber-500 bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 cursor-pointer'
+                    ? 'border-2 border-amber-500 bg-amber-500/10 text-amber-600 hover:bg-amber-500/20'
                     : status === 'skipped'
                       ? 'bg-surface-sunken text-content-muted border border-line cursor-default'
-                      : 'border-2 border-line hover:border-accent hover:bg-accent/10 text-transparent hover:text-accent cursor-pointer group-hover:scale-105'
+                      : 'border-2 border-line hover:border-accent hover:bg-accent/10 text-transparent hover:text-accent group-hover:scale-105'
               )}
             >
               {status === 'taken' ? (
-                <CheckCircle2 size={18} className="text-white" />
+                <CheckIcon size={14} className="stroke-[3]" />
               ) : status === 'skipped' ? (
-                <XCircle size={16} />
+                <XCircle size={15} />
               ) : status === 'missed' ? (
-                <Clock size={15} />
+                <Clock size={14} />
               ) : (
-                <CheckIcon size={14} />
+                <CheckIcon size={13} className="stroke-[2.5]" />
               )}
             </button>
 
-            {/* Medicine Identity & Metadata */}
+            {/* Medicine Identity & Compact Tag Line */}
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
                 <span
                   className={clsx(
-                    'text-sm sm:text-base font-bold text-content leading-snug',
+                    'text-sm sm:text-base font-bold text-content leading-snug tracking-tight',
                     status === 'taken' && 'line-through text-content-muted decoration-teal-500/50'
                   )}
                 >
                   {medicineName}
                 </span>
+
+                {strength && (
+                  <span className="px-1.5 py-0.2 rounded bg-surface-sunken border border-line text-content font-bold text-[11px]">
+                    {strength}
+                  </span>
+                )}
+
+                {doseAmount && (
+                  <span className="text-content-muted font-medium text-xs hidden sm:inline">
+                    {doseAmount}
+                  </span>
+                )}
 
                 {badge && (
                   <Badge tone={badge.tone} size="sm" withIcon>
@@ -146,116 +159,109 @@ export function DoseCard({
                 )}
               </div>
 
-              {/* Inline Clinical Chips */}
-              <div className="mt-1 flex items-center gap-1.5 sm:gap-2 flex-wrap text-xs">
-                {strength && (
-                  <span className="px-1.5 py-0.5 rounded-md bg-surface-sunken border border-line text-content font-bold text-[11px]">
-                    {strength}
-                  </span>
-                )}
-                {doseAmount && (
-                  <span className="text-content-muted font-medium text-xs">
-                    {doseAmount}
-                  </span>
-                )}
-
-                {/* Meal Guidance Chip */}
+              {/* Inline Tags: Meal, Stock, Instructions */}
+              <div className="mt-0.5 flex items-center gap-2 flex-wrap text-xs text-content-subtle">
                 {relation === 'with_food' && (
-                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 text-[11px] font-semibold">
+                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-800 dark:text-amber-300">
                     <Utensils size={10} />
                     With Food
                   </span>
                 )}
                 {relation === 'empty_stomach' && (
-                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-blue-500/10 border border-blue-500/20 text-blue-800 dark:text-blue-300 text-[11px] font-semibold">
+                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-800 dark:text-blue-300">
                     <Droplets size={10} />
                     Empty Stomach
                   </span>
                 )}
-                {relation === 'unspecified' && (
-                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-surface-sunken border border-line text-content-subtle text-[11px] font-medium">
-                    <HelpCircle size={10} />
-                    As Directed
-                  </span>
-                )}
 
-                {/* Cabinet Stock Pill */}
                 {typeof remaining === 'number' && (
                   <span
                     className={clsx(
-                      'inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[11px] font-semibold border',
-                      isLowStock
-                        ? 'bg-rose-500/10 border-rose-500/20 text-rose-700 dark:text-rose-400'
-                        : 'bg-surface-sunken border-line text-content-subtle'
+                      'inline-flex items-center gap-1 text-[11px] font-semibold',
+                      isLowStock ? 'text-rose-600 dark:text-rose-400 font-bold' : 'text-content-subtle'
                     )}
                   >
                     {isLowStock ? <AlertCircle size={10} /> : <Package size={10} />}
-                    {isLowStock ? `Low: ${remaining}` : `${remaining} left`}
+                    {isLowStock ? `Low stock (${remaining})` : `${remaining} left`}
+                  </span>
+                )}
+
+                {instructions && (
+                  <span className="text-[11px] text-content-muted truncate max-w-xs hidden md:inline">
+                    · {instructions}
                   </span>
                 )}
               </div>
-
-              {/* Special Instructions */}
-              {instructions && (
-                <div className="mt-1.5 text-xs text-content-muted bg-surface-sunken/60 border border-line/60 rounded-lg px-2.5 py-1 flex items-start gap-1.5 max-w-xl">
-                  <FileText size={12} className="text-accent shrink-0 mt-0.5" />
-                  <span className="text-[11px] leading-tight">{instructions}</span>
-                </div>
-              )}
             </div>
           </div>
 
-          {/* Right: Actions */}
-          {!readOnly && (
-            <div className="flex items-center justify-end gap-2 shrink-0 pl-11 sm:pl-0">
-              {isActionable ? (
-                <>
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={onTake}
-                    leftIcon={<CheckIcon size={14} />}
-                    className={clsx(
-                      'h-8 px-3.5 font-bold tap-spring shadow-2xs text-xs whitespace-nowrap',
-                      status === 'missed'
-                        ? 'bg-amber-600 hover:bg-amber-700 border-amber-600'
-                        : 'bg-teal-600 hover:bg-teal-700 border-teal-600'
-                    )}
-                  >
-                    {status === 'missed' ? 'Take Overdue' : 'Take'}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={onSkip}
-                    className="h-8 px-2.5 text-xs text-content-muted hover:text-content font-semibold hover:bg-surface-hover tap-spring"
-                  >
-                    Skip
-                  </Button>
-                </>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-teal-700 dark:text-teal-400 flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-teal-500" />
-                    {status === 'taken' ? 'Logged' : 'Skipped'}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={onUndo}
-                    className="text-xs text-content-subtle hover:text-content font-medium underline px-1 transition-colors cursor-pointer"
-                  >
-                    Undo
-                  </button>
-                </div>
+          {/* Right: Scheduled Time & Contextual Actions */}
+          <div className="flex items-center gap-2.5 shrink-0">
+            {/* Scheduled Time Pill */}
+            <span
+              className={clsx(
+                'px-2 py-1 rounded-lg text-xs font-bold border shadow-2xs',
+                status === 'taken'
+                  ? 'bg-teal-500/10 text-teal-700 dark:text-teal-400 border-teal-500/20'
+                  : status === 'missed'
+                    ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20'
+                    : 'bg-surface-sunken text-content border-line'
               )}
-            </div>
-          )}
+            >
+              {formatDoseTime(scheduledMinutes)}
+            </span>
+
+            {/* Actions */}
+            {!readOnly && (
+              <div className="flex items-center gap-1.5">
+                {isActionable ? (
+                  <>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={onTake}
+                      leftIcon={<CheckIcon size={13} />}
+                      className={clsx(
+                        'h-8 px-3 font-bold tap-spring shadow-2xs text-xs whitespace-nowrap hidden sm:inline-flex',
+                        status === 'missed'
+                          ? 'bg-amber-600 hover:bg-amber-700 border-amber-600'
+                          : 'bg-teal-600 hover:bg-teal-700 border-teal-600'
+                      )}
+                    >
+                      {status === 'missed' ? 'Take Overdue' : 'Take'}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={onSkip}
+                      className="h-8 px-2 text-xs text-content-muted hover:text-content font-semibold hover:bg-surface-hover tap-spring"
+                    >
+                      Skip
+                    </Button>
+                  </>
+                ) : (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-semibold text-teal-700 dark:text-teal-400 hidden sm:inline">
+                      {status === 'taken' ? 'Taken' : 'Skipped'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={onUndo}
+                      className="text-xs text-content-subtle hover:text-content font-semibold underline px-1 transition-colors cursor-pointer"
+                    >
+                      Undo
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     );
   }
 
-  // Standalone Card variant (for Dashboard next-dose hero or single card views)
+  // 2. Standalone Hero Card Layout (For Dashboard next-dose widgets)
   return (
     <article
       className={clsx(
@@ -269,7 +275,6 @@ export function DoseCard({
         className
       )}
     >
-      {/* Left Slot Accent Color Rail */}
       <span
         className={clsx(
           'absolute inset-y-0 left-0 w-1.5 shadow-sm transition-all',
@@ -280,7 +285,6 @@ export function DoseCard({
 
       <div className="p-4 sm:p-5 pl-5 sm:pl-6 space-y-3">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          {/* Left: Avatar + Medicine Details */}
           <div className="flex items-start gap-3.5 min-w-0 flex-1">
             <div
               className={clsx(
@@ -330,7 +334,7 @@ export function DoseCard({
                     {doseAmount}
                   </span>
                 )}
-
+                
                 {relation === 'with_food' && (
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 text-[11px] font-semibold">
                     <Utensils size={11} />
@@ -355,19 +359,18 @@ export function DoseCard({
                     className={clsx(
                       'inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold border',
                       isLowStock
-                        ? 'bg-rose-500/10 border-rose-500/20 text-rose-700 dark:text-rose-400'
+                        ? 'bg-rose-500/10 border-rose-500/20 text-rose-700 dark:text-rose-400 animate-pulse'
                         : 'bg-surface-sunken border-line text-content-subtle'
                     )}
                   >
                     {isLowStock ? <AlertCircle size={11} /> : <Package size={11} />}
-                    {isLowStock ? `Low: ${remaining} left` : `${remaining} left`}
+                    {isLowStock ? `Low stock: ${remaining} left` : `${remaining} in cabinet`}
                   </span>
                 )}
               </div>
             </div>
           </div>
 
-          {/* Right: Time Pill & Actions */}
           <div className="flex items-center justify-between md:justify-end gap-3 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-line/60">
             <div
               className={clsx(
@@ -396,9 +399,7 @@ export function DoseCard({
                       leftIcon={<CheckIcon size={16} />}
                       className={clsx(
                         'h-9 sm:h-10 px-4 sm:px-5 font-bold tap-spring shadow-sm text-xs sm:text-sm whitespace-nowrap',
-                        status === 'missed'
-                          ? 'bg-amber-600 hover:bg-amber-700 border-amber-600'
-                          : 'bg-teal-600 hover:bg-teal-700 border-teal-600'
+                        status === 'missed' && 'bg-amber-600 hover:bg-amber-700 border-amber-600'
                       )}
                     >
                       {status === 'missed' ? 'Take Overdue' : 'Take Dose'}

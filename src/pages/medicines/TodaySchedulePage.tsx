@@ -17,11 +17,8 @@ import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { SLOT_META } from '../../components/ui/slotMeta';
 import { PlusIcon, MedicineIcon } from '../../components/ui/icons';
 import {
-  Clock,
-  CheckCircle2,
   AlertTriangle,
   Sparkles,
-  CalendarCheck,
   Archive,
   Check,
 } from 'lucide-react';
@@ -338,7 +335,7 @@ export function TodaySchedulePage() {
       {/* Executive Page Header with Timezone Indicator */}
       <PageHeader
         title="Medication Schedule"
-        description="Chronotherapy-timed doses for Pakistan Standard Time (PKT). Track every dose with precision."
+        description="Chronotherapy-timed daily doses. Tap any medicine circle to record a dose instantly."
         action={
           <Link to="/medicines/cabinet">
             <Button
@@ -361,117 +358,61 @@ export function TodaySchedulePage() {
         />
       )}
 
-      {/* Date Navigator Strip */}
-      <DateStrip value={selectedDate} onChange={setSelectedDate} className="mb-5" />
+      {/* Compact Date Navigator Strip */}
+      <DateStrip value={selectedDate} onChange={setSelectedDate} className="mb-4" />
 
-      {/* Daily Clinical Intelligence Hero Deck */}
+      {/* Streamlined Daily Clinical Intelligence Bar */}
       {!isLoading && doses.length > 0 && (
-        <Card className="mb-6 p-5 sm:p-6 shadow-sm border border-line glass-card rounded-2xl overflow-hidden relative">
-          <div
-            className={`absolute -right-12 -bottom-12 w-48 h-48 rounded-full blur-3xl pointer-events-none opacity-20 ${
-              adherence.percentage === 100
-                ? 'bg-teal-500'
-                : adherence.missed > 0
-                  ? 'bg-amber-500'
-                  : 'bg-teal-500'
-            }`}
-          />
-
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
-            {/* Left: Progress Ring + Date & Clinical Adherence Status */}
-            <div className="flex items-center gap-4.5">
+        <Card className="mb-5 p-4 sm:p-5 shadow-xs border border-line bg-surface-raised rounded-2xl">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            {/* Left: Mini Progress Ring + Date & Status */}
+            <div className="flex items-center gap-3.5">
               <div className="relative shrink-0">
                 <ProgressRing
                   percentage={adherence.percentage}
-                  size={68}
-                  strokeWidth={7}
+                  size={54}
+                  strokeWidth={6}
                   tone={adherence.percentage >= 80 ? 'ok' : 'warn'}
                 />
               </div>
 
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h2 className="text-lg font-bold text-content tracking-tight">
+                  <h2 className="text-base sm:text-lg font-bold text-content tracking-tight">
                     {formatDayHeading(selectedDate)}
                   </h2>
                   {adherence.percentage === 100 && (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-teal-500/10 border border-teal-500/20 text-teal-700 dark:text-teal-400 text-xs font-semibold">
-                      <Sparkles size={12} />
+                    <span className="inline-flex items-center gap-1 px-2 py-0.2 rounded-full bg-teal-500/10 border border-teal-500/20 text-teal-700 dark:text-teal-400 text-xs font-semibold">
+                      <Sparkles size={11} />
                       All Complete
                     </span>
                   )}
                   {adherence.missed > 0 && (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 text-xs font-semibold">
-                      <AlertTriangle size={12} />
+                    <span className="inline-flex items-center gap-1 px-2 py-0.2 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 text-xs font-semibold">
+                      <AlertTriangle size={11} />
                       {adherence.missed} Overdue
                     </span>
                   )}
                 </div>
 
-                <p className="mt-1 text-xs text-content-muted leading-relaxed">
+                <p className="mt-0.5 text-xs text-content-muted">
                   {adherence.percentage === 100
-                    ? 'All scheduled medication doses for this day are accounted for.'
-                    : adherence.missed > 0
-                      ? `${adherence.missed} dose is past its scheduled timing window. Please review.`
-                      : `${pendingCount} dose${pendingCount === 1 ? '' : 's'} remaining to be taken today.`}
+                    ? 'All scheduled doses for this day are accounted for.'
+                    : `${takenCount} of ${doses.length} taken · ${pendingCount} pending`}
                 </p>
               </div>
             </div>
 
-            {/* Right: 4-Column Clinical KPI Metrics */}
-            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 pt-2 md:pt-0 border-t md:border-t-0 border-line">
-              <div className="p-2.5 rounded-xl bg-surface-sunken/80 border border-line text-center">
-                <span className="text-[11px] font-medium text-content-subtle block">Scheduled</span>
-                <span className="text-base font-bold text-content block mt-0.5" data-numeric>
-                  {doses.length}
-                </span>
-              </div>
-
-              <div className="p-2.5 rounded-xl bg-teal-500/5 border border-teal-500/15 text-center">
-                <span className="text-[11px] font-medium text-teal-700 dark:text-teal-400 block flex items-center justify-center gap-1">
-                  <CheckCircle2 size={11} />
-                  Taken
-                </span>
-                <span className="text-base font-bold text-teal-700 dark:text-teal-400 block mt-0.5" data-numeric>
-                  {takenCount}
-                </span>
-              </div>
-
-              <div className="p-2.5 rounded-xl bg-surface-sunken/80 border border-line text-center">
-                <span className="text-[11px] font-medium text-content-muted block flex items-center justify-center gap-1">
-                  <Clock size={11} />
-                  Pending
-                </span>
-                <span className="text-base font-bold text-content block mt-0.5" data-numeric>
-                  {pendingCount}
-                </span>
-              </div>
-
-              <div className="hidden sm:block p-2.5 rounded-xl bg-surface-sunken/80 border border-line text-center">
-                <span className="text-[11px] font-medium text-content-subtle block">Adherence</span>
-                <span className="text-base font-bold text-content block mt-0.5" data-numeric>
-                  {adherence.percentage}%
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Quick Filter Segmented Control */}
-          <div className="mt-5 pt-4 border-t border-line flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="text-xs font-semibold text-content flex items-center gap-1.5">
-              <CalendarCheck size={14} className="text-accent" />
-              <span>Dose View Filter:</span>
-            </div>
-
-            <div className="w-full sm:w-auto">
+            {/* Right: Quick Segmented Filter */}
+            <div className="w-full md:w-auto shrink-0">
               <SegmentedControl<ScheduleFilter>
                 value={activeFilter}
                 onChange={setActiveFilter}
                 size="sm"
                 options={[
-                  { value: 'all', label: `All Doses (${doses.length})` },
-                  { value: 'actionable', label: `Due / Overdue (${actionableCount})` },
-                  { value: 'taken', label: `Completed (${takenCount})` },
+                  { value: 'all', label: `All (${doses.length})` },
+                  { value: 'actionable', label: `Due (${actionableCount})` },
+                  { value: 'taken', label: `Taken (${takenCount})` },
                 ]}
               />
             </div>
@@ -482,8 +423,8 @@ export function TodaySchedulePage() {
       {/* Loading Skeleton */}
       {isLoading ? (
         <div className="space-y-4">
-          {[0, 1, 2].map((i) => (
-            <Skeleton key={i} className="h-32 w-full rounded-2xl" />
+          {[0, 1].map((i) => (
+            <Skeleton key={i} className="h-40 w-full rounded-2xl" />
           ))}
         </div>
       ) : loadError ? (
@@ -526,8 +467,8 @@ export function TodaySchedulePage() {
           </Button>
         </div>
       ) : (
-        /* Chronotherapy Timed Sections Grouped into Executive Decks */
-        <div className="space-y-6">
+        /* Chronotherapy Timed Routine Decks (Space-Efficient Grouped Views) */
+        <div className="space-y-5">
           {BUCKET_ORDER.map((key) => {
             const bucketDoses = buckets[key];
             if (bucketDoses.length === 0) return null;
@@ -540,62 +481,58 @@ export function TodaySchedulePage() {
               <section
                 key={key}
                 aria-labelledby={`slot-${key}`}
-                className="rounded-3xl border border-line bg-surface-raised/90 backdrop-blur-md shadow-card overflow-hidden transition-all"
+                className="rounded-2xl border border-line bg-surface-raised shadow-xs overflow-hidden transition-all"
               >
-                {/* Executive Routine Group Header */}
-                <div className="p-4 sm:p-4.5 flex items-center justify-between gap-4 border-b border-line bg-surface-sunken/40">
-                  <div className="flex items-center gap-3 min-w-0">
+                {/* Routine Group Header Bar */}
+                <div className="p-3 sm:p-3.5 px-4 sm:px-5 flex items-center justify-between gap-3 border-b border-line bg-surface-sunken/40">
+                  <div className="flex items-center gap-2.5 min-w-0">
                     <span
                       className={clsx(
-                        'w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border shadow-2xs',
+                        'w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border shadow-2xs',
                         slot.surface,
                         slot.text,
                         slot.border
                       )}
                     >
-                      {slot.icon(18)}
+                      {slot.icon(15)}
                     </span>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h2 id={`slot-${key}`} className="text-sm sm:text-base font-bold text-content tracking-tight">
-                          {slot.label} Routine
-                        </h2>
-                        <span className="px-2 py-0.5 rounded-md bg-surface-raised border border-line text-[11px] font-bold text-content-muted">
-                          {slot.timeRange}
-                        </span>
-                      </div>
-                      <p className="text-xs text-content-subtle font-medium mt-0.5">
-                        {bucketDoses.length} {bucketDoses.length === 1 ? 'medicine' : 'medicines'}
-                        {bucketPending > 0 ? ` · ${bucketPending} due` : ' · All taken'}
-                      </p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h2 id={`slot-${key}`} className="text-sm font-bold text-content tracking-tight uppercase">
+                        {slot.label} Routine
+                      </h2>
+                      <span className="text-[11px] text-content-subtle font-semibold px-2 py-0.5 rounded-md bg-surface-raised border border-line">
+                        {slot.timeRange}
+                      </span>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
-                    {/* Batch Action "Take all due" */}
-                    {bucketPending > 0 && !isPast && (
-                      <Button
-                        variant="primary"
-                        size="sm"
+                    {bucketPending > 1 && !isPast && (
+                      <button
+                        type="button"
                         onClick={() => handleMarkRoutineTaken(bucketDoses, slot.label)}
-                        leftIcon={<Check size={14} />}
-                        className="text-xs font-bold tap-spring shadow-2xs h-8 sm:h-9 px-3 sm:px-3.5 bg-teal-600 hover:bg-teal-700 whitespace-nowrap"
+                        className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-teal-500/10 hover:bg-teal-500/20 text-teal-700 dark:text-teal-300 text-xs font-bold border border-teal-500/20 transition-all cursor-pointer tap-spring"
                       >
-                        Take all ({bucketPending})
-                      </Button>
+                        <Check size={12} />
+                        Take all due ({bucketPending})
+                      </button>
                     )}
 
-                    {bucketPending === 0 && (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-teal-500/10 border border-teal-500/20 text-teal-700 dark:text-teal-400 text-xs font-bold">
-                        <CheckCircle2 size={13} />
-                        Completed
-                      </span>
-                    )}
+                    <span
+                      className={clsx(
+                        'px-2.5 py-0.5 rounded-full border text-[11px] font-semibold',
+                        bucketPending > 0
+                          ? 'bg-amber-500/10 border-amber-500/20 text-amber-800 dark:text-amber-300'
+                          : 'bg-teal-500/10 border-teal-500/20 text-teal-700 dark:text-teal-400'
+                      )}
+                    >
+                      {bucketPending > 0 ? `${bucketPending} of ${bucketDoses.length} due` : 'All completed ✓'}
+                    </span>
                   </div>
                 </div>
 
-                {/* Medications List inside this Routine */}
-                <div className="divide-y divide-line/60">
+                {/* Divided Clean Medication Rows */}
+                <div className="divide-y divide-line/40">
                   {bucketDoses.map((dose) => {
                     const medicine = medicinesMap[dose.medicine_id];
                     return (
