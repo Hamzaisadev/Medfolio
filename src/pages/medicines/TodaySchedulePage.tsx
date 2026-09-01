@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { clsx } from 'clsx';
 import { AppShell } from '../../components/layout/AppShell';
 import { Button } from '../../components/ui/Button';
-import { IconButton } from '../../components/ui/IconButton';
 import { Card } from '../../components/ui/Card';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ErrorState } from '../../components/ui/ErrorState';
@@ -15,7 +14,6 @@ import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { SLOT_META } from '../../components/ui/slotMeta';
 import {
   PlusIcon,
-  CabinetIcon,
   CalendarIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -478,20 +476,20 @@ export function TodaySchedulePage() {
 
           {/* Center-Left: Date Stepper & Calendar Popover Trigger */}
           <div className="flex items-center gap-1 sm:gap-1.5 shrink-0" ref={calendarRef}>
-            <IconButton
+            <button
+              type="button"
               aria-label="Previous day"
               onClick={() => setSelectedDate(addDaysAppTz(selectedDate, -1))}
-              size="sm"
-              className="h-8 w-8 rounded-xl border border-line bg-surface-sunken hover:bg-surface-hover text-content-muted"
+              className="w-7.5 h-7.5 rounded-full border border-line bg-surface-sunken/80 hover:bg-surface-hover text-content-muted flex items-center justify-center tap-spring transition-colors"
             >
               <ChevronLeftIcon size={14} />
-            </IconButton>
+            </button>
 
             <div className="relative">
               <button
                 type="button"
                 onClick={() => setIsCalendarOpen((prev) => !prev)}
-                className="flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 rounded-xl border border-line bg-surface-sunken hover:bg-surface-hover text-content text-xs font-bold shadow-2xs tap-spring whitespace-nowrap"
+                className="flex items-center gap-1.5 sm:gap-2 px-3.5 py-1.5 rounded-full border border-line bg-surface-sunken/80 hover:bg-surface-hover text-content text-xs font-bold shadow-2xs tap-spring whitespace-nowrap transition-colors"
                 aria-expanded={isCalendarOpen}
                 aria-label="Select date"
               >
@@ -512,25 +510,27 @@ export function TodaySchedulePage() {
                 >
                   {/* Calendar Month Header */}
                   <div className="flex items-center justify-between pb-2 mb-2 border-b border-line">
-                    <IconButton
+                    <button
+                      type="button"
                       aria-label="Previous month"
                       onClick={handlePrevMonth}
-                      size="sm"
+                      className="w-7 h-7 rounded-lg border border-line flex items-center justify-center text-content-muted hover:bg-surface-hover"
                     >
-                      <ChevronLeftIcon size={15} />
-                    </IconButton>
+                      <ChevronLeftIcon size={14} />
+                    </button>
 
                     <div className="text-xs font-bold text-content">
                       {MONTH_NAMES[viewMonth]} {viewYear}
                     </div>
 
-                    <IconButton
+                    <button
+                      type="button"
                       aria-label="Next month"
                       onClick={handleNextMonth}
-                      size="sm"
+                      className="w-7 h-7 rounded-lg border border-line flex items-center justify-center text-content-muted hover:bg-surface-hover"
                     >
-                      <ChevronRightIcon size={15} />
-                    </IconButton>
+                      <ChevronRightIcon size={14} />
+                    </button>
                   </div>
 
                   {/* Weekday Labels */}
@@ -612,18 +612,18 @@ export function TodaySchedulePage() {
               )}
             </div>
 
-            <IconButton
+            <button
+              type="button"
               aria-label="Next day"
               onClick={() => setSelectedDate(addDaysAppTz(selectedDate, 1))}
-              size="sm"
-              className="h-8 w-8 rounded-xl border border-line bg-surface-sunken hover:bg-surface-hover text-content-muted"
+              className="w-7.5 h-7.5 rounded-full border border-line bg-surface-sunken/80 hover:bg-surface-hover text-content-muted flex items-center justify-center tap-spring transition-colors"
             >
               <ChevronRightIcon size={14} />
-            </IconButton>
+            </button>
           </div>
 
           {/* Center-Right: 4 KPI Metrics with Dividers */}
-          <div className="flex items-center gap-3 sm:gap-4 py-1 px-3 sm:px-3.5 rounded-2xl bg-surface-sunken/60 border border-line/60 shrink-0">
+          <div className="flex items-center gap-3 sm:gap-4.5 py-1 px-4 rounded-full bg-surface-sunken/60 border border-line/60 shrink-0">
             <div className="text-center px-0.5">
               <span className="text-xs sm:text-sm font-black text-content block leading-tight" data-numeric>
                 {doses.length}
@@ -667,17 +667,14 @@ export function TodaySchedulePage() {
             </div>
           </div>
 
-          {/* Right Action: Cabinet Button */}
+          {/* Right Action: Cabinet Pill Button (Matching Mockup) */}
           <div className="flex items-center shrink-0">
-            <Link to="/medicines/cabinet" className="shrink-0">
-              <Button
-                variant="secondary"
-                size="sm"
-                leftIcon={<CabinetIcon size={14} />}
-                className="h-8.5 px-3 sm:px-3.5 text-xs font-bold rounded-xl tap-spring shadow-2xs"
-              >
-                Cabinet
-              </Button>
+            <Link
+              to="/medicines/cabinet"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-line bg-surface-sunken/80 hover:bg-surface-hover hover:border-line-strong text-content text-xs font-bold shadow-2xs tap-spring transition-colors shrink-0"
+            >
+              <Archive size={13} className="text-content-muted" />
+              <span>Cabinet</span>
             </Link>
           </div>
         </div>
