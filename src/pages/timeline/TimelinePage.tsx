@@ -6,7 +6,6 @@ import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
-import { Input } from '../../components/ui/Input';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
@@ -357,21 +356,23 @@ export function TimelinePage() {
 
             {/* 3. Search Box Section */}
             <div className="pt-3.5 border-t border-line/70">
-              <div className="relative">
-                <Input
+              <div className="relative flex items-center">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-content-subtle pointer-events-none shrink-0" />
+                <input
+                  type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search doctor, medicine, lab..."
-                  className="pl-8.5 pr-8 h-9.5 text-xs rounded-xl bg-surface-sunken border border-line"
+                  className="w-full pl-9 pr-8 h-10 text-xs rounded-xl bg-surface-sunken border border-line text-content placeholder:text-content-subtle focus:border-accent focus:outline-none transition-colors"
                 />
-                <Search size={13} className="absolute left-2.5 top-3 text-content-subtle pointer-events-none" />
                 {searchQuery && (
                   <button
                     type="button"
                     onClick={() => setSearchQuery('')}
-                    className="absolute right-2.5 top-2.5 text-content-subtle hover:text-content p-0.5 cursor-pointer"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-content-subtle hover:text-content rounded-md cursor-pointer"
+                    aria-label="Clear search"
                   >
-                    <X size={12} />
+                    <X size={13} />
                   </button>
                 )}
               </div>
