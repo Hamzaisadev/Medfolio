@@ -1,28 +1,32 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { clsx } from 'clsx';
 import { AppShell } from '../../components/layout/AppShell';
-import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
+import { IconButton } from '../../components/ui/IconButton';
 import { Card } from '../../components/ui/Card';
-import { ProgressRing } from '../../components/ui/ProgressRing';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { Dialog } from '../../components/ui/Dialog';
 import { Toast } from '../../components/ui/Toast';
 import { Skeleton } from '../../components/ui/Skeleton';
-import { DateStrip } from '../../components/ui/DateStrip';
 import { DoseCard } from '../../components/ui/DoseCard';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { SLOT_META } from '../../components/ui/slotMeta';
-import { PlusIcon, MedicineIcon } from '../../components/ui/icons';
 import {
-  Sparkles,
+  PlusIcon,
+  MedicineIcon,
+  CalendarIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  ChevronDownIcon,
+} from '../../components/ui/icons';
+import {
   Archive,
   Check,
   ShieldCheck,
 } from 'lucide-react';
-import { todayInAppTz, formatDayHeading } from '../../lib/time';
+import { todayInAppTz, formatDayHeading, fromAppDate, addDaysAppTz } from '../../lib/time';
 import { bucketOf, Bucket, BUCKET_ORDER } from '../../domain/timeBuckets';
 import { deriveStatusOnRead, calculateAdherence } from '../../domain/adherence';
 import { defaultDoseTimes, parseFrequency } from '../../domain/frequency';
@@ -36,6 +40,12 @@ import type { Tables } from '../../lib/supabase/types';
 type Dose = Tables<'doses'>;
 type Medicine = Tables<'medicines'>;
 type ScheduleFilter = 'all' | 'actionable' | 'taken';
+
+const WEEKDAYS = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
+];
 
 const SKIP_REASONS = [
   'Forgot',
@@ -330,25 +340,103 @@ export function TodaySchedulePage() {
   const pendingCount = doses.filter((d) => deriveStatusOnRead(d, new Date()) === 'pending').length;
   const actionableCount = pendingCount + missedCount;
 
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const calendarRef = useRef<HTMLDivElement>(null);
+
+  const [viewYear, setViewYear] = useState(() => {
+    try {
+      return fromAppDate(selectedDate).getUTCFullYear();
+    } catch {
+      return new Date().getFullYear();
+    }
+  });
+
+  const [viewMonth, setViewMonth] = useState(() => {
+    try {
+      return fromAppDate(selectedDate).getUTCMonth();
+    } catch {
+      return new Date().getMonth();
+    }
+  });
+
+  useEffect(() => {
+    try {
+      const d = fromAppDate(selectedDate);
+      setViewYear(d.getUTCFullYear());
+      setViewMonth(d.getUTCMonth());
+    } catch {
+      // ignore
+    }
+  }, [selectedDate]);
+
+  useEffect(() => {
+    if (!isCalendarOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (calendarRef.current && !calendarRef.current.contains(e.target as Node)) {
+        setIsCalendarOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isCalendarOpen]);
+
+  const calendarMonthDays = useMemo(() => {
+    const firstDay = new Date(Date.UTC(viewYear, viewMonth, 1));
+    const startDayIndex = (firstDay.getUTCDay() + 6) % 7;
+    const totalDays = new Date(Date.UTC(viewYear, viewMonth + 1, 0)).getUTCDate();
+
+    const cells: Array<{ dateStr: string; dayNum: number; isCurrentMonth: boolean }> = [];
+
+    const prevMonthTotalDays = new Date(Date.UTC(viewYear, viewMonth, 0)).getUTCDate();
+    for (let i = startDayIndex - 1; i >= 0; i--) {
+      const d = prevMonthTotalDays - i;
+      const prevM = viewMonth === 0 ? 11 : viewMonth - 1;
+      const prevY = viewMonth === 0 ? viewYear - 1 : viewYear;
+      const mm = String(prevM + 1).padStart(2, '0');
+      const dd = String(d).padStart(2, '0');
+      cells.push({ dateStr: `${prevY}-${mm}-${dd}`, dayNum: d, isCurrentMonth: false });
+    }
+
+    for (let d = 1; d <= totalDays; d++) {
+      const mm = String(viewMonth + 1).padStart(2, '0');
+      const dd = String(d).padStart(2, '0');
+      cells.push({ dateStr: `${viewYear}-${mm}-${dd}`, dayNum: d, isCurrentMonth: true });
+    }
+
+    const remaining = (7 - (cells.length % 7)) % 7;
+    for (let d = 1; d <= remaining; d++) {
+      const nextM = viewMonth === 11 ? 0 : viewMonth + 1;
+      const nextY = viewMonth === 11 ? viewYear + 1 : viewYear;
+      const mm = String(nextM + 1).padStart(2, '0');
+      const dd = String(d).padStart(2, '0');
+      cells.push({ dateStr: `${nextY}-${mm}-${dd}`, dayNum: d, isCurrentMonth: false });
+    }
+
+    return cells;
+  }, [viewYear, viewMonth]);
+
+  const handlePrevMonth = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (viewMonth === 0) {
+      setViewMonth(11);
+      setViewYear((y) => y - 1);
+    } else {
+      setViewMonth((m) => m - 1);
+    }
+  };
+
+  const handleNextMonth = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (viewMonth === 11) {
+      setViewMonth(0);
+      setViewYear((y) => y + 1);
+    } else {
+      setViewMonth((m) => m + 1);
+    }
+  };
+
   return (
     <AppShell>
-      {/* Executive Page Header with Timezone Indicator */}
-      <PageHeader
-        title="Medication Schedule"
-        description="Chronotherapy-timed daily doses for Pakistan Standard Time (PKT)."
-        action={
-          <Link to="/medicines/cabinet">
-            <Button
-              variant="secondary"
-              leftIcon={<MedicineIcon size={16} />}
-              className="h-10 text-xs font-bold tap-spring shadow-2xs"
-            >
-              Medicine Cabinet
-            </Button>
-          </Link>
-        }
-      />
-
       {toast && (
         <Toast
           open
@@ -358,104 +446,264 @@ export function TodaySchedulePage() {
         />
       )}
 
-      {/* Top Deck: Date Navigator (compact) & Daily Adherence Workspace (matching height) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-6 items-stretch">
-        {/* Left: Date Navigator Card (5 cols on desktop) */}
-        <div className="lg:col-span-5 flex flex-col">
-          <DateStrip
-            value={selectedDate}
-            onChange={setSelectedDate}
-            className="h-full"
+      {/* Compact & Focused Master Header Deck */}
+      <Card
+        bare
+        className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-line bg-surface-raised/95 backdrop-blur-md shadow-card mb-6"
+      >
+        <div className="flex items-center justify-between gap-4 flex-wrap lg:flex-nowrap">
+          {/* Left: App Icon + Title + Subtitle */}
+          <div className="flex items-center gap-3 shrink-0">
+            <div className="w-10 h-10 rounded-2xl bg-teal-600 dark:bg-teal-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+              <CalendarIcon size={20} />
+            </div>
+            <div>
+              <h1 className="text-base font-bold text-content leading-tight">Medication Schedule</h1>
+              <p className="text-xs text-content-muted">Stay on track with your meds.</p>
+            </div>
+          </div>
+
+          {/* Center-Left: Date Stepper & Calendar Popover Trigger */}
+          <div className="flex items-center gap-1.5 shrink-0" ref={calendarRef}>
+            <IconButton
+              aria-label="Previous day"
+              onClick={() => setSelectedDate(addDaysAppTz(selectedDate, -1))}
+              size="sm"
+              className="h-8 w-8 rounded-xl border border-line bg-surface-sunken hover:bg-surface-hover text-content-muted"
+            >
+              <ChevronLeftIcon size={14} />
+            </IconButton>
+
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setIsCalendarOpen((prev) => !prev)}
+                className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl border border-line bg-surface-sunken hover:bg-surface-hover text-content text-xs font-bold shadow-2xs tap-spring whitespace-nowrap"
+                aria-expanded={isCalendarOpen}
+                aria-label="Select date"
+              >
+                <CalendarIcon size={14} className="text-teal-600 dark:text-teal-400" />
+                <span>
+                  {selectedDate === today ? 'Today, ' : ''}{formatDayHeading(selectedDate)}
+                </span>
+                <ChevronDownIcon
+                  size={12}
+                  className={clsx('text-content-muted transition-transform duration-200', isCalendarOpen && 'rotate-180')}
+                />
+              </button>
+
+              {/* Interactive Calendar Popover */}
+              {isCalendarOpen && (
+                <div
+                  className="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-72 p-3.5 rounded-2xl bg-surface-raised border border-line-strong shadow-raise z-50 animate-in fade-in zoom-in-95 duration-150"
+                  role="dialog"
+                  aria-label="Select date from calendar"
+                >
+                  {/* Calendar Month Header */}
+                  <div className="flex items-center justify-between pb-2 mb-2 border-b border-line">
+                    <IconButton
+                      aria-label="Previous month"
+                      onClick={handlePrevMonth}
+                      size="sm"
+                    >
+                      <ChevronLeftIcon size={15} />
+                    </IconButton>
+
+                    <div className="text-xs font-bold text-content">
+                      {MONTH_NAMES[viewMonth]} {viewYear}
+                    </div>
+
+                    <IconButton
+                      aria-label="Next month"
+                      onClick={handleNextMonth}
+                      size="sm"
+                    >
+                      <ChevronRightIcon size={15} />
+                    </IconButton>
+                  </div>
+
+                  {/* Weekday Labels */}
+                  <div className="grid grid-cols-7 gap-1 text-center mb-1">
+                    {WEEKDAYS.map((wd) => (
+                      <span key={wd} className="text-[10px] font-bold text-content-subtle uppercase">
+                        {wd}
+                      </span>
+                    ))}
+                  </div>
+
+                  {/* Day Cells Grid */}
+                  <div className="grid grid-cols-7 gap-1">
+                    {calendarMonthDays.map((cell) => {
+                      const isSelected = cell.dateStr === selectedDate;
+                      const isTodayCell = cell.dateStr === today;
+
+                      return (
+                        <button
+                          key={cell.dateStr}
+                          type="button"
+                          onClick={() => {
+                            setSelectedDate(cell.dateStr);
+                            setIsCalendarOpen(false);
+                          }}
+                          className={clsx(
+                            'h-8 w-8 text-xs font-semibold rounded-lg flex items-center justify-center transition-all relative',
+                            isSelected
+                              ? 'bg-accent text-content-onaccent font-bold shadow-xs'
+                              : cell.isCurrentMonth
+                                ? 'text-content hover:bg-surface-hover'
+                                : 'text-content-subtle opacity-40 hover:opacity-100 hover:bg-surface-hover',
+                            isTodayCell && !isSelected && 'ring-1 ring-accent font-bold text-accent'
+                          )}
+                        >
+                          {cell.dayNum}
+                          {isTodayCell && !isSelected && (
+                            <span className="absolute bottom-1 w-1 h-1 rounded-full bg-accent" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Quick Jump Shortcuts */}
+                  <div className="flex items-center justify-between pt-2.5 mt-2 border-t border-line text-2xs">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedDate(addDaysAppTz(selectedDate, -7));
+                        setIsCalendarOpen(false);
+                      }}
+                      className="px-2 py-1 rounded-md text-content-muted hover:bg-surface-hover hover:text-content font-medium transition-colors"
+                    >
+                      ← Prev Week
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedDate(today);
+                        setIsCalendarOpen(false);
+                      }}
+                      className="px-2 py-1 rounded-md bg-accent-subtle text-accent font-bold hover:bg-accent hover:text-content-onaccent transition-colors"
+                    >
+                      Today
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedDate(addDaysAppTz(selectedDate, 7));
+                        setIsCalendarOpen(false);
+                      }}
+                      className="px-2 py-1 rounded-md text-content-muted hover:bg-surface-hover hover:text-content font-medium transition-colors"
+                    >
+                      Next Week →
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <IconButton
+              aria-label="Next day"
+              onClick={() => setSelectedDate(addDaysAppTz(selectedDate, 1))}
+              size="sm"
+              className="h-8 w-8 rounded-xl border border-line bg-surface-sunken hover:bg-surface-hover text-content-muted"
+            >
+              <ChevronRightIcon size={14} />
+            </IconButton>
+          </div>
+
+          {/* Center-Right: 4 KPI Metrics with Dividers */}
+          <div className="flex items-center gap-4 sm:gap-6 py-1 px-3 sm:px-4 rounded-2xl bg-surface-sunken/60 border border-line/60 shrink-0">
+            <div className="text-center">
+              <span className="text-sm sm:text-base font-black text-content block leading-tight" data-numeric>
+                {doses.length}
+              </span>
+              <span className="text-[10px] font-semibold text-content-subtle uppercase tracking-wider block">
+                Total
+              </span>
+            </div>
+
+            <div className="h-6 w-[1px] bg-line" />
+
+            <div className="text-center">
+              <span className="text-sm sm:text-base font-black text-content block leading-tight" data-numeric>
+                {doses.length - takenCount}
+              </span>
+              <span className="text-[10px] font-semibold text-content-subtle uppercase tracking-wider block">
+                Remaining
+              </span>
+            </div>
+
+            <div className="h-6 w-[1px] bg-line" />
+
+            <div className="text-center">
+              <span className="text-sm sm:text-base font-black text-content block leading-tight" data-numeric>
+                {pendingCount}
+              </span>
+              <span className="text-[10px] font-semibold text-content-subtle uppercase tracking-wider block">
+                Pending
+              </span>
+            </div>
+
+            <div className="h-6 w-[1px] bg-line" />
+
+            <div className="text-center">
+              <span className="text-sm sm:text-base font-black text-content block leading-tight" data-numeric>
+                {adherence.percentage}%
+              </span>
+              <span className="text-[10px] font-semibold text-content-subtle uppercase tracking-wider block">
+                Progress
+              </span>
+            </div>
+          </div>
+
+          {/* Right Action: Cabinet Button */}
+          <div className="flex items-center gap-2 shrink-0">
+            <Link to="/medicines/cabinet" className="shrink-0">
+              <Button
+                variant="secondary"
+                size="sm"
+                leftIcon={<MedicineIcon size={14} />}
+                className="h-8.5 px-3.5 text-xs font-bold rounded-xl tap-spring shadow-2xs"
+              >
+                Cabinet
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </Card>
+
+      {/* Routine Filter Toolbar */}
+      <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
+        <div className="w-full sm:w-64">
+          <SegmentedControl<ScheduleFilter>
+            value={activeFilter}
+            onChange={setActiveFilter}
+            size="sm"
+            fullWidth
+            options={[
+              { value: 'all', label: `All (${doses.length})` },
+              { value: 'actionable', label: `Due (${actionableCount})` },
+              { value: 'taken', label: `Done (${takenCount})` },
+            ]}
           />
         </div>
 
-        {/* Right: Daily Adherence & Control Deck (7 cols on desktop - matching height) */}
-        <div className="lg:col-span-7 flex flex-col">
-          <Card
-            bare
-            className="h-full p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl border border-line bg-surface-raised/95 backdrop-blur-md shadow-card flex flex-col justify-between space-y-2.5"
-          >
-            {/* Row 1: Day Heading + Progress Ring + Micro KPI Chips + Quick Scan Button */}
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="relative shrink-0">
-                  <ProgressRing
-                    percentage={adherence.percentage}
-                    size={36}
-                    strokeWidth={4.5}
-                    tone={adherence.percentage >= 80 ? 'ok' : 'warn'}
-                  />
-                </div>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 text-xs text-content-subtle">
+            <ShieldCheck size={13} className="text-teal-600" />
+            <span>Chronotherapy Active</span>
+          </div>
 
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <h2 className="text-xs sm:text-sm font-bold text-content tracking-tight truncate">
-                      {formatDayHeading(selectedDate)}
-                    </h2>
-                    {adherence.percentage === 100 ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-teal-500/10 border border-teal-500/20 text-teal-700 dark:text-teal-400 text-[10px] font-bold shrink-0">
-                        <Sparkles size={10} />
-                        Complete
-                      </span>
-                    ) : (
-                      <span className="text-[11px] text-content-muted truncate">
-                        · {pendingCount} dose{pendingCount === 1 ? '' : 's'} left
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* 4-Stat Micro Chips Row */}
-              <div className="hidden sm:flex items-center gap-1 text-[11px] font-semibold text-content-muted">
-                <span className="px-2 py-0.5 rounded-lg bg-surface-sunken border border-line text-content" data-numeric>
-                  {doses.length} <span className="text-content-subtle font-normal">total</span>
-                </span>
-                <span className="px-2 py-0.5 rounded-lg bg-teal-500/5 border border-teal-500/15 text-teal-700 dark:text-teal-400" data-numeric>
-                  {takenCount} <span className="font-normal opacity-80">taken</span>
-                </span>
-                <span className="px-2 py-0.5 rounded-lg bg-surface-sunken border border-line text-content" data-numeric>
-                  {pendingCount} <span className="text-content-subtle font-normal">due</span>
-                </span>
-                <span className="px-2 py-0.5 rounded-lg bg-amber-500/5 border border-amber-500/15 text-amber-700 dark:text-amber-400 font-bold" data-numeric>
-                  {adherence.percentage}%
-                </span>
-              </div>
-
-              <Link to="/prescriptions/new" className="shrink-0">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  leftIcon={<PlusIcon size={13} />}
-                  className="h-7 px-2.5 font-bold tap-spring shadow-2xs rounded-lg text-xs"
-                >
-                  Scan Rx
-                </Button>
-              </Link>
-            </div>
-
-            {/* Row 2: Filter Segmented Control & Verified Tag */}
-            <div className="flex items-center justify-between gap-3 pt-1 border-t border-line/60">
-              <div className="flex-1 max-w-sm">
-                <SegmentedControl<ScheduleFilter>
-                  value={activeFilter}
-                  onChange={setActiveFilter}
-                  size="sm"
-                  fullWidth
-                  options={[
-                    { value: 'all', label: `All (${doses.length})` },
-                    { value: 'actionable', label: `Due (${actionableCount})` },
-                    { value: 'taken', label: `Done (${takenCount})` },
-                  ]}
-                />
-              </div>
-
-              <div className="flex items-center gap-1 text-[10px] text-content-subtle shrink-0">
-                <ShieldCheck size={11} className="text-teal-600" />
-                <span>EHR Verified</span>
-              </div>
-            </div>
-          </Card>
+          <Link to="/prescriptions/new">
+            <Button
+              variant="secondary"
+              size="sm"
+              leftIcon={<PlusIcon size={13} />}
+              className="h-8 px-3 text-xs font-bold rounded-xl tap-spring shadow-2xs"
+            >
+              Scan Prescription
+            </Button>
+          </Link>
         </div>
       </div>
 
