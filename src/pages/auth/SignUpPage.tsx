@@ -333,21 +333,21 @@ export function SignUpPage() {
                   </div>
                 </Field>
 
-                {/* Clean Segmented Biological Sex Selector */}
+                {/* Clean Segmented Biological Sex Selector with Proportional Widths */}
                 <div className="space-y-1.5 pt-1">
                   <span className="text-sm font-semibold text-content block">Biological Sex</span>
-                  <div className="grid grid-cols-3 gap-2" role="group" aria-label="Biological Sex">
+                  <div className="grid grid-cols-12 gap-2" role="group" aria-label="Biological Sex">
                     {[
-                      { id: 'male', label: 'Male' },
-                      { id: 'female', label: 'Female' },
-                      { id: 'undisclosed', label: 'Other / Undisclosed' },
+                      { id: 'male', label: 'Male', span: 'col-span-3' },
+                      { id: 'female', label: 'Female', span: 'col-span-3' },
+                      { id: 'undisclosed', label: 'Other / Undisclosed', span: 'col-span-6' },
                     ].map((item) => (
                       <button
                         key={item.id}
                         type="button"
                         onClick={() => setSex(item.id as 'male' | 'female' | 'other' | 'undisclosed')}
                         disabled={isLoading}
-                        className={`h-11 rounded-[var(--radius-md)] border text-xs font-semibold flex items-center justify-center transition-all ${
+                        className={`h-11 ${item.span} rounded-[var(--radius-md)] border text-xs font-semibold px-2 flex items-center justify-center transition-all whitespace-nowrap cursor-pointer ${
                           sex === item.id
                             ? 'bg-accent text-accent-onaccent border-accent shadow-sm'
                             : 'bg-surface-raised border-line-strong text-content hover:bg-surface-hover'
