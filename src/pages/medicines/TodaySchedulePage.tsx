@@ -15,7 +15,7 @@ import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { SLOT_META } from '../../components/ui/slotMeta';
 import {
   PlusIcon,
-  MedicineIcon,
+  CabinetIcon,
   CalendarIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -462,22 +462,22 @@ export function TodaySchedulePage() {
       {/* Compact & Focused Master Header Deck */}
       <Card
         bare
-        className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-line bg-surface-raised/95 backdrop-blur-md shadow-card mb-6 overflow-visible relative z-30"
+        className="p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl border border-line bg-surface-raised/95 backdrop-blur-md shadow-card mb-6 overflow-visible relative z-30"
       >
-        <div className="flex items-center justify-between gap-4 flex-wrap lg:flex-nowrap">
+        <div className="flex items-center justify-between gap-3 sm:gap-4 flex-wrap">
           {/* Left: App Icon + Title + Subtitle */}
-          <div className="flex items-center gap-3 shrink-0">
-            <div className="w-10 h-10 rounded-2xl bg-teal-600 dark:bg-teal-500 text-white flex items-center justify-center shrink-0 shadow-xs">
-              <CalendarIcon size={20} />
+          <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-teal-600 dark:bg-teal-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+              <CalendarIcon size={18} />
             </div>
             <div>
-              <h1 className="text-base font-bold text-content leading-tight">Medication Schedule</h1>
+              <h1 className="text-sm sm:text-base font-bold text-content leading-tight">Medication Schedule</h1>
               <p className="text-xs text-content-muted">Stay on track with your meds.</p>
             </div>
           </div>
 
           {/* Center-Left: Date Stepper & Calendar Popover Trigger */}
-          <div className="flex items-center gap-1.5 shrink-0" ref={calendarRef}>
+          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0" ref={calendarRef}>
             <IconButton
               aria-label="Previous day"
               onClick={() => setSelectedDate(addDaysAppTz(selectedDate, -1))}
@@ -491,11 +491,11 @@ export function TodaySchedulePage() {
               <button
                 type="button"
                 onClick={() => setIsCalendarOpen((prev) => !prev)}
-                className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl border border-line bg-surface-sunken hover:bg-surface-hover text-content text-xs font-bold shadow-2xs tap-spring whitespace-nowrap"
+                className="flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 rounded-xl border border-line bg-surface-sunken hover:bg-surface-hover text-content text-xs font-bold shadow-2xs tap-spring whitespace-nowrap"
                 aria-expanded={isCalendarOpen}
                 aria-label="Select date"
               >
-                <CalendarIcon size={14} className="text-teal-600 dark:text-teal-400" />
+                <CalendarIcon size={13} className="text-teal-600 dark:text-teal-400" />
                 <span>{displayDateLabel}</span>
                 <ChevronDownIcon
                   size={12}
@@ -623,58 +623,58 @@ export function TodaySchedulePage() {
           </div>
 
           {/* Center-Right: 4 KPI Metrics with Dividers */}
-          <div className="flex items-center gap-4 sm:gap-6 py-1 px-3 sm:px-4 rounded-2xl bg-surface-sunken/60 border border-line/60 shrink-0">
-            <div className="text-center">
-              <span className="text-sm sm:text-base font-black text-content block leading-tight" data-numeric>
+          <div className="flex items-center gap-3 sm:gap-4 py-1 px-3 sm:px-3.5 rounded-2xl bg-surface-sunken/60 border border-line/60 shrink-0">
+            <div className="text-center px-0.5">
+              <span className="text-xs sm:text-sm font-black text-content block leading-tight" data-numeric>
                 {doses.length}
               </span>
-              <span className="text-[10px] font-semibold text-content-subtle uppercase tracking-wider block">
+              <span className="text-[9px] sm:text-[10px] font-semibold text-content-subtle uppercase tracking-wider block">
                 Total
               </span>
             </div>
 
-            <div className="h-6 w-[1px] bg-line" />
+            <div className="h-5 w-[1px] bg-line" />
 
-            <div className="text-center">
-              <span className="text-sm sm:text-base font-black text-content block leading-tight" data-numeric>
+            <div className="text-center px-0.5">
+              <span className="text-xs sm:text-sm font-black text-content block leading-tight" data-numeric>
                 {doses.length - takenCount}
               </span>
-              <span className="text-[10px] font-semibold text-content-subtle uppercase tracking-wider block">
+              <span className="text-[9px] sm:text-[10px] font-semibold text-content-subtle uppercase tracking-wider block">
                 Remaining
               </span>
             </div>
 
-            <div className="h-6 w-[1px] bg-line" />
+            <div className="h-5 w-[1px] bg-line" />
 
-            <div className="text-center">
-              <span className="text-sm sm:text-base font-black text-content block leading-tight" data-numeric>
+            <div className="text-center px-0.5">
+              <span className="text-xs sm:text-sm font-black text-content block leading-tight" data-numeric>
                 {pendingCount}
               </span>
-              <span className="text-[10px] font-semibold text-content-subtle uppercase tracking-wider block">
+              <span className="text-[9px] sm:text-[10px] font-semibold text-content-subtle uppercase tracking-wider block">
                 Pending
               </span>
             </div>
 
-            <div className="h-6 w-[1px] bg-line" />
+            <div className="h-5 w-[1px] bg-line" />
 
-            <div className="text-center">
-              <span className="text-sm sm:text-base font-black text-content block leading-tight" data-numeric>
+            <div className="text-center px-0.5">
+              <span className="text-xs sm:text-sm font-black text-content block leading-tight" data-numeric>
                 {adherence.percentage}%
               </span>
-              <span className="text-[10px] font-semibold text-content-subtle uppercase tracking-wider block">
+              <span className="text-[9px] sm:text-[10px] font-semibold text-content-subtle uppercase tracking-wider block">
                 Progress
               </span>
             </div>
           </div>
 
           {/* Right Action: Cabinet Button */}
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center shrink-0">
             <Link to="/medicines/cabinet" className="shrink-0">
               <Button
                 variant="secondary"
                 size="sm"
-                leftIcon={<MedicineIcon size={14} />}
-                className="h-8.5 px-3.5 text-xs font-bold rounded-xl tap-spring shadow-2xs"
+                leftIcon={<CabinetIcon size={14} />}
+                className="h-8.5 px-3 sm:px-3.5 text-xs font-bold rounded-xl tap-spring shadow-2xs"
               >
                 Cabinet
               </Button>
