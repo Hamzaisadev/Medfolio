@@ -460,17 +460,21 @@ export function TodaySchedulePage() {
       {/* Compact & Focused Master Header Deck */}
       <Card
         bare
-        className="p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl border border-line bg-surface-raised/95 backdrop-blur-md shadow-card mb-6 overflow-visible relative z-30"
+        className="p-3 sm:p-4 rounded-2xl sm:rounded-3xl border border-line bg-surface-raised/95 backdrop-blur-md shadow-card mb-6 overflow-visible relative z-30"
       >
-        <div className="flex items-center justify-between gap-3 sm:gap-4 flex-wrap">
+        <div className="flex items-center justify-between gap-2 sm:gap-3 flex-nowrap w-full overflow-x-auto no-scrollbar py-0.5">
           {/* Left: App Icon + Title + Subtitle */}
           <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
             <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-teal-600 dark:bg-teal-500 text-white flex items-center justify-center shrink-0 shadow-xs">
               <CalendarIcon size={18} />
             </div>
-            <div>
-              <h1 className="text-sm sm:text-base font-bold text-content leading-tight">Medication Schedule</h1>
-              <p className="text-xs text-content-muted">Stay on track with your meds.</p>
+            <div className="min-w-0">
+              <h1 className="text-sm sm:text-base font-bold text-content leading-tight whitespace-nowrap">
+                Medication Schedule
+              </h1>
+              <p className="text-xs text-content-muted hidden sm:block whitespace-nowrap">
+                Stay on track with your meds.
+              </p>
             </div>
           </div>
 
@@ -480,16 +484,16 @@ export function TodaySchedulePage() {
               type="button"
               aria-label="Previous day"
               onClick={() => setSelectedDate(addDaysAppTz(selectedDate, -1))}
-              className="w-7.5 h-7.5 rounded-full border border-line bg-surface-sunken/80 hover:bg-surface-hover text-content-muted flex items-center justify-center tap-spring transition-colors"
+              className="w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-full border border-line bg-surface-sunken/80 hover:bg-surface-hover text-content-muted flex items-center justify-center tap-spring transition-colors shrink-0"
             >
-              <ChevronLeftIcon size={14} />
+              <ChevronLeftIcon size={13} />
             </button>
 
             <div className="relative">
               <button
                 type="button"
                 onClick={() => setIsCalendarOpen((prev) => !prev)}
-                className="flex items-center gap-1.5 sm:gap-2 px-3.5 py-1.5 rounded-full border border-line bg-surface-sunken/80 hover:bg-surface-hover text-content text-xs font-bold shadow-2xs tap-spring whitespace-nowrap transition-colors"
+                className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 rounded-full border border-line bg-surface-sunken/80 hover:bg-surface-hover text-content text-xs font-bold shadow-2xs tap-spring whitespace-nowrap transition-colors"
                 aria-expanded={isCalendarOpen}
                 aria-label="Select date"
               >
@@ -616,14 +620,14 @@ export function TodaySchedulePage() {
               type="button"
               aria-label="Next day"
               onClick={() => setSelectedDate(addDaysAppTz(selectedDate, 1))}
-              className="w-7.5 h-7.5 rounded-full border border-line bg-surface-sunken/80 hover:bg-surface-hover text-content-muted flex items-center justify-center tap-spring transition-colors"
+              className="w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-full border border-line bg-surface-sunken/80 hover:bg-surface-hover text-content-muted flex items-center justify-center tap-spring transition-colors shrink-0"
             >
-              <ChevronRightIcon size={14} />
+              <ChevronRightIcon size={13} />
             </button>
           </div>
 
           {/* Center-Right: 4 KPI Metrics with Dividers */}
-          <div className="flex items-center gap-3 sm:gap-4.5 py-1 px-4 rounded-full bg-surface-sunken/60 border border-line/60 shrink-0">
+          <div className="flex items-center gap-2 sm:gap-3 py-1 px-3 sm:px-3.5 rounded-full bg-surface-sunken/60 border border-line/60 shrink-0">
             <div className="text-center px-0.5">
               <span className="text-xs sm:text-sm font-black text-content block leading-tight" data-numeric>
                 {doses.length}
@@ -633,7 +637,7 @@ export function TodaySchedulePage() {
               </span>
             </div>
 
-            <div className="h-5 w-[1px] bg-line" />
+            <div className="h-4.5 w-[1px] bg-line" />
 
             <div className="text-center px-0.5">
               <span className="text-xs sm:text-sm font-black text-content block leading-tight" data-numeric>
@@ -644,7 +648,7 @@ export function TodaySchedulePage() {
               </span>
             </div>
 
-            <div className="h-5 w-[1px] bg-line" />
+            <div className="h-4.5 w-[1px] bg-line" />
 
             <div className="text-center px-0.5">
               <span className="text-xs sm:text-sm font-black text-content block leading-tight" data-numeric>
@@ -655,7 +659,7 @@ export function TodaySchedulePage() {
               </span>
             </div>
 
-            <div className="h-5 w-[1px] bg-line" />
+            <div className="h-4.5 w-[1px] bg-line" />
 
             <div className="text-center px-0.5">
               <span className="text-xs sm:text-sm font-black text-content block leading-tight" data-numeric>
@@ -667,11 +671,11 @@ export function TodaySchedulePage() {
             </div>
           </div>
 
-          {/* Right Action: Cabinet Pill Button (Matching Mockup) */}
+          {/* Right Action: Cabinet Pill Button (Aligned in Above Row) */}
           <div className="flex items-center shrink-0">
             <Link
               to="/medicines/cabinet"
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-line bg-surface-sunken/80 hover:bg-surface-hover hover:border-line-strong text-content text-xs font-bold shadow-2xs tap-spring transition-colors shrink-0"
+              className="inline-flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-full border border-line bg-surface-sunken/80 hover:bg-surface-hover hover:border-line-strong text-content text-xs font-bold shadow-2xs tap-spring transition-colors shrink-0"
             >
               <Archive size={13} className="text-content-muted" />
               <span>Cabinet</span>
