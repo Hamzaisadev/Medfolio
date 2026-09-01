@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import { clsx } from 'clsx';
 import { AppShell } from '../../components/layout/AppShell';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
@@ -12,7 +13,6 @@ import { Toast } from '../../components/ui/Toast';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { DateStrip } from '../../components/ui/DateStrip';
 import { DoseCard } from '../../components/ui/DoseCard';
-import { SectionHeader } from '../../components/ui/SectionHeader';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { SLOT_META } from '../../components/ui/slotMeta';
 import { PlusIcon, MedicineIcon } from '../../components/ui/icons';
@@ -32,7 +32,7 @@ import { buildSchedule } from '../../domain/schedule';
 import { computeEndDate } from '../../domain/duration';
 import { useAuth } from '../../lib/auth/AuthContext';
 import { dosesRepo, medicinesRepo } from '../../lib/db';
-import { decrementPill, incrementPill } from '../../lib/inventory';
+import { decrementPill, incrementPill, readInventory } from '../../lib/inventory';
 import type { Tables } from '../../lib/supabase/types';
 
 type Dose = Tables<'doses'>;
@@ -77,7 +77,6 @@ async function topUpScheduleFor(
 
     if (!isOngoing && effectiveEndDate && effectiveEndDate < dateStr) continue;
 
-    // frequency_code is the authority; frequency_raw is only a fallback.
     const freqCode = m.frequency_code ?? parseFrequency(m.frequency_raw);
     if (!freqCode) continue;
 
@@ -117,6 +116,7 @@ export function TodaySchedulePage() {
   const [selectedDate, setSelectedDate] = useState<string>(todayInAppTz());
   const [doses, setDoses] = useState<Dose[]>([]);
   const [medicinesMap, setMedicinesMap] = useState<Record<string, Medicine>>({});
+  const [inventory, setInventory] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<ScheduleFilter>('all');
@@ -144,6 +144,8 @@ export function TodaySchedulePage() {
         const map: Record<string, Medicine> = {};
         for (const m of fetchedMeds) map[m.id] = m;
         setMedicinesMap(map);
+
+        setInventory(readInventory(effectiveProfileId));
 
         const today = todayInAppTz();
         if (fetchedDoses.length === 0 && fetchedMeds.length > 0 && dateStr >= today) {
@@ -185,6 +187,8 @@ export function TodaySchedulePage() {
       setDoses((prev) => prev.map((d) => (d.id === dose.id ? updated : d)));
 
       const remaining = decrementPill(effectiveProfileId, dose.medicine_id);
+      setInventory(readInventory(effectiveProfileId));
+
       setToast({
         tone: 'ok',
         message:
@@ -208,6 +212,7 @@ export function TodaySchedulePage() {
 
       if (dose.status === 'taken') {
         incrementPill(effectiveProfileId, dose.medicine_id);
+        setInventory(readInventory(effectiveProfileId));
       }
       setToast({ tone: 'ok', message: 'Dose reset to pending.' });
     } catch (err: unknown) {
@@ -328,7 +333,6 @@ export function TodaySchedulePage() {
       {/* Daily Clinical Intelligence Hero Deck */}
       {!isLoading && doses.length > 0 && (
         <Card className="mb-6 p-5 sm:p-6 shadow-sm border border-line glass-card rounded-2xl overflow-hidden relative">
-          {/* Subtle decorative glow */}
           <div
             className={`absolute -right-12 -bottom-12 w-48 h-48 rounded-full blur-3xl pointer-events-none opacity-20 ${
               adherence.percentage === 100
@@ -347,7 +351,7 @@ export function TodaySchedulePage() {
                   percentage={adherence.percentage}
                   size={68}
                   strokeWidth={7}
-                  tone={adherence.percentage >= 80 ? 'ok' : adherence.missed > 0 ? 'warn' : 'warn'}
+                  tone={adherence.percentage >= 80 ? 'ok' : 'warn'}
                 />
               </div>
 
@@ -445,7 +449,7 @@ export function TodaySchedulePage() {
       {isLoading ? (
         <div className="space-y-4">
           {[0, 1, 2].map((i) => (
-            <Skeleton key={i} className="h-44 w-full rounded-2xl" />
+            <Skeleton key={i} className="h-32 w-full rounded-2xl" />
           ))}
         </div>
       ) : loadError ? (
@@ -489,7 +493,7 @@ export function TodaySchedulePage() {
         </div>
       ) : (
         /* Chronotherapy Timed Sections */
-        <div className="space-y-8">
+        <div className="space-y-7">
           {BUCKET_ORDER.map((key) => {
             const bucketDoses = buckets[key];
             if (bucketDoses.length === 0) return null;
@@ -499,29 +503,47 @@ export function TodaySchedulePage() {
             ).length;
 
             return (
-              <section key={key} aria-labelledby={`slot-${key}`} className="space-y-3.5">
-                <SectionHeader
-                  title={slot.label}
-                  icon={slot.icon(16)}
-                  tone={slot.tone}
-                  meta={
-                    <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-                      <span className="px-2.5 py-1 rounded-lg bg-surface-sunken border border-line text-xs font-bold text-content shadow-2xs">
+              <section key={key} aria-labelledby={`slot-${key}`} className="space-y-3">
+                {/* Executive Stage Header Banner */}
+                <div className="flex items-center justify-between gap-3 p-3 px-4 rounded-2xl bg-surface-raised border border-line shadow-2xs">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span
+                      className={clsx(
+                        'w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border shadow-2xs',
+                        slot.surface,
+                        slot.text,
+                        slot.border
+                      )}
+                    >
+                      {slot.icon(16)}
+                    </span>
+                    <div>
+                      <h2 id={`slot-${key}`} className="text-xs sm:text-sm font-black text-content uppercase tracking-wider">
+                        {slot.label} Routine
+                      </h2>
+                      <span className="text-[11px] text-content-subtle font-medium block">
                         {slot.timeRange}
                       </span>
-                      <span className="px-2.5 py-1 rounded-lg bg-surface-sunken border border-line text-xs font-bold text-content-muted shadow-2xs">
-                        {bucketDoses.length} {bucketDoses.length === 1 ? 'dose' : 'doses'}
-                        {bucketPending > 0 ? ` · ${bucketPending} due` : ' · Done'}
-                      </span>
                     </div>
-                  }
-                  className="mb-2"
-                />
-                <h2 id={`slot-${key}`} className="sr-only">
-                  {slot.label} doses
-                </h2>
+                  </div>
 
-                <div className="grid grid-cols-1 gap-3.5">
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span
+                      className={clsx(
+                        'px-2.5 py-1 rounded-lg border text-xs font-bold shadow-2xs',
+                        bucketPending > 0
+                          ? 'bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-400'
+                          : 'bg-teal-500/10 border-teal-500/20 text-teal-700 dark:text-teal-400'
+                      )}
+                    >
+                      {bucketDoses.length} {bucketDoses.length === 1 ? 'dose' : 'doses'}
+                      {bucketPending > 0 ? ` · ${bucketPending} due` : ' · All Done'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Doses List */}
+                <div className="grid grid-cols-1 gap-2.5">
                   {bucketDoses.map((dose) => {
                     const medicine = medicinesMap[dose.medicine_id];
                     return (
@@ -535,6 +557,7 @@ export function TodaySchedulePage() {
                         withFood={medicine?.with_food}
                         instructions={medicine?.instructions}
                         skippedReason={dose.skipped_reason}
+                        remaining={inventory[dose.medicine_id]}
                         onTake={() => handleMarkTaken(dose)}
                         onSkip={() => handleOpenSkip(dose)}
                         onUndo={() => handleUndo(dose)}
