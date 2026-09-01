@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import {
   CameraIcon,
   LabFlaskIcon,
@@ -316,21 +317,16 @@ export function LandingPage() {
         }`}
       >
         <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2.5">
+          <Link to="/" className="flex items-center gap-2.5 shrink-0" aria-label="Medfolio Home">
             <div className="w-8 h-8 rounded-xl bg-linear-to-br from-teal-600 via-teal-700 to-emerald-600 flex items-center justify-center shadow-md">
               <span className="text-white text-sm font-black">M</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <span className="text-lg font-black tracking-tight text-ink-900">Medfolio</span>
-              <span className="text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-teal-50 text-teal-800 border border-teal-200/80">
-                Shifa AI
-              </span>
-            </div>
+            <span className="text-lg font-black tracking-tight text-ink-900">Medfolio</span>
           </Link>
 
           {/* Desktop Nav */}
-          <div className="hidden md:flex items-center gap-6 lg:gap-8 text-xs lg:text-sm font-semibold text-ink-600">
-            <a href="#shifa-ai" className="hover:text-teal-800 transition-colors flex items-center gap-1">
+          <div className="hidden md:flex items-center gap-5 lg:gap-7 text-xs lg:text-sm font-semibold text-ink-600">
+            <a href="#shifa-ai" className="hover:text-teal-800 transition-colors flex items-center gap-1 font-bold text-teal-700">
               <SparklesIcon className="w-3.5 h-3.5 text-teal-600" /> Shifa AI
             </a>
             <a href="#architecture" className="hover:text-teal-800 transition-colors">How It Works</a>
@@ -832,30 +828,19 @@ export function LandingPage() {
 
         {/* Feature Navigation Tabs */}
         <div className="flex items-center justify-center mb-10 overflow-x-auto scrollbar-none pb-2">
-          <div className="p-1.5 rounded-2xl bg-ink-100/80 border border-ink-200/80 flex items-center gap-1 shadow-inner">
-            {[
-              { id: 'sentinel', label: 'Sentinel Safety Radar', icon: <ShieldIcon size={14} /> },
-              { id: 'trajectory', label: 'Biomarker Velocity', icon: <LabFlaskIcon size={14} /> },
-              { id: 'doctor', label: 'Doctor Prep Brief', icon: <DoctorIcon size={14} /> },
-              { id: 'chronotherapy', label: 'Chronotherapy & Timing', icon: <ClockIcon size={14} /> },
-            ].map((tab) => {
-              const active = activeFeatureTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveFeatureTab(tab.id as typeof activeFeatureTab)}
-                  className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
-                    active
-                      ? 'bg-white text-ink-900 shadow-sm border border-ink-200/70'
-                      : 'text-ink-600 hover:text-ink-900 hover:bg-white/50'
-                  }`}
-                >
-                  {tab.icon}
-                  {tab.label}
-                </button>
-              );
-            })}
-          </div>
+          <SegmentedControl<'sentinel' | 'trajectory' | 'doctor' | 'chronotherapy'>
+            value={activeFeatureTab}
+            onChange={(val) => setActiveFeatureTab(val)}
+            size="md"
+            className="bg-ink-100/80 border-ink-200/80 shadow-inner p-1.5 rounded-2xl"
+            tabClassName="text-xs px-4 py-2.5 rounded-xl gap-2 font-bold"
+            options={[
+              { value: 'sentinel', label: 'Sentinel Safety Radar', icon: <ShieldIcon size={14} /> },
+              { value: 'trajectory', label: 'Biomarker Velocity', icon: <LabFlaskIcon size={14} /> },
+              { value: 'doctor', label: 'Doctor Prep Brief', icon: <DoctorIcon size={14} /> },
+              { value: 'chronotherapy', label: 'Chronotherapy & Timing', icon: <ClockIcon size={14} /> },
+            ]}
+          />
         </div>
 
         {/* Feature Tab Content Display */}

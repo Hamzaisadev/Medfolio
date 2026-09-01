@@ -23,6 +23,7 @@ import {
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Select } from '../../components/ui/Select';
+import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { Dialog } from '../../components/ui/Dialog';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { VitalsGauge } from '../../components/ui/VitalsGauge';
@@ -232,44 +233,24 @@ export function VitalsTrackerPage() {
           </div>
         </motion.div>
 
-        {/* Tab Toggle with Sliding layout animation */}
-        <motion.div variants={staggerItem} className="flex items-center gap-2 p-1 rounded-xl bg-surface-sunken w-fit relative border border-line">
-          <button
-            type="button"
-            onClick={() => setActiveTab('glucose')}
-            className={`relative px-4 py-2 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 ${
-              activeTab === 'glucose' ? 'text-accent' : 'text-content-muted hover:text-content'
-            }`}
-          >
-            {activeTab === 'glucose' && (
-              <motion.div
-                layoutId="vitals-tab-pill"
-                className="absolute inset-0 rounded-lg bg-surface-raised shadow-xs"
-                transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-              />
-            )}
-            <DropletIcon size={14} className="relative z-10" />
-            <span className="relative z-10">Blood Glucose ({glucoseLogs.length})</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('bp')}
-            className={`relative px-4 py-2 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 ${
-              activeTab === 'bp' ? 'text-risk-text' : 'text-content-muted hover:text-content'
-            }`}
-          >
-            {activeTab === 'bp' && (
-              <motion.div
-                layoutId="vitals-tab-pill"
-                className="absolute inset-0 rounded-lg bg-surface-raised shadow-xs"
-                transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-              />
-            )}
-            <HeartPulseIcon size={14} className="relative z-10" />
-            <span className="relative z-10">Blood Pressure ({bpLogs.length})</span>
-          </button>
-        </motion.div>
+        {/* Tab Toggle */}
+        <SegmentedControl<'glucose' | 'bp'>
+          value={activeTab}
+          onChange={(val) => setActiveTab(val)}
+          size="sm"
+          options={[
+            {
+              value: 'glucose',
+              label: `Blood Glucose (${glucoseLogs.length})`,
+              icon: '🩸',
+            },
+            {
+              value: 'bp',
+              label: `Blood Pressure (${bpLogs.length})`,
+              icon: '🩺',
+            },
+          ]}
+        />
 
         {loadError ? (
           <ErrorState

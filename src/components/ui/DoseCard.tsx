@@ -2,11 +2,22 @@ import { clsx } from 'clsx';
 import { motion } from 'motion/react';
 import { Button } from './Button';
 import { Badge } from './Badge';
-import { SLOT_META, mealRelationIcon } from './slotMeta';
-import { CheckIcon, MedicineIcon, ClockIcon, AlertTriangleIcon } from './icons';
+import { SLOT_META } from './slotMeta';
+import { CheckIcon } from './icons';
 import { bucketOf } from '../../domain/timeBuckets';
-import { mealRelationOf, mealRelationInstruction } from '../../domain/mealRelation';
+import { mealRelationOf } from '../../domain/mealRelation';
 import { formatDoseTime } from '../../lib/time';
+import {
+  Package,
+  AlertCircle,
+  Pill,
+  Utensils,
+  Droplets,
+  HelpCircle,
+  FileText,
+  CheckCircle2,
+  XCircle,
+} from 'lucide-react';
 
 export type DoseStatus = 'pending' | 'taken' | 'skipped' | 'missed';
 
@@ -38,7 +49,9 @@ const statusBadge: Record<DoseStatus, { tone: 'ok' | 'warn' | 'neutral' | 'info'
 };
 
 /**
- * Modern tactile DoseCard with rich clinical details, meal relation pill, and direct 1-tap logging.
+ * Modern Clinical Medication Tile
+ * Features chronotherapy slot accents, inline medical attributes,
+ * low-stock safety radar, and tactile action buttons.
  */
 export function DoseCard({
   medicineName,
@@ -60,7 +73,8 @@ export function DoseCard({
   const relation = mealRelationOf(withFood);
   const badge = statusBadge[status];
   const isActionable = status === 'pending' || status === 'missed';
-  const isOverdue = status === 'missed';
+  const isSettled = status === 'taken' || status === 'skipped';
+  const isLowStock = typeof remaining === 'number' && remaining <= 5;
 
   return (
     <motion.article
@@ -70,162 +84,202 @@ export function DoseCard({
       whileHover={{ y: -2 }}
       transition={{ type: 'spring', stiffness: 450, damping: 30 }}
       className={clsx(
-        'relative overflow-hidden rounded-[var(--radius-xl)] border transition-all duration-[var(--duration-base)]',
-        isOverdue
-          ? 'border-warn-border bg-warn-bg/20 shadow-card'
+        'group relative flex flex-col justify-between overflow-hidden rounded-2xl border bg-surface-raised p-4 sm:p-4.5 transition-all duration-200 shadow-2xs hover:shadow-card-hover hover:border-line-strong',
+        status === 'missed'
+          ? 'border-amber-500/40 bg-amber-500/[0.025] ring-1 ring-amber-500/20'
           : status === 'taken'
-            ? 'border-ok-border/60 bg-surface-raised/80 opacity-90 shadow-xs'
-            : 'border-line hover:border-line-strong bg-surface-raised shadow-card hover:shadow-raise',
+            ? 'border-teal-500/30 bg-teal-500/[0.015]'
+            : 'border-line',
+        isSettled && 'opacity-90',
         className
       )}
     >
-      {/* Time-of-day Slot Rail */}
+      {/* Top Chronotherapy Slot Color Accent Strip */}
       <span
         className={clsx(
-          'absolute inset-y-0 left-0 w-1.5 transition-colors',
-          status === 'taken' ? 'bg-ok-text/40' : isOverdue ? 'bg-warn-text' : slot.surface
+          'absolute top-0 inset-x-0 h-1 transition-all',
+          status === 'taken' ? 'bg-teal-500' : status === 'missed' ? 'bg-amber-500' : slot.surface
         )}
         aria-hidden="true"
       />
 
-      <div className="pl-5 pr-4 py-4 sm:py-4.5">
-        <div className="flex items-start justify-between gap-3">
-          {/* Left: Medicine Details */}
-          <div className="flex items-start gap-3 min-w-0 flex-1">
-            {/* Pill/Medicine Icon Container */}
-            <div
-              className={clsx(
-                'shrink-0 w-10 h-10 rounded-xl flex items-center justify-center transition-colors mt-0.5',
-                status === 'taken'
-                  ? 'bg-ok-bg text-ok-text border border-ok-border'
-                  : isOverdue
-                    ? 'bg-warn-bg text-warn-text border border-warn-border'
-                    : 'bg-surface-sunken text-accent border border-line'
-              )}
-            >
-              {status === 'taken' ? (
-                <CheckIcon size={20} className="stroke-[2.5]" />
-              ) : isOverdue ? (
-                <AlertTriangleIcon size={18} />
-              ) : (
-                <MedicineIcon size={19} />
-              )}
-            </div>
-
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h3
-                  className={clsx(
-                    'text-base font-bold tracking-tight transition-colors truncate',
-                    status === 'taken' ? 'text-content-muted line-through decoration-content-subtle/50' : 'text-content'
-                  )}
-                >
-                  {medicineName}
-                </h3>
-                {badge && (
-                  <Badge tone={badge.tone} size="sm" withIcon>
-                    {status === 'taken' && <CheckIcon size={11} className="inline mr-0.5" />}
-                    {badge.label}
-                    {status === 'skipped' && skippedReason ? `: ${skippedReason}` : ''}
-                  </Badge>
-                )}
-              </div>
-
-              <div className="flex items-center gap-2 flex-wrap mt-0.5 text-xs text-content-muted">
-                <span className="font-medium">
-                  {[strength, doseAmount].filter(Boolean).join(' · ') || 'Dose as prescribed'}
-                </span>
-                {typeof remaining === 'number' && (
-                  <>
-                    <span>•</span>
-                    <span
-                      className={clsx(
-                        'font-medium',
-                        remaining <= 5 ? 'text-warn-text font-bold' : 'text-content-subtle'
-                      )}
-                      data-numeric
-                    >
-                      {remaining} left in cabinet
-                    </span>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Right: Scheduled Time Badge */}
-          <div
-            className={clsx(
-              'shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-colors',
-              status === 'taken'
-                ? 'bg-surface-sunken text-content-muted border-line'
-                : isOverdue
-                  ? 'bg-warn-bg text-warn-text border-warn-border'
-                  : clsx(slot.surface, slot.text, slot.border)
-            )}
-          >
-            <ClockIcon size={13} className="shrink-0 opacity-80" />
-            <time data-numeric className="whitespace-nowrap font-mono">
-              {formatDoseTime(scheduledMinutes)}
-            </time>
-          </div>
-        </div>
-
-        {/* Meal Guidance & Instructions */}
-        <div className="mt-3 flex flex-wrap items-center gap-2">
+      <div className="space-y-3">
+        {/* Top Header: Scheduled Time Pill + Meal / Status Badges */}
+        <div className="flex items-center justify-between gap-2">
+          {/* Scheduled Time Chip */}
           <span
             className={clsx(
-              'inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border font-medium transition-colors',
-              relation === 'unspecified'
-                ? 'bg-surface-sunken text-content-subtle border-line'
-                : 'bg-surface-hover text-content-muted border-line'
+              'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold border shadow-2xs',
+              status === 'taken'
+                ? 'bg-teal-500/10 text-teal-700 dark:text-teal-400 border-teal-500/20'
+                : status === 'missed'
+                  ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20'
+                  : 'bg-surface-sunken text-content border-line'
             )}
           >
-            <span aria-hidden="true" className="text-accent">
-              {mealRelationIcon(relation, 13)}
-            </span>
-            <span>{mealRelationInstruction(withFood)}</span>
+            <span aria-hidden="true" className="shrink-0">{slot.icon(13)}</span>
+            <time data-numeric className="whitespace-nowrap">
+              {formatDoseTime(scheduledMinutes)}
+            </time>
           </span>
+
+          {/* Badges / Meal Guidance */}
+          <div className="flex items-center gap-1.5">
+            {relation === 'with_food' && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 text-[11px] font-semibold">
+                <Utensils size={11} />
+                With Food
+              </span>
+            )}
+            {relation === 'empty_stomach' && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-800 dark:text-blue-300 text-[11px] font-semibold">
+                <Droplets size={11} />
+                Empty Stomach
+              </span>
+            )}
+            {relation === 'unspecified' && !badge && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-surface-sunken border border-line text-content-subtle text-[11px] font-medium">
+                <HelpCircle size={11} />
+                As directed
+              </span>
+            )}
+
+            {badge && (
+              <Badge tone={badge.tone} size="sm">
+                {badge.label}
+              </Badge>
+            )}
+          </div>
         </div>
 
-        {instructions && (
-          <p className="mt-2.5 text-xs text-content-muted bg-surface-sunken/80 border border-line rounded-lg px-3 py-2 leading-relaxed">
-            <span className="font-semibold text-content">Directions: </span>
-            {instructions}
-          </p>
-        )}
-
-        {/* Action Controls */}
-        {!readOnly && (
-          <div className="mt-4 flex items-center gap-2 pt-2 border-t border-line/60">
-            {isActionable ? (
-              <>
-                <Button
-                  variant="primary"
-                  size="md"
-                  onClick={onTake}
-                  leftIcon={<CheckIcon size={16} />}
-                  className="flex-1 font-bold shadow-xs hover:shadow-md"
-                >
-                  Take now
-                </Button>
-                <Button variant="secondary" size="md" onClick={onSkip} className="font-medium">
-                  Skip
-                </Button>
-              </>
+        {/* Center: Medicine Icon Squircle + Name & Dosage */}
+        <div className="flex items-start gap-3 min-w-0 pt-0.5">
+          <div
+            className={clsx(
+              'w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border shadow-2xs transition-transform duration-200 group-hover:scale-105',
+              status === 'taken'
+                ? 'bg-teal-500/10 text-teal-600 border-teal-500/20'
+                : status === 'missed'
+                  ? 'bg-amber-500/10 text-amber-600 border-amber-500/20'
+                  : 'bg-surface-sunken text-accent border-line'
+            )}
+          >
+            {status === 'taken' ? (
+              <CheckCircle2 size={20} className="text-teal-600" />
+            ) : status === 'skipped' ? (
+              <XCircle size={20} className="text-content-muted" />
             ) : (
+              <Pill size={20} />
+            )}
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <h3
+              className={clsx(
+                'text-base font-bold text-content leading-snug tracking-tight truncate',
+                status === 'taken' && 'line-through text-content-muted decoration-teal-500/50'
+              )}
+              title={medicineName}
+            >
+              {medicineName}
+            </h3>
+
+            {/* Strength & Dosage metadata */}
+            <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
+              {strength && (
+                <span className="px-1.5 py-0.5 rounded-md bg-surface-sunken border border-line text-content font-bold text-[11px]">
+                  {strength}
+                </span>
+              )}
+              {doseAmount && (
+                <span className="text-content-muted font-medium text-[11px]">
+                  · {doseAmount}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Cabinet Inventory Status Strip */}
+        <div className="flex items-center justify-between gap-2 p-2 rounded-xl bg-surface-sunken/60 border border-line/50 text-xs">
+          {typeof remaining === 'number' ? (
+            <span
+              className={clsx(
+                'inline-flex items-center gap-1 text-[11px] font-semibold',
+                isLowStock ? 'text-rose-600 dark:text-rose-400 font-bold animate-pulse' : 'text-content-subtle'
+              )}
+            >
+              {isLowStock ? <AlertCircle size={12} /> : <Package size={12} />}
+              {isLowStock ? `Low stock: ${remaining} left` : `${remaining} in cabinet`}
+            </span>
+          ) : (
+            <span className="text-[11px] text-content-subtle">Course active</span>
+          )}
+
+          {status === 'skipped' && skippedReason ? (
+            <span className="text-[10px] text-content-subtle italic truncate max-w-[120px]">
+              Reason: {skippedReason}
+            </span>
+          ) : (
+            <span className="text-[10px] text-content-subtle">PKT Schedule</span>
+          )}
+        </div>
+
+        {/* Special Instructions (if present) */}
+        {instructions && (
+          <div className="text-[11px] text-content-muted bg-surface-sunken/80 border border-line/60 rounded-xl px-2.5 py-1.5 flex items-start gap-1.5 leading-tight">
+            <FileText size={12} className="text-accent shrink-0 mt-0.5" />
+            <span className="truncate">{instructions}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Bottom Action Footer */}
+      {!readOnly && (
+        <div className="mt-3.5 pt-3 border-t border-line/70 flex items-center justify-between gap-2">
+          {isActionable ? (
+            <>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={onTake}
+                leftIcon={<CheckIcon size={14} />}
+                className={clsx(
+                  'flex-1 h-9 font-bold tap-spring shadow-2xs text-xs rounded-xl whitespace-nowrap',
+                  status === 'missed'
+                    ? 'bg-amber-600 hover:bg-amber-700 border-amber-600'
+                    : 'bg-teal-600 hover:bg-teal-700 border-teal-600'
+                )}
+              >
+                {status === 'missed' ? 'Take Overdue' : 'Take Dose'}
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={onSkip}
+                className="h-9 px-3.5 text-xs text-content-muted hover:text-content font-semibold rounded-xl border border-line tap-spring"
+              >
+                Skip
+              </Button>
+            </>
+          ) : (
+            <div className="flex items-center justify-between w-full">
+              <span className="text-xs font-semibold text-teal-700 dark:text-teal-400 flex items-center gap-1.5">
+                <CheckCircle2 size={14} className="text-teal-600" />
+                {status === 'taken' ? 'Logged' : 'Skipped'}
+              </span>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={onUndo}
-                className="text-xs text-content-subtle hover:text-content font-medium ml-auto"
+                className="text-xs text-content-subtle hover:text-content font-semibold h-8 px-2.5 rounded-lg"
               >
-                Undo action
+                Undo
               </Button>
-            )}
-          </div>
-        )}
-      </div>
+            </div>
+          )}
+        </div>
+      )}
     </motion.article>
   );
 }
