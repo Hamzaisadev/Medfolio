@@ -316,91 +316,80 @@ export function TimelinePage() {
 
       {/* 2-Panel Responsive Clinical Workspace */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left Sticky Sidebar (4 cols): Control Deck & Stats */}
-        <aside className="lg:col-span-4 lg:sticky lg:top-24 space-y-5">
-          <Card className="p-6 space-y-6 rounded-3xl border border-line bg-surface-raised/95 backdrop-blur-md shadow-xs">
-            {/* Header: Longitudinal Record Span */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-content-subtle">
-                  Health Record Profile
-                </span>
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-teal-500/10 border border-teal-500/20 text-teal-700 dark:text-teal-400 text-[10px] font-bold">
-                  <ShieldCheck size={11} />
-                  Verified
-                </span>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-accent/10 border border-accent/20 flex items-center justify-center text-accent shrink-0 shadow-2xs">
-                  <TrendingUp size={20} />
+        {/* Left Sticky Sidebar (4 cols): Compact Executive Control Deck */}
+        <aside className="lg:col-span-4 lg:sticky lg:top-24 space-y-4">
+          <Card className="p-4 sm:p-5 space-y-4 rounded-3xl border border-line bg-surface-raised/95 backdrop-blur-md shadow-xs">
+            {/* Header: Compact Longitudinal Overview */}
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center text-accent shrink-0 shadow-2xs">
+                  <TrendingUp size={16} />
                 </div>
-                <div>
-                  <h3 className="text-sm font-bold text-content">Longitudinal History</h3>
-                  <p className="text-xs text-content-muted">
-                    {historySpan ? `${historySpan} – Present` : 'Active health record'}
+                <div className="min-w-0">
+                  <h3 className="text-xs font-bold text-content tracking-tight truncate">Medical Dossier</h3>
+                  <p className="text-[11px] text-content-muted font-medium truncate">
+                    {historySpan ? `${historySpan} – Present` : 'Longitudinal history'}
                   </p>
                 </div>
               </div>
+
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-teal-500/10 border border-teal-500/20 text-teal-700 dark:text-teal-400 text-[10px] font-bold shrink-0">
+                <ShieldCheck size={11} />
+                Verified
+              </span>
             </div>
 
-            {/* 4-Stat KPI Grid */}
-            <div className="pt-3 border-t border-line/70">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-content-subtle block mb-3">
-                Summary Milestones
-              </span>
+            {/* Compact 4-Column KPI Stats Deck */}
+            <div className="grid grid-cols-4 gap-1.5 pt-2 border-t border-line/60">
+              <div className="p-2 rounded-xl bg-teal-500/5 border border-teal-500/15 text-center">
+                <span className="text-[10px] font-bold text-teal-700 dark:text-teal-400 block uppercase tracking-wider">
+                  Visits
+                </span>
+                <span className="text-sm font-black text-teal-700 dark:text-teal-400 block mt-0.5" data-numeric>
+                  {counts.visit}
+                </span>
+              </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="p-3 rounded-2xl bg-teal-500/5 border border-teal-500/15">
-                  <span className="text-[11px] font-bold text-teal-700 dark:text-teal-400 block tracking-wide uppercase">
-                    Visits
-                  </span>
-                  <span className="text-lg font-black text-teal-700 dark:text-teal-400 block mt-0.5" data-numeric>
-                    {counts.visit}
-                  </span>
-                </div>
+              <div className="p-2 rounded-xl bg-blue-500/5 border border-blue-500/15 text-center">
+                <span className="text-[10px] font-bold text-blue-700 dark:text-blue-400 block uppercase tracking-wider">
+                  Labs
+                </span>
+                <span className="text-sm font-black text-blue-700 dark:text-blue-400 block mt-0.5" data-numeric>
+                  {counts.report}
+                </span>
+              </div>
 
-                <div className="p-3 rounded-2xl bg-blue-500/5 border border-blue-500/15">
-                  <span className="text-[11px] font-bold text-blue-700 dark:text-blue-400 block tracking-wide uppercase">
-                    Labs
-                  </span>
-                  <span className="text-lg font-black text-blue-700 dark:text-blue-400 block mt-0.5" data-numeric>
-                    {counts.report}
-                  </span>
-                </div>
+              <div className="p-2 rounded-xl bg-purple-500/5 border border-purple-500/15 text-center">
+                <span className="text-[10px] font-bold text-purple-700 dark:text-purple-400 block uppercase tracking-wider">
+                  Meds
+                </span>
+                <span className="text-sm font-black text-purple-700 dark:text-purple-400 block mt-0.5" data-numeric>
+                  {counts.medicine}
+                </span>
+              </div>
 
-                <div className="p-3 rounded-2xl bg-purple-500/5 border border-purple-500/15">
-                  <span className="text-[11px] font-bold text-purple-700 dark:text-purple-400 block tracking-wide uppercase">
-                    Medicines
-                  </span>
-                  <span className="text-lg font-black text-purple-700 dark:text-purple-400 block mt-0.5" data-numeric>
-                    {counts.medicine}
-                  </span>
-                </div>
-
-                <div className="p-3 rounded-2xl bg-surface-sunken border border-line">
-                  <span className="text-[11px] font-bold text-content-subtle block tracking-wide uppercase">
-                    Total
-                  </span>
-                  <span className="text-lg font-black text-content block mt-0.5" data-numeric>
-                    {counts.all}
-                  </span>
-                </div>
+              <div className="p-2 rounded-xl bg-surface-sunken border border-line text-center">
+                <span className="text-[10px] font-bold text-content-subtle block uppercase tracking-wider">
+                  Total
+                </span>
+                <span className="text-sm font-black text-content block mt-0.5" data-numeric>
+                  {counts.all}
+                </span>
               </div>
             </div>
 
             {/* Filter and Search Section */}
-            <div className="space-y-3 pt-3 border-t border-line/70">
+            <div className="space-y-2.5 pt-2 border-t border-line/60">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-content-subtle flex items-center gap-1.5">
-                  <Filter size={12} />
+                <span className="text-[10px] font-bold uppercase tracking-wider text-content-subtle flex items-center gap-1">
+                  <Filter size={11} />
                   Filter Records
                 </span>
                 {filterType !== 'all' && (
                   <button
                     type="button"
                     onClick={() => setFilterType('all')}
-                    className="text-[11px] font-bold text-accent hover:underline cursor-pointer"
+                    className="text-[10px] font-bold text-accent hover:underline cursor-pointer"
                   >
                     Reset
                   </button>
@@ -413,7 +402,7 @@ export function TimelinePage() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search doctor, medicine, lab..."
-                  className="pl-8 pr-7 h-9 text-xs"
+                  className="pl-8 pr-7 h-8 text-xs rounded-xl"
                 />
                 <Search size={13} className="absolute left-2.5 top-2.5 text-content-subtle pointer-events-none" />
                 {searchQuery && (
@@ -427,33 +416,57 @@ export function TimelinePage() {
                 )}
               </div>
 
-              {/* Category Pills List */}
-              <div className="space-y-1.5 pt-1">
+              {/* Compact 2-Column Filter Chips Grid */}
+              <div className="grid grid-cols-2 gap-1.5 pt-1">
+                {/* All Records spans full width */}
+                <button
+                  type="button"
+                  onClick={() => setFilterType('all')}
+                  className={clsx(
+                    'col-span-2 flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all tap-spring cursor-pointer border',
+                    filterType === 'all'
+                      ? 'bg-accent text-white border-accent shadow-xs'
+                      : 'bg-surface-sunken/60 border-line/60 text-content-muted hover:text-content hover:bg-surface-hover'
+                  )}
+                >
+                  <div className="flex items-center gap-1.5">
+                    <Layers size={13} />
+                    <span>All Records</span>
+                  </div>
+                  <span
+                    className={clsx(
+                      'px-1.5 py-0.2 rounded-full text-[10px] font-bold',
+                      filterType === 'all' ? 'bg-white/20 text-white' : 'bg-surface-raised border border-line text-content-subtle'
+                    )}
+                  >
+                    {counts.all}
+                  </span>
+                </button>
+
                 {[
-                  { id: 'all', label: 'All Records', count: counts.all, icon: <Layers size={13} /> },
-                  { id: 'visit', label: 'Doctor Visits', count: counts.visit, icon: <StethoscopeIcon size={13} /> },
-                  { id: 'report', label: 'Lab Reports', count: counts.report, icon: <LabFlaskIcon size={13} /> },
-                  { id: 'medicine', label: 'Prescriptions', count: counts.medicine, icon: <MedicineIcon size={13} /> },
-                  { id: 'side_effect', label: 'Symptoms', count: counts.side_effect, icon: <AlertTriangleIcon size={13} /> },
+                  { id: 'visit', label: 'Doctor Visits', count: counts.visit, icon: <StethoscopeIcon size={12} /> },
+                  { id: 'report', label: 'Lab Reports', count: counts.report, icon: <LabFlaskIcon size={12} /> },
+                  { id: 'medicine', label: 'Prescriptions', count: counts.medicine, icon: <MedicineIcon size={12} /> },
+                  { id: 'side_effect', label: 'Symptoms', count: counts.side_effect, icon: <AlertTriangleIcon size={12} /> },
                 ].map((tab) => (
                   <button
                     key={tab.id}
                     type="button"
                     onClick={() => setFilterType(tab.id)}
                     className={clsx(
-                      'w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all tap-spring cursor-pointer border',
+                      'flex items-center justify-between px-2.5 py-1.5 rounded-xl text-[11px] font-semibold transition-all tap-spring cursor-pointer border truncate',
                       filterType === tab.id
                         ? 'bg-accent text-white border-accent shadow-xs'
                         : 'bg-surface-sunken/60 border-line/60 text-content-muted hover:text-content hover:bg-surface-hover'
                     )}
                   >
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 min-w-0">
                       {tab.icon}
-                      <span>{tab.label}</span>
+                      <span className="truncate">{tab.label}</span>
                     </div>
                     <span
                       className={clsx(
-                        'px-1.5 py-0.2 rounded-full text-[10px] font-bold',
+                        'px-1.5 py-0.2 rounded-full text-[10px] font-bold shrink-0 ml-1',
                         filterType === tab.id ? 'bg-white/20 text-white' : 'bg-surface-raised border border-line text-content-subtle'
                       )}
                     >
@@ -465,13 +478,13 @@ export function TimelinePage() {
             </div>
 
             {/* Quick Actions Footer */}
-            <div className="pt-3 border-t border-line/70 space-y-2">
+            <div className="pt-2 border-t border-line/60">
               <Link to="/reports/new" className="block w-full">
                 <Button
                   variant="secondary"
                   size="sm"
-                  leftIcon={<LabFlaskIcon size={14} />}
-                  className="w-full h-10 font-bold tap-spring shadow-2xs text-xs justify-center"
+                  leftIcon={<LabFlaskIcon size={13} />}
+                  className="w-full h-8.5 font-bold tap-spring shadow-2xs text-xs justify-center rounded-xl"
                 >
                   Upload Lab Report
                 </Button>
