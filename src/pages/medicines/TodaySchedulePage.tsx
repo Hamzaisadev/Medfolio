@@ -362,22 +362,21 @@ export function TodaySchedulePage() {
         />
       )}
 
-      {/* Top Deck: Balanced 2-Card Executive Workspace */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-7 items-stretch">
-        {/* Left: Date Navigator Card */}
-        <div className="flex flex-col">
+      {/* Top Deck: Date Navigator (compact width & height) & Adherence Control Deck */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 mb-7 items-start">
+        {/* Left: Date Navigator Card (4 cols on desktop - compact width & height) */}
+        <div className="lg:col-span-4">
           <DateStrip
             value={selectedDate}
             onChange={setSelectedDate}
-            className="h-full"
           />
         </div>
 
-        {/* Right: Daily Adherence & Control Deck */}
-        <div className="flex flex-col">
+        {/* Right: Daily Adherence & Control Deck (8 cols on desktop) */}
+        <div className="lg:col-span-8">
           <Card
             bare
-            className="h-full p-4 sm:p-5 shadow-card border border-line bg-surface-raised/95 backdrop-blur-md rounded-3xl flex flex-col justify-between space-y-3.5"
+            className="p-4 sm:p-5 shadow-card border border-line bg-surface-raised/95 backdrop-blur-md rounded-3xl space-y-3.5"
           >
             {/* Top Row: Date Heading + Progress Ring + Quick Scan Button */}
             <div className="flex items-center justify-between gap-4 flex-wrap">

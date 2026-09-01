@@ -164,24 +164,24 @@ export function DateStrip({
   return (
     <div
       className={clsx(
-        'p-4 sm:p-5 rounded-3xl border border-line bg-surface-raised/95 backdrop-blur-md shadow-card flex flex-col justify-between space-y-3.5 relative',
+        'p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl border border-line bg-surface-raised/95 backdrop-blur-md shadow-card space-y-2.5 relative',
         className
       )}
     >
       {/* Header: Month & Year Navigator on Left, Prev / Today / Next Quick Steppers on Right */}
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center justify-between gap-1.5">
         <div className="relative" ref={calendarRef}>
           <button
             type="button"
             onClick={() => setIsCalendarOpen((prev) => !prev)}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-surface-sunken hover:bg-surface-hover border border-line transition-all text-content font-bold text-xs shadow-2xs tap-spring"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-surface-sunken hover:bg-surface-hover border border-line transition-all text-content font-bold text-xs shadow-2xs tap-spring"
             aria-expanded={isCalendarOpen}
             aria-label="Open month calendar"
           >
-            <CalendarIcon size={14} className="text-accent" />
+            <CalendarIcon size={13} className="text-accent" />
             <span>{formatMonthYear(value)}</span>
             <ChevronDownIcon
-              size={13}
+              size={12}
               className={clsx('text-content-muted transition-transform duration-200', isCalendarOpen && 'rotate-180')}
             />
           </button>
@@ -296,26 +296,26 @@ export function DateStrip({
         </div>
 
         {/* Quick Steppers: Prev Day, Today Button / Indicator, Next Day */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1">
           <IconButton
             aria-label="Previous day"
             onClick={() => onChange(addDaysAppTz(value, -1))}
             size="sm"
-            className="h-7 w-7 rounded-lg"
+            className="h-6.5 w-6.5 rounded-lg"
           >
-            <ChevronLeftIcon size={14} />
+            <ChevronLeftIcon size={13} />
           </IconButton>
 
           {value !== today ? (
             <button
               type="button"
               onClick={() => onChange(today)}
-              className="px-2 py-1 text-[11px] font-bold text-accent hover:bg-accent-subtle rounded-lg border border-accent/20 transition-all focus-visible:outline-2 focus-visible:outline-accent shadow-2xs tap-spring"
+              className="px-2 py-0.5 text-[10px] font-bold text-accent hover:bg-accent-subtle rounded-lg border border-accent/20 transition-all focus-visible:outline-2 focus-visible:outline-accent shadow-2xs tap-spring"
             >
               Today
             </button>
           ) : (
-            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-teal-500/10 border border-teal-500/20 text-teal-700 dark:text-teal-400 text-[10px] font-bold">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-teal-500/10 border border-teal-500/20 text-teal-700 dark:text-teal-400 text-[10px] font-bold">
               <span className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse" />
               Today
             </span>
@@ -325,15 +325,15 @@ export function DateStrip({
             aria-label="Next day"
             onClick={() => onChange(addDaysAppTz(value, 1))}
             size="sm"
-            className="h-7 w-7 rounded-lg"
+            className="h-6.5 w-6.5 rounded-lg"
           >
-            <ChevronRightIcon size={14} />
+            <ChevronRightIcon size={13} />
           </IconButton>
         </div>
       </div>
 
       {/* Symmetrical 7-Day Precision Grid */}
-      <div className="grid grid-cols-7 gap-1.5 w-full pt-1" role="group" aria-label="Select a day">
+      <div className="grid grid-cols-7 gap-1 w-full pt-0.5" role="group" aria-label="Select a day">
         {days.map((day) => {
           const isSelected = day === value;
           const isTodayCell = day === today;
@@ -348,7 +348,7 @@ export function DateStrip({
               aria-current={isSelected ? 'date' : undefined}
               aria-label={formatDayHeading(day, now)}
               className={clsx(
-                'flex flex-col items-center justify-center h-12 rounded-xl transition-all duration-150',
+                'flex flex-col items-center justify-center h-10 sm:h-11 rounded-xl transition-all duration-150',
                 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent tap-spring',
                 isSelected
                   ? 'bg-accent text-content-onaccent font-bold shadow-xs scale-[1.02]'
@@ -358,10 +358,10 @@ export function DateStrip({
                     ]
               )}
             >
-              <span className="text-[10px] uppercase font-bold tracking-wider leading-none">
+              <span className="text-[9px] uppercase font-bold tracking-wider leading-none">
                 {formatDayNameShort(day)}
               </span>
-              <span className="text-sm font-black leading-tight mt-0.5" data-numeric>
+              <span className="text-xs sm:text-sm font-black leading-tight mt-0.5" data-numeric>
                 {formatDayOfMonth(day)}
               </span>
               {isTodayCell && (
