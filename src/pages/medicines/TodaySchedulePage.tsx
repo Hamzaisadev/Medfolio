@@ -26,7 +26,13 @@ import {
   Check,
   ShieldCheck,
 } from 'lucide-react';
-import { todayInAppTz, formatDayHeading, fromAppDate, addDaysAppTz } from '../../lib/time';
+import {
+  todayInAppTz,
+  fromAppDate,
+  addDaysAppTz,
+  formatRelativeDay,
+  formatDateShort,
+} from '../../lib/time';
 import { bucketOf, Bucket, BUCKET_ORDER } from '../../domain/timeBuckets';
 import { deriveStatusOnRead, calculateAdherence } from '../../domain/adherence';
 import { defaultDoseTimes, parseFrequency } from '../../domain/frequency';
@@ -435,6 +441,13 @@ export function TodaySchedulePage() {
     }
   };
 
+  const displayDateLabel = useMemo(() => {
+    const relative = formatRelativeDay(selectedDate);
+    const shortDate = formatDateShort(selectedDate);
+    if (relative === shortDate) return shortDate;
+    return `${relative}, ${shortDate}`;
+  }, [selectedDate]);
+
   return (
     <AppShell>
       {toast && (
@@ -449,7 +462,7 @@ export function TodaySchedulePage() {
       {/* Compact & Focused Master Header Deck */}
       <Card
         bare
-        className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-line bg-surface-raised/95 backdrop-blur-md shadow-card mb-6"
+        className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-line bg-surface-raised/95 backdrop-blur-md shadow-card mb-6 overflow-visible relative z-30"
       >
         <div className="flex items-center justify-between gap-4 flex-wrap lg:flex-nowrap">
           {/* Left: App Icon + Title + Subtitle */}
@@ -483,9 +496,7 @@ export function TodaySchedulePage() {
                 aria-label="Select date"
               >
                 <CalendarIcon size={14} className="text-teal-600 dark:text-teal-400" />
-                <span>
-                  {selectedDate === today ? 'Today, ' : ''}{formatDayHeading(selectedDate)}
-                </span>
+                <span>{displayDateLabel}</span>
                 <ChevronDownIcon
                   size={12}
                   className={clsx('text-content-muted transition-transform duration-200', isCalendarOpen && 'rotate-180')}
