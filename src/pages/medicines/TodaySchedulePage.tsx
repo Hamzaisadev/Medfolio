@@ -541,25 +541,27 @@ export function TodaySchedulePage() {
 
                 return (
                   <section key={key} aria-labelledby={`slot-${key}`} className="space-y-3">
-                    {/* Routine Header Bar */}
-                    <div className="flex items-center justify-between gap-3 px-1 py-1">
+                    {/* Routine Header Bar with Executive Styling */}
+                    <div className="flex items-center justify-between gap-3 px-1 py-1.5 border-b border-line/60 pb-2.5">
                       <div className="flex items-center gap-2.5 min-w-0">
                         <span
                           className={clsx(
-                            'w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border shadow-2xs',
+                            'w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border shadow-2xs',
                             slot.surface,
                             slot.text,
                             slot.border
                           )}
                         >
-                          {slot.icon(15)}
+                          {slot.icon(16)}
                         </span>
-                        <h2 id={`slot-${key}`} className="text-sm font-bold text-content tracking-tight uppercase">
-                          {slot.label} Routine
-                        </h2>
-                        <span className="text-[11px] text-content-subtle font-semibold px-2 py-0.5 rounded-md bg-surface-sunken border border-line">
-                          {slot.timeRange}
-                        </span>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h2 id={`slot-${key}`} className="text-sm font-bold text-content tracking-tight uppercase">
+                            {slot.label} Routine
+                          </h2>
+                          <span className="text-[11px] text-content-subtle font-semibold px-2 py-0.5 rounded-md bg-surface-sunken border border-line">
+                            {slot.timeRange}
+                          </span>
+                        </div>
                       </div>
 
                       <div className="flex items-center gap-2 shrink-0">
@@ -567,16 +569,16 @@ export function TodaySchedulePage() {
                           <button
                             type="button"
                             onClick={() => handleMarkRoutineTaken(bucketDoses, slot.label)}
-                            className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-teal-500/10 hover:bg-teal-500/20 text-teal-700 dark:text-teal-300 text-xs font-bold border border-teal-500/20 transition-all cursor-pointer tap-spring"
+                            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-teal-500/10 hover:bg-teal-500/20 text-teal-700 dark:text-teal-300 text-xs font-bold border border-teal-500/20 transition-all cursor-pointer tap-spring shadow-2xs"
                           >
-                            <Check size={12} />
+                            <Check size={13} className="stroke-[2.5]" />
                             Take all due ({bucketPending})
                           </button>
                         )}
 
                         <span
                           className={clsx(
-                            'px-2.5 py-0.5 rounded-full border text-[11px] font-semibold',
+                            'px-2.5 py-1 rounded-xl border text-xs font-bold shadow-2xs',
                             bucketPending > 0
                               ? 'bg-amber-500/10 border-amber-500/20 text-amber-800 dark:text-amber-300'
                               : 'bg-teal-500/10 border-teal-500/20 text-teal-700 dark:text-teal-400'
