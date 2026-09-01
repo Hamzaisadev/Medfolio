@@ -505,16 +505,17 @@ export function TodaySchedulePage() {
                   icon={slot.icon(16)}
                   tone={slot.tone}
                   meta={
-                    <span className="flex items-center gap-2">
-                      <span>{slot.timeRange}</span>
-                      <span className="text-content-subtle font-normal">·</span>
-                      <span className="font-semibold text-content">
-                        {bucketDoses.length} dose{bucketDoses.length === 1 ? '' : 's'}
-                        {bucketPending > 0 && ` (${bucketPending} due)`}
+                    <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                      <span className="px-2.5 py-1 rounded-lg bg-surface-sunken border border-line text-xs font-bold text-content shadow-2xs">
+                        {slot.timeRange}
                       </span>
-                    </span>
+                      <span className="px-2.5 py-1 rounded-lg bg-surface-sunken border border-line text-xs font-bold text-content-muted shadow-2xs">
+                        {bucketDoses.length} {bucketDoses.length === 1 ? 'dose' : 'doses'}
+                        {bucketPending > 0 ? ` · ${bucketPending} due` : ' · Done'}
+                      </span>
+                    </div>
                   }
-                  className="mb-3"
+                  className="mb-2"
                 />
                 <h2 id={`slot-${key}`} className="sr-only">
                   {slot.label} doses

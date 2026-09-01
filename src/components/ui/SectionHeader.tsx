@@ -14,21 +14,17 @@ export interface SectionHeaderProps {
 }
 
 const toneStyles = {
-  default: { icon: 'text-content-subtle bg-surface-hover', rule: 'bg-line' },
-  morning: { icon: 'text-slot-morning-text bg-slot-morning-bg', rule: 'bg-slot-morning-border' },
+  default: { icon: 'text-content-subtle bg-surface-sunken border border-line' },
+  morning: { icon: 'text-slot-morning-text bg-slot-morning-bg border border-slot-morning-border' },
   afternoon: {
-    icon: 'text-slot-afternoon-text bg-slot-afternoon-bg',
-    rule: 'bg-slot-afternoon-border',
+    icon: 'text-slot-afternoon-text bg-slot-afternoon-bg border border-slot-afternoon-border',
   },
-  evening: { icon: 'text-slot-evening-text bg-slot-evening-bg', rule: 'bg-slot-evening-border' },
-  night: { icon: 'text-slot-night-text bg-slot-night-bg', rule: 'bg-slot-night-border' },
+  evening: { icon: 'text-slot-evening-text bg-slot-evening-bg border border-slot-evening-border' },
+  night: { icon: 'text-slot-night-text bg-slot-night-bg border border-slot-night-border' },
 };
 
 /**
- * Section divider used between groups on a screen.
- *
- * Replaces the ad-hoc `flex items-center justify-between pb-1 border-b` blocks
- * that each screen wrote slightly differently.
+ * Clean, structured section divider used between groups on a screen.
  */
 export function SectionHeader({
   title,
@@ -41,24 +37,28 @@ export function SectionHeader({
   const styles = toneStyles[tone];
 
   return (
-    <div className={twMerge(clsx('flex items-center gap-3', className))}>
-      {icon && (
-        <span
-          className={clsx(
-            'shrink-0 flex items-center justify-center w-8 h-8 rounded-[var(--radius-md)]',
-            styles.icon
-          )}
-        >
-          {icon}
-        </span>
-      )}
+    <div className={twMerge(clsx('flex items-center justify-between gap-3 py-1', className))}>
+      <div className="flex items-center gap-2.5 min-w-0">
+        {icon && (
+          <span
+            className={clsx(
+              'shrink-0 flex items-center justify-center w-8 h-8 rounded-xl shadow-2xs',
+              styles.icon
+            )}
+          >
+            {icon}
+          </span>
+        )}
 
-      <h2 className="text-sm font-bold text-content uppercase tracking-wide shrink-0">{title}</h2>
+        <h2 className="text-xs sm:text-sm font-black text-content uppercase tracking-wider shrink-0">
+          {title}
+        </h2>
+      </div>
 
-      <span className={clsx('flex-1 h-px', styles.rule)} aria-hidden="true" />
-
-      {meta && <span className="shrink-0 text-xs text-content-subtle font-medium">{meta}</span>}
-      {action && <span className="shrink-0">{action}</span>}
+      <div className="flex items-center gap-2.5 shrink-0">
+        {meta && <div className="text-xs text-content-subtle font-medium">{meta}</div>}
+        {action && <div className="shrink-0">{action}</div>}
+      </div>
     </div>
   );
 }
