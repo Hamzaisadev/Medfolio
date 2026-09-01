@@ -246,25 +246,21 @@ export function TimelinePage() {
         return {
           icon: <StethoscopeIcon size={16} className="text-teal-700 dark:text-teal-400" />,
           badge: <Badge tone="ok" size="sm">Doctor Visit</Badge>,
-          borderAccent: 'border-l-teal-600',
         };
       case 'report':
         return {
           icon: <LabFlaskIcon size={16} className="text-blue-700 dark:text-blue-400" />,
           badge: <Badge tone="info" size="sm">Lab Report</Badge>,
-          borderAccent: 'border-l-blue-600',
         };
       case 'medicine':
         return {
           icon: <MedicineIcon size={16} className="text-purple-700 dark:text-purple-400" />,
           badge: <Badge tone="neutral" size="sm">Prescription</Badge>,
-          borderAccent: 'border-l-purple-600',
         };
       case 'side_effect':
         return {
           icon: <AlertTriangleIcon size={16} className="text-amber-700 dark:text-amber-400" />,
           badge: <Badge tone="warn" size="sm">Symptom</Badge>,
-          borderAccent: 'border-l-amber-600',
         };
     }
   };
@@ -313,79 +309,82 @@ export function TimelinePage() {
       {/* 2-Panel Responsive Clinical Workspace */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left Sticky Sidebar (4 cols): Executive Control Deck */}
-        <aside className="lg:col-span-4 lg:sticky lg:top-24 space-y-4">
-          <Card className="p-5 space-y-5 rounded-2xl border border-line bg-surface-raised shadow-xs">
-            {/* Header: Longitudinal Overview */}
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-teal-600 dark:text-teal-400 shrink-0 shadow-2xs">
-                  <TrendingUp size={16} />
-                </div>
-                <div className="min-w-0">
-                  <h3 className="text-xs font-bold text-content tracking-tight truncate">Medical Dossier</h3>
-                  <p className="text-[11px] text-content-muted font-medium truncate">
-                    {historySpan ? `${historySpan} – Present` : 'Longitudinal history'}
-                  </p>
-                </div>
+        <aside className="lg:col-span-4 lg:sticky lg:top-24">
+          <Card className="p-6 shadow-card border border-line bg-surface-raised/95 backdrop-blur-md rounded-3xl space-y-6">
+            {/* Header: Date / Health Record Profile */}
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-teal-600 dark:text-teal-400 shrink-0 shadow-2xs">
+                <TrendingUp size={22} />
               </div>
 
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-teal-500/10 border border-teal-500/20 text-teal-700 dark:text-teal-400 text-[10px] font-bold shrink-0">
-                <ShieldCheck size={11} />
-                Verified
-              </span>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="text-lg font-bold text-content tracking-tight">
+                    Medical History
+                  </h2>
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-teal-500/10 border border-teal-500/20 text-teal-700 dark:text-teal-400 text-xs font-semibold">
+                    <ShieldCheck size={11} />
+                    Verified
+                  </span>
+                </div>
+
+                <p className="mt-1 text-xs text-content-muted leading-relaxed">
+                  {historySpan ? `Span: ${historySpan} – Present` : 'Longitudinal health history'}
+                </p>
+              </div>
             </div>
 
-            {/* Teal Themed 4-Column KPI Stats Deck */}
-            <div className="grid grid-cols-4 gap-2 pt-2 border-t border-line/60">
-              <div className="p-2.5 rounded-xl bg-teal-500/5 border border-teal-500/15 text-center transition-all hover:bg-teal-500/10">
-                <span className="text-[10px] font-bold text-teal-700 dark:text-teal-400 block uppercase tracking-wider">
+            {/* 4-Stat KPI Grid (Proportioned 2-Column Grid) */}
+            <div className="grid grid-cols-2 gap-3 pt-3 border-t border-line/70">
+              <div className="p-3 rounded-2xl bg-surface-sunken border border-line text-center transition-all hover:bg-surface-hover/50">
+                <span className="text-[11px] font-semibold text-content-subtle block tracking-wide uppercase">
                   Visits
                 </span>
-                <span className="text-base font-black text-teal-800 dark:text-teal-300 block mt-0.5" data-numeric>
+                <span className="text-lg font-black text-content block mt-0.5" data-numeric>
                   {counts.visit}
                 </span>
               </div>
 
-              <div className="p-2.5 rounded-xl bg-teal-500/5 border border-teal-500/15 text-center transition-all hover:bg-teal-500/10">
-                <span className="text-[10px] font-bold text-teal-700 dark:text-teal-400 block uppercase tracking-wider">
-                  Labs
+              <div className="p-3 rounded-2xl bg-teal-500/5 border border-teal-500/15 text-center transition-all hover:bg-teal-500/10">
+                <span className="text-[11px] font-semibold text-teal-700 dark:text-teal-400 block tracking-wide uppercase">
+                  Lab Tests
                 </span>
-                <span className="text-base font-black text-teal-800 dark:text-teal-300 block mt-0.5" data-numeric>
+                <span className="text-lg font-black text-teal-700 dark:text-teal-400 block mt-0.5" data-numeric>
                   {counts.report}
                 </span>
               </div>
 
-              <div className="p-2.5 rounded-xl bg-teal-500/5 border border-teal-500/15 text-center transition-all hover:bg-teal-500/10">
-                <span className="text-[10px] font-bold text-teal-700 dark:text-teal-400 block uppercase tracking-wider">
-                  Meds
+              <div className="p-3 rounded-2xl bg-surface-sunken border border-line text-center transition-all hover:bg-surface-hover/50">
+                <span className="text-[11px] font-semibold text-content-muted block tracking-wide uppercase">
+                  Medicines
                 </span>
-                <span className="text-base font-black text-teal-800 dark:text-teal-300 block mt-0.5" data-numeric>
+                <span className="text-lg font-black text-content block mt-0.5" data-numeric>
                   {counts.medicine}
                 </span>
               </div>
 
-              <div className="p-2.5 rounded-xl bg-teal-600 text-white border border-teal-700 text-center shadow-2xs">
-                <span className="text-[10px] font-bold text-teal-100 block uppercase tracking-wider">
+              <div className="p-3 rounded-2xl bg-teal-500/10 border border-teal-500/20 text-center transition-all hover:bg-teal-500/15">
+                <span className="text-[11px] font-semibold text-teal-700 dark:text-teal-400 block tracking-wide uppercase">
                   Total
                 </span>
-                <span className="text-base font-black text-white block mt-0.5" data-numeric>
+                <span className="text-lg font-black text-teal-800 dark:text-teal-300 block mt-0.5" data-numeric>
                   {counts.all}
                 </span>
               </div>
             </div>
 
             {/* Filter and Search Section */}
-            <div className="space-y-3 pt-2 border-t border-line/60">
+            <div className="space-y-3 pt-3 border-t border-line/70">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-content-subtle flex items-center gap-1.5">
-                  <Filter size={11} className="text-teal-600 dark:text-teal-400" />
-                  Filter Records
-                </span>
+                <div className="text-xs font-bold text-content flex items-center gap-1.5 tracking-wider uppercase">
+                  <Filter size={14} className="text-teal-600 dark:text-teal-400" />
+                  <span>Filter Records</span>
+                </div>
                 {filterType !== 'all' && (
                   <button
                     type="button"
                     onClick={() => setFilterType('all')}
-                    className="text-[10px] font-bold text-teal-600 hover:underline cursor-pointer"
+                    className="text-[11px] font-bold text-teal-600 hover:underline cursor-pointer"
                   >
                     Reset Filter
                   </button>
@@ -398,16 +397,16 @@ export function TimelinePage() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search doctor, medicine, lab..."
-                  className="pl-8 pr-7 h-9 text-xs rounded-xl bg-surface-sunken border border-line"
+                  className="pl-9 pr-8 h-10 text-xs rounded-2xl bg-surface-sunken border border-line"
                 />
-                <Search size={13} className="absolute left-2.5 top-3 text-content-subtle pointer-events-none" />
+                <Search size={14} className="absolute left-3 top-3 text-content-subtle pointer-events-none" />
                 {searchQuery && (
                   <button
                     type="button"
                     onClick={() => setSearchQuery('')}
-                    className="absolute right-2 top-2.5 text-content-subtle hover:text-content p-0.5 cursor-pointer"
+                    className="absolute right-3 top-3 text-content-subtle hover:text-content p-0.5 cursor-pointer"
                   >
-                    <X size={12} />
+                    <X size={13} />
                   </button>
                 )}
               </div>
@@ -415,24 +414,24 @@ export function TimelinePage() {
               {/* Clean Vertical Filter List (No Truncation) */}
               <div className="space-y-1.5 pt-1">
                 {[
-                  { id: 'all', label: 'All Records', count: counts.all, icon: <Layers size={13} /> },
-                  { id: 'visit', label: 'Doctor Visits', count: counts.visit, icon: <StethoscopeIcon size={13} /> },
-                  { id: 'report', label: 'Lab Reports', count: counts.report, icon: <LabFlaskIcon size={13} /> },
-                  { id: 'medicine', label: 'Prescriptions', count: counts.medicine, icon: <MedicineIcon size={13} /> },
-                  { id: 'side_effect', label: 'Symptoms', count: counts.side_effect, icon: <AlertTriangleIcon size={13} /> },
+                  { id: 'all', label: 'All Records', count: counts.all, icon: <Layers size={14} /> },
+                  { id: 'visit', label: 'Doctor Visits', count: counts.visit, icon: <StethoscopeIcon size={14} /> },
+                  { id: 'report', label: 'Lab Reports', count: counts.report, icon: <LabFlaskIcon size={14} /> },
+                  { id: 'medicine', label: 'Prescriptions', count: counts.medicine, icon: <MedicineIcon size={14} /> },
+                  { id: 'side_effect', label: 'Symptoms', count: counts.side_effect, icon: <AlertTriangleIcon size={14} /> },
                 ].map((tab) => (
                   <button
                     key={tab.id}
                     type="button"
                     onClick={() => setFilterType(tab.id)}
                     className={clsx(
-                      'w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all tap-spring cursor-pointer border',
+                      'w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-semibold transition-all tap-spring cursor-pointer border',
                       filterType === tab.id
                         ? 'bg-teal-600 text-white border-teal-600 shadow-xs font-bold'
                         : 'bg-surface-sunken/60 border-line/60 text-content-muted hover:text-content hover:bg-surface-hover hover:border-line'
                     )}
                   >
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2.5">
                       <span className={clsx(filterType === tab.id ? 'text-white' : 'text-teal-600 dark:text-teal-400')}>
                         {tab.icon}
                       </span>
@@ -440,7 +439,7 @@ export function TimelinePage() {
                     </div>
                     <span
                       className={clsx(
-                        'px-2 py-0.2 rounded-md text-[10px] font-bold',
+                        'px-2 py-0.5 rounded-full text-[11px] font-bold',
                         filterType === tab.id
                           ? 'bg-white/20 text-white'
                           : 'bg-surface-raised border border-line text-content-subtle'
@@ -453,18 +452,22 @@ export function TimelinePage() {
               </div>
             </div>
 
-            {/* Quick Actions Footer */}
-            <div className="pt-2 border-t border-line/60">
-              <Link to="/reports/new" className="block w-full">
+            {/* Quick Actions Shortcuts */}
+            <div className="pt-3 border-t border-line/70 space-y-2.5">
+              <Link to="/reports/new" className="w-full block">
                 <Button
                   variant="secondary"
-                  size="sm"
-                  leftIcon={<LabFlaskIcon size={13} />}
-                  className="w-full h-9 font-bold tap-spring shadow-2xs text-xs justify-center rounded-xl border border-line"
+                  size="md"
+                  leftIcon={<LabFlaskIcon size={15} />}
+                  className="w-full h-11 justify-center text-xs font-bold tap-spring shadow-2xs rounded-2xl"
                 >
                   Upload Lab Report
                 </Button>
               </Link>
+              <div className="flex items-center justify-center gap-1.5 text-[11px] text-content-subtle pt-1">
+                <ShieldCheck size={13} className="text-teal-600" />
+                <span>EHR Verified Medical Timeline</span>
+              </div>
             </div>
           </Card>
         </aside>
@@ -500,7 +503,7 @@ export function TimelinePage() {
                   {/* Executive Month Header */}
                   <div className="flex items-center justify-between gap-3 px-1 py-1.5 border-b border-line/60 pb-2">
                     <div className="flex items-center gap-2">
-                      <Calendar size={14} className="text-accent" />
+                      <Calendar size={14} className="text-teal-600 dark:text-teal-400" />
                       <h2
                         id={`month-${monthGroup}`}
                         className="text-xs font-black uppercase tracking-wider text-content"
@@ -586,7 +589,7 @@ export function TimelinePage() {
                             {/* Clinical Notes (if present) */}
                             {item.notes && (
                               <div className="text-[11px] text-content-muted bg-surface-sunken/80 border border-line/60 rounded-xl px-2.5 py-1.5 flex items-start gap-1.5 leading-tight">
-                                <FileText size={12} className="text-accent shrink-0 mt-0.5" />
+                                <FileText size={12} className="text-teal-600 dark:text-teal-400 shrink-0 mt-0.5" />
                                 <span className="truncate">{item.notes}</span>
                               </div>
                             )}
@@ -597,7 +600,7 @@ export function TimelinePage() {
                             <div className="mt-3 pt-2.5 border-t border-line/60 flex items-center justify-end">
                               <Link
                                 to={item.linkUrl}
-                                className="inline-flex items-center gap-1 text-[11px] font-bold text-accent hover:underline tap-spring"
+                                className="inline-flex items-center gap-1 text-[11px] font-bold text-teal-600 dark:text-teal-400 hover:underline tap-spring"
                               >
                                 <span>View Details</span>
                                 <ArrowRight size={12} />
