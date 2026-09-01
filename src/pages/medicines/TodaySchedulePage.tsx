@@ -362,19 +362,19 @@ export function TodaySchedulePage() {
         />
       )}
 
-      {/* Top Deck: Date Navigator (compact) & Adherence Control Deck Side-by-Side */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 mb-7 items-stretch">
-        {/* Left: Date Navigator Card (5 cols on desktop) */}
-        <div className="lg:col-span-5 flex flex-col">
+      {/* Top Deck: Balanced 2-Card Executive Workspace */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-7 items-stretch">
+        {/* Left: Date Navigator Card */}
+        <div className="flex flex-col">
           <DateStrip
             value={selectedDate}
             onChange={setSelectedDate}
-            className="h-full rounded-3xl p-5 shadow-card border border-line bg-surface-raised/95 backdrop-blur-md flex flex-col justify-between"
+            className="h-full"
           />
         </div>
 
-        {/* Right: Adherence & Control Deck (7 cols on desktop) */}
-        <div className="lg:col-span-7 flex flex-col">
+        {/* Right: Daily Adherence & Control Deck */}
+        <div className="flex flex-col">
           <Card
             bare
             className="h-full p-5 sm:p-6 shadow-card border border-line bg-surface-raised/95 backdrop-blur-md rounded-3xl flex flex-col justify-between space-y-4"
