@@ -164,22 +164,22 @@ export function DateStrip({
   return (
     <div
       className={clsx(
-        'p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl border border-line bg-surface-raised/95 backdrop-blur-md shadow-card space-y-2.5 relative',
+        'p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl border border-line bg-surface-raised/95 backdrop-blur-md shadow-card flex flex-col justify-between space-y-2.5 relative',
         className
       )}
     >
       {/* Header: Month & Year Navigator on Left, Prev / Today / Next Quick Steppers on Right */}
       <div className="flex items-center justify-between gap-1.5">
-        <div className="relative" ref={calendarRef}>
+        <div className="relative shrink-0" ref={calendarRef}>
           <button
             type="button"
             onClick={() => setIsCalendarOpen((prev) => !prev)}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-surface-sunken hover:bg-surface-hover border border-line transition-all text-content font-bold text-xs shadow-2xs tap-spring"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-surface-sunken hover:bg-surface-hover border border-line transition-all text-content font-bold text-xs shadow-2xs tap-spring whitespace-nowrap"
             aria-expanded={isCalendarOpen}
             aria-label="Open month calendar"
           >
-            <CalendarIcon size={13} className="text-accent" />
-            <span>{formatMonthYear(value)}</span>
+            <CalendarIcon size={13} className="text-content-muted" />
+            <span className="whitespace-nowrap">{formatMonthYear(value)}</span>
             <ChevronDownIcon
               size={12}
               className={clsx('text-content-muted transition-transform duration-200', isCalendarOpen && 'rotate-180')}
@@ -296,27 +296,27 @@ export function DateStrip({
         </div>
 
         {/* Quick Steppers: Prev Day, Today Button / Indicator, Next Day */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 shrink-0">
           <IconButton
             aria-label="Previous day"
             onClick={() => onChange(addDaysAppTz(value, -1))}
             size="sm"
-            className="h-6.5 w-6.5 rounded-lg"
+            className="h-6.5 w-6.5 rounded-lg border border-line bg-surface-sunken hover:bg-surface-hover text-content-muted"
           >
-            <ChevronLeftIcon size={13} />
+            <ChevronLeftIcon size={12} />
           </IconButton>
 
           {value !== today ? (
             <button
               type="button"
               onClick={() => onChange(today)}
-              className="px-2 py-0.5 text-[10px] font-bold text-accent hover:bg-accent-subtle rounded-lg border border-accent/20 transition-all focus-visible:outline-2 focus-visible:outline-accent shadow-2xs tap-spring"
+              className="px-2 py-0.5 text-[10px] font-semibold text-content-muted hover:text-content hover:bg-surface-hover rounded-lg border border-line transition-all tap-spring"
             >
               Today
             </button>
           ) : (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-teal-500/10 border border-teal-500/20 text-teal-700 dark:text-teal-400 text-[10px] font-bold">
-              <span className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse" />
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-surface-sunken border border-line text-content-muted text-[10px] font-semibold">
+              <span className="w-1.5 h-1.5 rounded-full bg-accent" />
               Today
             </span>
           )}
@@ -325,9 +325,9 @@ export function DateStrip({
             aria-label="Next day"
             onClick={() => onChange(addDaysAppTz(value, 1))}
             size="sm"
-            className="h-6.5 w-6.5 rounded-lg"
+            className="h-6.5 w-6.5 rounded-lg border border-line bg-surface-sunken hover:bg-surface-hover text-content-muted"
           >
-            <ChevronRightIcon size={13} />
+            <ChevronRightIcon size={12} />
           </IconButton>
         </div>
       </div>
@@ -351,17 +351,17 @@ export function DateStrip({
                 'flex flex-col items-center justify-center h-10 sm:h-11 rounded-xl transition-all duration-150',
                 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent tap-spring',
                 isSelected
-                  ? 'bg-accent text-content-onaccent font-bold shadow-xs scale-[1.02]'
+                  ? 'bg-accent text-content-onaccent font-bold shadow-xs'
                   : [
-                      'bg-surface-sunken/60 border border-line/60 hover:bg-surface-hover hover:border-line-strong',
+                      'hover:bg-surface-hover text-content',
                       isFuture ? 'text-content-subtle' : 'text-content-muted',
                     ]
               )}
             >
-              <span className="text-[9px] uppercase font-bold tracking-wider leading-none">
+              <span className="text-[9px] uppercase font-semibold tracking-wider leading-none">
                 {formatDayNameShort(day)}
               </span>
-              <span className="text-xs sm:text-sm font-black leading-tight mt-0.5" data-numeric>
+              <span className="text-xs sm:text-sm font-bold leading-tight mt-0.5" data-numeric>
                 {formatDayOfMonth(day)}
               </span>
               {isTodayCell && (

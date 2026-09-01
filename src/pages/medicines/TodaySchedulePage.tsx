@@ -17,14 +17,10 @@ import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { SLOT_META } from '../../components/ui/slotMeta';
 import { PlusIcon, MedicineIcon } from '../../components/ui/icons';
 import {
-  Clock,
-  CheckCircle2,
   Sparkles,
   Archive,
   Check,
-  CalendarCheck,
   ShieldCheck,
-  Flame,
 } from 'lucide-react';
 import { todayInAppTz, formatDayHeading } from '../../lib/time';
 import { bucketOf, Bucket, BUCKET_ORDER } from '../../domain/timeBuckets';
@@ -362,122 +358,101 @@ export function TodaySchedulePage() {
         />
       )}
 
-      {/* Top Deck: Date Navigator (compact width & height) & Adherence Control Deck */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 mb-7 items-start">
-        {/* Left: Date Navigator Card (4 cols on desktop - compact width & height) */}
-        <div className="lg:col-span-4">
+      {/* Top Deck: Date Navigator (compact) & Daily Adherence Workspace (matching height) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-6 items-stretch">
+        {/* Left: Date Navigator Card (5 cols on desktop) */}
+        <div className="lg:col-span-5 flex flex-col">
           <DateStrip
             value={selectedDate}
             onChange={setSelectedDate}
+            className="h-full"
           />
         </div>
 
-        {/* Right: Daily Adherence & Control Deck (8 cols on desktop) */}
-        <div className="lg:col-span-8">
+        {/* Right: Daily Adherence & Control Deck (7 cols on desktop - matching height) */}
+        <div className="lg:col-span-7 flex flex-col">
           <Card
             bare
-            className="p-4 sm:p-5 shadow-card border border-line bg-surface-raised/95 backdrop-blur-md rounded-3xl space-y-3.5"
+            className="h-full p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl border border-line bg-surface-raised/95 backdrop-blur-md shadow-card flex flex-col justify-between space-y-2.5"
           >
-            {/* Top Row: Date Heading + Progress Ring + Quick Scan Button */}
-            <div className="flex items-center justify-between gap-4 flex-wrap">
-              <div className="flex items-center gap-3.5 min-w-0">
+            {/* Row 1: Day Heading + Progress Ring + Micro KPI Chips + Quick Scan Button */}
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 min-w-0">
                 <div className="relative shrink-0">
                   <ProgressRing
                     percentage={adherence.percentage}
-                    size={52}
-                    strokeWidth={6}
+                    size={36}
+                    strokeWidth={4.5}
                     tone={adherence.percentage >= 80 ? 'ok' : 'warn'}
                   />
                 </div>
 
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h2 className="text-base font-bold text-content tracking-tight">
+                  <div className="flex items-center gap-1.5">
+                    <h2 className="text-xs sm:text-sm font-bold text-content tracking-tight truncate">
                       {formatDayHeading(selectedDate)}
                     </h2>
-                    {adherence.percentage === 100 && (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-teal-500/10 border border-teal-500/20 text-teal-700 dark:text-teal-400 text-[10px] font-bold">
-                        <Sparkles size={11} />
+                    {adherence.percentage === 100 ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-teal-500/10 border border-teal-500/20 text-teal-700 dark:text-teal-400 text-[10px] font-bold shrink-0">
+                        <Sparkles size={10} />
                         Complete
+                      </span>
+                    ) : (
+                      <span className="text-[11px] text-content-muted truncate">
+                        · {pendingCount} dose{pendingCount === 1 ? '' : 's'} left
                       </span>
                     )}
                   </div>
-                  <p className="mt-0.5 text-xs text-content-muted">
-                    {adherence.percentage === 100
-                      ? 'All scheduled doses accounted for.'
-                      : `${pendingCount} dose${pendingCount === 1 ? '' : 's'} remaining today.`}
-                  </p>
                 </div>
+              </div>
+
+              {/* 4-Stat Micro Chips Row */}
+              <div className="hidden sm:flex items-center gap-1 text-[11px] font-semibold text-content-muted">
+                <span className="px-2 py-0.5 rounded-lg bg-surface-sunken border border-line text-content" data-numeric>
+                  {doses.length} <span className="text-content-subtle font-normal">total</span>
+                </span>
+                <span className="px-2 py-0.5 rounded-lg bg-teal-500/5 border border-teal-500/15 text-teal-700 dark:text-teal-400" data-numeric>
+                  {takenCount} <span className="font-normal opacity-80">taken</span>
+                </span>
+                <span className="px-2 py-0.5 rounded-lg bg-surface-sunken border border-line text-content" data-numeric>
+                  {pendingCount} <span className="text-content-subtle font-normal">due</span>
+                </span>
+                <span className="px-2 py-0.5 rounded-lg bg-amber-500/5 border border-amber-500/15 text-amber-700 dark:text-amber-400 font-bold" data-numeric>
+                  {adherence.percentage}%
+                </span>
               </div>
 
               <Link to="/prescriptions/new" className="shrink-0">
                 <Button
                   variant="secondary"
                   size="sm"
-                  leftIcon={<PlusIcon size={14} />}
-                  className="h-9 font-bold tap-spring shadow-2xs rounded-xl text-xs"
+                  leftIcon={<PlusIcon size={13} />}
+                  className="h-7 px-2.5 font-bold tap-spring shadow-2xs rounded-lg text-xs"
                 >
-                  Scan Prescription
+                  Scan Rx
                 </Button>
               </Link>
             </div>
 
-            {/* 4-Stat Metric Strip */}
-            <div className="pt-3 border-t border-line/70">
-              <div className="grid grid-cols-4 gap-1.5 p-2.5 rounded-2xl bg-surface-sunken/80 border border-line text-center">
-                <div className="py-0.5">
-                  <span className="text-[10px] font-bold text-content-subtle block uppercase tracking-wider">Scheduled</span>
-                  <span className="text-sm font-black text-content block mt-0.5" data-numeric>{doses.length}</span>
-                </div>
-                <div className="py-0.5 border-l border-line/60">
-                  <span className="text-[10px] font-bold text-teal-700 dark:text-teal-400 block uppercase tracking-wider flex items-center justify-center gap-1">
-                    <CheckCircle2 size={10} />
-                    Taken
-                  </span>
-                  <span className="text-sm font-black text-teal-700 dark:text-teal-400 block mt-0.5" data-numeric>{takenCount}</span>
-                </div>
-                <div className="py-0.5 border-l border-line/60">
-                  <span className="text-[10px] font-bold text-content-muted block uppercase tracking-wider flex items-center justify-center gap-1">
-                    <Clock size={10} />
-                    Pending
-                  </span>
-                  <span className="text-sm font-black text-content block mt-0.5" data-numeric>{pendingCount}</span>
-                </div>
-                <div className="py-0.5 border-l border-line/60">
-                  <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400 block uppercase tracking-wider flex items-center justify-center gap-1">
-                    <Flame size={10} className="text-amber-500" />
-                    Score
-                  </span>
-                  <span className="text-sm font-black text-amber-700 dark:text-amber-400 block mt-0.5" data-numeric>{adherence.percentage}%</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Bottom Row: Filter View Segmented Control + EHR Verified Tag */}
-            <div className="pt-3 border-t border-line/70 flex items-center justify-between gap-4 flex-wrap">
-              <div className="flex items-center gap-2 flex-1 min-w-[260px]">
-                <span className="text-[11px] font-bold text-content-subtle uppercase tracking-wider shrink-0 flex items-center gap-1">
-                  <CalendarCheck size={13} className="text-accent" />
-                  Filter:
-                </span>
-                <div className="flex-1">
-                  <SegmentedControl<ScheduleFilter>
-                    value={activeFilter}
-                    onChange={setActiveFilter}
-                    size="sm"
-                    fullWidth
-                    options={[
-                      { value: 'all', label: `All (${doses.length})` },
-                      { value: 'actionable', label: `Due (${actionableCount})` },
-                      { value: 'taken', label: `Done (${takenCount})` },
-                    ]}
-                  />
-                </div>
+            {/* Row 2: Filter Segmented Control & Verified Tag */}
+            <div className="flex items-center justify-between gap-3 pt-1 border-t border-line/60">
+              <div className="flex-1 max-w-sm">
+                <SegmentedControl<ScheduleFilter>
+                  value={activeFilter}
+                  onChange={setActiveFilter}
+                  size="sm"
+                  fullWidth
+                  options={[
+                    { value: 'all', label: `All (${doses.length})` },
+                    { value: 'actionable', label: `Due (${actionableCount})` },
+                    { value: 'taken', label: `Done (${takenCount})` },
+                  ]}
+                />
               </div>
 
-              <div className="flex items-center gap-1.5 text-[11px] text-content-subtle shrink-0">
-                <ShieldCheck size={12} className="text-teal-600" />
-                <span>EHR Verified Chronotherapy</span>
+              <div className="flex items-center gap-1 text-[10px] text-content-subtle shrink-0">
+                <ShieldCheck size={11} className="text-teal-600" />
+                <span>EHR Verified</span>
               </div>
             </div>
           </Card>
