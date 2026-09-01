@@ -478,155 +478,166 @@ export function TodaySchedulePage() {
             </div>
           </div>
 
-          {/* Center-Left: Date Stepper & Calendar Popover Trigger */}
-          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0" ref={calendarRef}>
-            <button
-              type="button"
-              aria-label="Previous day"
-              onClick={() => setSelectedDate(addDaysAppTz(selectedDate, -1))}
-              className="w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-full border border-line bg-surface-sunken/80 hover:bg-surface-hover text-content-muted flex items-center justify-center tap-spring transition-colors shrink-0"
-            >
-              <ChevronLeftIcon size={13} />
-            </button>
-
-            <div className="relative">
+          {/* Center: Date Stepper & Calendar Trigger + Cabinet Button Beside It */}
+          <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+            <div className="flex items-center gap-1 sm:gap-1.5 shrink-0" ref={calendarRef}>
               <button
                 type="button"
-                onClick={() => setIsCalendarOpen((prev) => !prev)}
-                className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 rounded-full border border-line bg-surface-sunken/80 hover:bg-surface-hover text-content text-xs font-bold shadow-2xs tap-spring whitespace-nowrap transition-colors"
-                aria-expanded={isCalendarOpen}
-                aria-label="Select date"
+                aria-label="Previous day"
+                onClick={() => setSelectedDate(addDaysAppTz(selectedDate, -1))}
+                className="w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-full border border-line bg-surface-sunken/80 hover:bg-surface-hover text-content-muted flex items-center justify-center tap-spring transition-colors shrink-0"
               >
-                <CalendarIcon size={13} className="text-teal-600 dark:text-teal-400" />
-                <span>{displayDateLabel}</span>
-                <ChevronDownIcon
-                  size={12}
-                  className={clsx('text-content-muted transition-transform duration-200', isCalendarOpen && 'rotate-180')}
-                />
+                <ChevronLeftIcon size={13} />
               </button>
 
-              {/* Interactive Calendar Popover */}
-              {isCalendarOpen && (
-                <div
-                  className="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-72 p-3.5 rounded-2xl bg-surface-raised border border-line-strong shadow-raise z-50 animate-in fade-in zoom-in-95 duration-150"
-                  role="dialog"
-                  aria-label="Select date from calendar"
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setIsCalendarOpen((prev) => !prev)}
+                  className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 rounded-full border border-line bg-surface-sunken/80 hover:bg-surface-hover text-content text-xs font-bold shadow-2xs tap-spring whitespace-nowrap transition-colors"
+                  aria-expanded={isCalendarOpen}
+                  aria-label="Select date"
                 >
-                  {/* Calendar Month Header */}
-                  <div className="flex items-center justify-between pb-2 mb-2 border-b border-line">
-                    <button
-                      type="button"
-                      aria-label="Previous month"
-                      onClick={handlePrevMonth}
-                      className="w-7 h-7 rounded-lg border border-line flex items-center justify-center text-content-muted hover:bg-surface-hover"
-                    >
-                      <ChevronLeftIcon size={14} />
-                    </button>
+                  <CalendarIcon size={13} className="text-teal-600 dark:text-teal-400" />
+                  <span>{displayDateLabel}</span>
+                  <ChevronDownIcon
+                    size={12}
+                    className={clsx('text-content-muted transition-transform duration-200', isCalendarOpen && 'rotate-180')}
+                  />
+                </button>
 
-                    <div className="text-xs font-bold text-content">
-                      {MONTH_NAMES[viewMonth]} {viewYear}
+                {/* Interactive Calendar Popover */}
+                {isCalendarOpen && (
+                  <div
+                    className="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-72 p-3.5 rounded-2xl bg-surface-raised border border-line-strong shadow-raise z-50 animate-in fade-in zoom-in-95 duration-150"
+                    role="dialog"
+                    aria-label="Select date from calendar"
+                  >
+                    {/* Calendar Month Header */}
+                    <div className="flex items-center justify-between pb-2 mb-2 border-b border-line">
+                      <button
+                        type="button"
+                        aria-label="Previous month"
+                        onClick={handlePrevMonth}
+                        className="w-7 h-7 rounded-lg border border-line flex items-center justify-center text-content-muted hover:bg-surface-hover"
+                      >
+                        <ChevronLeftIcon size={14} />
+                      </button>
+
+                      <div className="text-xs font-bold text-content">
+                        {MONTH_NAMES[viewMonth]} {viewYear}
+                      </div>
+
+                      <button
+                        type="button"
+                        aria-label="Next month"
+                        onClick={handleNextMonth}
+                        className="w-7 h-7 rounded-lg border border-line flex items-center justify-center text-content-muted hover:bg-surface-hover"
+                      >
+                        <ChevronRightIcon size={14} />
+                      </button>
                     </div>
 
-                    <button
-                      type="button"
-                      aria-label="Next month"
-                      onClick={handleNextMonth}
-                      className="w-7 h-7 rounded-lg border border-line flex items-center justify-center text-content-muted hover:bg-surface-hover"
-                    >
-                      <ChevronRightIcon size={14} />
-                    </button>
-                  </div>
+                    {/* Weekday Labels */}
+                    <div className="grid grid-cols-7 gap-1 text-center mb-1">
+                      {WEEKDAYS.map((wd) => (
+                        <span key={wd} className="text-[10px] font-bold text-content-subtle uppercase">
+                          {wd}
+                        </span>
+                      ))}
+                    </div>
 
-                  {/* Weekday Labels */}
-                  <div className="grid grid-cols-7 gap-1 text-center mb-1">
-                    {WEEKDAYS.map((wd) => (
-                      <span key={wd} className="text-[10px] font-bold text-content-subtle uppercase">
-                        {wd}
-                      </span>
-                    ))}
-                  </div>
+                    {/* Day Cells Grid */}
+                    <div className="grid grid-cols-7 gap-1">
+                      {calendarMonthDays.map((cell) => {
+                        const isSelected = cell.dateStr === selectedDate;
+                        const isTodayCell = cell.dateStr === today;
 
-                  {/* Day Cells Grid */}
-                  <div className="grid grid-cols-7 gap-1">
-                    {calendarMonthDays.map((cell) => {
-                      const isSelected = cell.dateStr === selectedDate;
-                      const isTodayCell = cell.dateStr === today;
+                        return (
+                          <button
+                            key={cell.dateStr}
+                            type="button"
+                            onClick={() => {
+                              setSelectedDate(cell.dateStr);
+                              setIsCalendarOpen(false);
+                            }}
+                            className={clsx(
+                              'h-8 w-8 text-xs font-semibold rounded-lg flex items-center justify-center transition-all relative',
+                              isSelected
+                                ? 'bg-accent text-content-onaccent font-bold shadow-xs'
+                                : cell.isCurrentMonth
+                                  ? 'text-content hover:bg-surface-hover'
+                                  : 'text-content-subtle opacity-40 hover:opacity-100 hover:bg-surface-hover',
+                              isTodayCell && !isSelected && 'ring-1 ring-accent font-bold text-accent'
+                            )}
+                          >
+                            {cell.dayNum}
+                            {isTodayCell && !isSelected && (
+                              <span className="absolute bottom-1 w-1 h-1 rounded-full bg-accent" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
 
-                      return (
-                        <button
-                          key={cell.dateStr}
-                          type="button"
-                          onClick={() => {
-                            setSelectedDate(cell.dateStr);
-                            setIsCalendarOpen(false);
-                          }}
-                          className={clsx(
-                            'h-8 w-8 text-xs font-semibold rounded-lg flex items-center justify-center transition-all relative',
-                            isSelected
-                              ? 'bg-accent text-content-onaccent font-bold shadow-xs'
-                              : cell.isCurrentMonth
-                                ? 'text-content hover:bg-surface-hover'
-                                : 'text-content-subtle opacity-40 hover:opacity-100 hover:bg-surface-hover',
-                            isTodayCell && !isSelected && 'ring-1 ring-accent font-bold text-accent'
-                          )}
-                        >
-                          {cell.dayNum}
-                          {isTodayCell && !isSelected && (
-                            <span className="absolute bottom-1 w-1 h-1 rounded-full bg-accent" />
-                          )}
-                        </button>
-                      );
-                    })}
+                    {/* Quick Jump Shortcuts */}
+                    <div className="flex items-center justify-between pt-2.5 mt-2 border-t border-line text-2xs">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedDate(addDaysAppTz(selectedDate, -7));
+                          setIsCalendarOpen(false);
+                        }}
+                        className="px-2 py-1 rounded-md text-content-muted hover:bg-surface-hover hover:text-content font-medium transition-colors"
+                      >
+                        ← Prev Week
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedDate(today);
+                          setIsCalendarOpen(false);
+                        }}
+                        className="px-2 py-1 rounded-md bg-accent-subtle text-accent font-bold hover:bg-accent hover:text-content-onaccent transition-colors"
+                      >
+                        Today
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedDate(addDaysAppTz(selectedDate, 7));
+                          setIsCalendarOpen(false);
+                        }}
+                        className="px-2 py-1 rounded-md text-content-muted hover:bg-surface-hover hover:text-content font-medium transition-colors"
+                      >
+                        Next Week →
+                      </button>
+                    </div>
                   </div>
+                )}
+              </div>
 
-                  {/* Quick Jump Shortcuts */}
-                  <div className="flex items-center justify-between pt-2.5 mt-2 border-t border-line text-2xs">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedDate(addDaysAppTz(selectedDate, -7));
-                        setIsCalendarOpen(false);
-                      }}
-                      className="px-2 py-1 rounded-md text-content-muted hover:bg-surface-hover hover:text-content font-medium transition-colors"
-                    >
-                      ← Prev Week
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedDate(today);
-                        setIsCalendarOpen(false);
-                      }}
-                      className="px-2 py-1 rounded-md bg-accent-subtle text-accent font-bold hover:bg-accent hover:text-content-onaccent transition-colors"
-                    >
-                      Today
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedDate(addDaysAppTz(selectedDate, 7));
-                        setIsCalendarOpen(false);
-                      }}
-                      className="px-2 py-1 rounded-md text-content-muted hover:bg-surface-hover hover:text-content font-medium transition-colors"
-                    >
-                      Next Week →
-                    </button>
-                  </div>
-                </div>
-              )}
+              <button
+                type="button"
+                aria-label="Next day"
+                onClick={() => setSelectedDate(addDaysAppTz(selectedDate, 1))}
+                className="w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-full border border-line bg-surface-sunken/80 hover:bg-surface-hover text-content-muted flex items-center justify-center tap-spring transition-colors shrink-0"
+              >
+                <ChevronRightIcon size={13} />
+              </button>
             </div>
 
-            <button
-              type="button"
-              aria-label="Next day"
-              onClick={() => setSelectedDate(addDaysAppTz(selectedDate, 1))}
-              className="w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-full border border-line bg-surface-sunken/80 hover:bg-surface-hover text-content-muted flex items-center justify-center tap-spring transition-colors shrink-0"
+            {/* Cabinet Pill Button Right Beside Date Controls */}
+            <Link
+              to="/medicines/cabinet"
+              className="inline-flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-full border border-line bg-surface-sunken/80 hover:bg-surface-hover hover:border-line-strong text-content text-xs font-bold shadow-2xs tap-spring transition-colors shrink-0"
             >
-              <ChevronRightIcon size={13} />
-            </button>
+              <Archive size={13} className="text-content-muted" />
+              <span>Cabinet</span>
+            </Link>
           </div>
 
-          {/* Center-Right: 4 KPI Metrics with Dividers */}
+          {/* Right: 4 KPI Metrics with Dividers */}
           <div className="flex items-center gap-2 sm:gap-3 py-1 px-3 sm:px-3.5 rounded-full bg-surface-sunken/60 border border-line/60 shrink-0">
             <div className="text-center px-0.5">
               <span className="text-xs sm:text-sm font-black text-content block leading-tight" data-numeric>
@@ -669,17 +680,6 @@ export function TodaySchedulePage() {
                 Progress
               </span>
             </div>
-          </div>
-
-          {/* Right Action: Cabinet Pill Button (Aligned in Above Row) */}
-          <div className="flex items-center shrink-0">
-            <Link
-              to="/medicines/cabinet"
-              className="inline-flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-full border border-line bg-surface-sunken/80 hover:bg-surface-hover hover:border-line-strong text-content text-xs font-bold shadow-2xs tap-spring transition-colors shrink-0"
-            >
-              <Archive size={13} className="text-content-muted" />
-              <span>Cabinet</span>
-            </Link>
           </div>
         </div>
       </Card>
