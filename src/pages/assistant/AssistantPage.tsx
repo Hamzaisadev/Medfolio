@@ -36,7 +36,8 @@ import { DailyScheduleClockWidget, type DailyScheduleSlot } from '../../componen
 import { PrescriptionDiffWidget, type PrescriptionDiffItem } from '../../components/assistant/PrescriptionDiffWidget';
 import { ClinicalActionCards, type ClinicalActionCall } from '../../components/assistant/ClinicalActionCards';
 import { ChatSidebar } from '../../components/assistant/ChatSidebar';
-import { InChatSearchBar, renderHighlightedText } from '../../components/assistant/InChatSearchBar';
+import { InChatSearchBar } from '../../components/assistant/InChatSearchBar';
+import { ChatMessageRenderer } from '../../components/assistant/ChatMessageRenderer';
 import { useAuth } from '../../lib/auth/AuthContext';
 import { supabase } from '../../lib/supabase/client';
 import type { Tables } from '../../lib/supabase/types';
@@ -117,7 +118,7 @@ export function AssistantPage() {
   const [showContextDrawer, setShowContextDrawer] = useState(false);
   const [showSafetyModal, setShowSafetyModal] = useState(false);
 
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => (typeof window !== 'undefined' ? window.innerWidth >= 768 : true));
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [sidebarSearchQuery, setSidebarSearchQuery] = useState('');
@@ -138,6 +139,9 @@ export function AssistantPage() {
   const [speakingMsgId, setSpeakingMsgId] = useState<string | null>(null);
   const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const isNearBottomRef = useRef(true);
+  const prevInputRef = useRef('');
 
   const handleCopyMessage = async (msgId: string, text: string) => {
     try {
@@ -301,8 +305,29 @@ export function AssistantPage() {
             dailySchedule: (meta.dailySchedule as DailyScheduleSlot[]) || undefined,
             diffAnalysis: (meta.diffAnalysis as PrescriptionDiffItem[]) || undefined,
             actionCall: (meta.actionCall as ClinicalActionCall) || undefined,
-            safetyAlerts: (meta.safetyAlerts as string[]) || undefined,
-            suggestions: (meta.suggestions as string[]) || undefined,
+            safetyAlerts: Array.isArray(meta.safetyAlerts)
+              ? meta.safetyAlerts.map((item) => {
+                  if (typeof item === 'string') return item;
+                  if (item && typeof item === 'object') {
+                    const a = item as Record<string, unknown>;
+                    const title = typeof a.title === 'string' ? a.title : typeof a.headline === 'string' ? a.headline : '';
+                    const desc = typeof a.description === 'string' ? a.description : typeof a.message === 'string' ? a.message : typeof a.text === 'string' ? a.text : '';
+                    if (title && desc) return `${title}: ${desc}`;
+                    return desc || title || JSON.stringify(item);
+                  }
+                  return String(item);
+                })
+              : undefined,
+            suggestions: Array.isArray(meta.suggestions)
+              ? meta.suggestions.map((item) => {
+                  if (typeof item === 'string') return item;
+                  if (item && typeof item === 'object') {
+                    const a = item as Record<string, unknown>;
+                    return String(a.text || a.title || a.prompt || JSON.stringify(item));
+                  }
+                  return String(item);
+                })
+              : undefined,
             citations: (meta.citations as Array<{ source: string; type: string; detail: string }>) || undefined,
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             sentinelAlerts: (meta.sentinelAlerts as any) || undefined,
@@ -399,6 +424,14 @@ export function AssistantPage() {
     scrollToMatch(prev - 1);
   };
 
+  // Automatically scroll to the first match when user types a search query
+  useEffect(() => {
+    if (inChatQuery.trim() && matchedMessageIndices.length > 0) {
+      scrollToMatch(0);
+      setCurrentMatchIndex(1);
+    }
+  }, [inChatQuery, matchedMessageIndices.length, scrollToMatch]);
+
   const handleNewChat = async () => {
     if (!effectiveUserId || !effectiveProfileId) return;
     try {
@@ -433,6 +466,10 @@ export function AssistantPage() {
 
   const handleDeleteSession = async (sessionId: string) => {
     try {
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        setSpeakingMsgId(null);
+      }
       await chatRepo.deleteSession(sessionId);
       const remaining = sessions.filter((s) => s.id !== sessionId);
       setSessions(remaining);
@@ -451,14 +488,24 @@ export function AssistantPage() {
 
   const activeMedsList: MedicineRecord[] = activeMedicines(medicines, today);
 
+  // Pin-to-bottom scroll tracker
+  const handleChatScroll = () => {
+    if (!chatContainerRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
+    isNearBottomRef.current = scrollHeight - scrollTop - clientHeight < 120;
+  };
+
+  // Smart smooth or instant scroll to bottom
   useEffect(() => {
     if (activeTab === 'chat' && chatContainerRef.current) {
-      chatContainerRef.current.scrollTo({
-        top: chatContainerRef.current.scrollHeight,
-        behavior: 'smooth',
-      });
+      if (isNearBottomRef.current) {
+        chatContainerRef.current.scrollTo({
+          top: chatContainerRef.current.scrollHeight,
+          behavior: isLoading ? 'auto' : 'smooth',
+        });
+      }
     }
-  }, [messages, activeTab]);
+  }, [messages, activeTab, isLoading]);
 
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
 
@@ -477,7 +524,15 @@ export function AssistantPage() {
     }
   }, []);
 
-  // Web Speech API - Voice Recognition
+  // Cancel any ongoing audio synthesis on tab or session change
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      setSpeakingMsgId(null);
+    }
+  }, [activeSessionId, activeTab]);
+
+  // Web Speech API - Voice Recognition with non-destructive text appending
   const toggleSpeechRecognition = () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -498,6 +553,7 @@ export function AssistantPage() {
     }
 
     try {
+      prevInputRef.current = input;
       const recognition = new SpeechRecognition();
       recognition.continuous = false;
       recognition.interimResults = true;
@@ -509,7 +565,8 @@ export function AssistantPage() {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .map((r: any) => r[0].transcript)
           .join('');
-        setInput(transcript);
+        const prefix = prevInputRef.current.trim();
+        setInput(prefix ? `${prefix} ${transcript}` : transcript);
       };
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1181,7 +1238,11 @@ export function AssistantPage() {
           {activeTab === 'chat' && (
             <div className="flex-1 flex flex-col min-h-0 bg-surface-sunken/40">
               {/* Scrollable Messages Stream */}
-              <div ref={chatContainerRef} className="flex-1 p-3 sm:p-5 lg:p-6 overflow-y-auto space-y-6 text-sm sm:text-base">
+              <div
+                ref={chatContainerRef}
+                onScroll={handleChatScroll}
+                className="flex-1 p-3 sm:p-5 lg:p-6 overflow-y-auto space-y-6 text-sm sm:text-base"
+              >
                 <div className="max-w-4xl mx-auto space-y-6">
                   {messages.map((m) => {
                     const userInitial =
@@ -1256,9 +1317,7 @@ export function AssistantPage() {
                                 />
                               )}
                               {m.content ? (
-                                <p className="whitespace-pre-line leading-relaxed text-content">
-                                  {renderHighlightedText(m.content, inChatQuery)}
-                                </p>
+                                <ChatMessageRenderer content={m.content} highlightQuery={inChatQuery} />
                               ) : (
                                 <div className="flex items-center gap-2.5 py-1.5 text-content-muted text-xs font-medium">
                                   <div className="flex items-center gap-1">
@@ -1297,11 +1356,12 @@ export function AssistantPage() {
                                 </div>
                               )}
 
-                              {m.actionCall && (
+                              {m.actionCall && m.actionCall.type && m.actionCall.data && typeof m.actionCall.data === 'object' && (
                                 <div className="pt-1">
                                   <ClinicalActionCards
                                     action={m.actionCall}
                                     profileId={effectiveProfileId}
+                                    userId={effectiveUserId}
                                     onExecuted={(msg) => {
                                       setToastMessage(msg);
                                       loadData();
@@ -1309,6 +1369,7 @@ export function AssistantPage() {
                                   />
                                 </div>
                               )}
+
 
                               {/* Clinical Safety Sentinel (Duplicate / Overdose Alerts) */}
                               {m.sentinelAlerts && m.sentinelAlerts.length > 0 && (
@@ -1367,8 +1428,8 @@ export function AssistantPage() {
                                         className={`p-3.5 rounded-xl border text-xs space-y-1.5 shadow-2xs ${
                                           traj.predictiveAlert
                                             ? isWorse
-                                             ? 'border-risk-border bg-risk-bg text-risk-text'
-                                             : 'border-warn-border bg-warn-bg text-warn-text'
+                                              ? 'border-risk-border bg-risk-bg text-risk-text'
+                                              : 'border-warn-border bg-warn-bg text-warn-text'
                                             : 'border-line bg-surface-sunken/80 text-content'
                                         }`}
                                       >
@@ -1402,10 +1463,23 @@ export function AssistantPage() {
                                   <span className="font-bold text-warn-text flex items-center gap-2 text-xs sm:text-sm">
                                     <AlertTriangleIcon size={15} className="shrink-0" /> Clinical Safety Alert:
                                   </span>
-                                  <ul className="list-disc list-inside space-y-0.5 text-warn-text text-xs sm:text-sm">
-                                    {m.safetyAlerts.map((alert, aIdx) => (
-                                      <li key={aIdx}>{alert}</li>
-                                    ))}
+                                  <ul className="list-disc list-inside space-y-1 text-warn-text text-xs sm:text-sm">
+                                    {m.safetyAlerts.map((rawAlert: any, aIdx) => {
+                                      if (typeof rawAlert === 'string') {
+                                        return <li key={aIdx} className="leading-snug">{rawAlert}</li>;
+                                      }
+                                      if (rawAlert && typeof rawAlert === 'object') {
+                                        const title = rawAlert.title || rawAlert.headline || '';
+                                        const desc = rawAlert.description || rawAlert.message || rawAlert.text || JSON.stringify(rawAlert);
+                                        const sev = rawAlert.severity ? `[${rawAlert.severity.toUpperCase()}] ` : '';
+                                        return (
+                                          <li key={aIdx} className="leading-snug">
+                                            {sev}{title ? <strong className="font-bold mr-1">{title}:</strong> : null}{desc}
+                                          </li>
+                                        );
+                                      }
+                                      return <li key={aIdx} className="leading-snug">{String(rawAlert)}</li>;
+                                    })}
                                   </ul>
                                 </div>
                               )}
@@ -1431,9 +1505,7 @@ export function AssistantPage() {
                                   className="w-full max-h-72 object-cover rounded-xl mb-2.5 border border-white/20 shadow-xs"
                                 />
                               )}
-                              <p className="whitespace-pre-line">
-                                {renderHighlightedText(m.content, inChatQuery)}
-                              </p>
+                              <ChatMessageRenderer content={m.content} highlightQuery={inChatQuery} className="text-accent-onaccent" />
                             </div>
 
                             <span className="text-[11px] text-content-subtle px-1">{m.timestamp}</span>
@@ -1443,8 +1515,9 @@ export function AssistantPage() {
                         {/* Clickable Follow-up Suggestions (Patient's Voice) */}
                         {m.suggestions && m.suggestions.length > 0 && (
                           <div className="mt-2.5 flex flex-wrap gap-2 max-w-3xl">
-                            {m.suggestions.map((s, sIdx) => {
-                              let patientPrompt = s.trim();
+                            {m.suggestions.map((s: any, sIdx) => {
+                              const sText = typeof s === 'string' ? s : s?.text || s?.title || s?.prompt || (typeof s === 'object' && s !== null ? JSON.stringify(s) : String(s));
+                              let patientPrompt = String(sText).trim();
                               patientPrompt = patientPrompt.replace(/^would you like (me to|to)\s+/i, '');
                               patientPrompt = patientPrompt.replace(/^do you want (me to|to)\s+/i, '');
                               patientPrompt = patientPrompt.replace(/^can i (help you|assist you with)\s+/i, '');
@@ -1516,7 +1589,10 @@ export function AssistantPage() {
                   </span>
                   <button
                     type="button"
-                    onClick={() => setAttachedImage(null)}
+                    onClick={() => {
+                      setAttachedImage(null);
+                      if (fileInputRef.current) fileInputRef.current.value = '';
+                    }}
                     className="text-risk-text font-bold hover:underline ml-2 shrink-0 cursor-pointer"
                   >
                     Remove

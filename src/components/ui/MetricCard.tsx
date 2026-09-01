@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { clsx } from 'clsx';
 import { ArrowRightIcon } from './icons';
+import { RollingNumber } from './RollingNumber';
 
 export type MetricTone = 'neutral' | 'accent' | 'ok' | 'warn' | 'risk';
 
@@ -28,11 +29,7 @@ const iconTone: Record<MetricTone, string> = {
 };
 
 /**
- * A single headline number with context.
- *
- * Used for the dashboard summary row. Unlike `Stat` it can be a link and carries
- * an explicit `detail` line, because a bare number on a health dashboard invites
- * the wrong interpretation.
+ * A single headline number with context and smooth spring hover lift.
  */
 export function MetricCard({
   label,
@@ -44,6 +41,8 @@ export function MetricCard({
   trailing,
   className,
 }: MetricCardProps) {
+  const displayValue = typeof value === 'number' ? <RollingNumber value={value} /> : value;
+
   const body = (
     <>
       <div className="flex items-start justify-between gap-3">
@@ -51,7 +50,7 @@ export function MetricCard({
           {icon && (
             <span
               className={clsx(
-                'shrink-0 flex items-center justify-center w-9 h-9 rounded-[var(--radius-md)]',
+                'shrink-0 flex items-center justify-center w-9 h-9 rounded-[var(--radius-md)] transition-colors',
                 iconTone[tone]
               )}
             >
@@ -72,7 +71,7 @@ export function MetricCard({
       </div>
 
       <p className="mt-3 text-2xl font-bold text-content tracking-tight" data-numeric>
-        {value}
+        {displayValue}
       </p>
       {detail && <p className="mt-1 text-xs text-content-muted leading-snug">{detail}</p>}
     </>

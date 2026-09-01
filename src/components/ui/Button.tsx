@@ -1,8 +1,10 @@
 import React from 'react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { motion, HTMLMotionProps } from 'motion/react';
 
-export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+export interface ButtonProps extends Omit<HTMLMotionProps<'button'>, 'children'> {
+  children?: React.ReactNode;
   variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'subtle';
   size?: 'sm' | 'md' | 'lg';
   loading?: boolean;
@@ -25,25 +27,22 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       rightIcon,
       fullWidth,
       type = 'button',
+      onClick,
       ...props
     },
     ref
   ) => {
     const baseStyles = clsx(
-      'inline-flex items-center justify-center font-semibold select-none',
-      'rounded-[var(--radius-md)] transition-[background-color,border-color,color,transform,box-shadow]',
+      'inline-flex items-center justify-center font-semibold select-none cursor-pointer',
+      'rounded-[var(--radius-md)] transition-[background-color,border-color,color,box-shadow]',
       'duration-[var(--duration-fast)] ease-[var(--ease-out-soft)]',
       'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
-      'disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100',
-      // A small press response makes a tap feel acknowledged on a touch device,
-      // where there is no hover state to confirm the target was hit.
-      'active:scale-[0.98]'
+      'disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none'
     );
 
     const sizeStyles = {
       sm: 'h-10 min-h-10 px-3.5 text-xs gap-1.5',
       md: 'h-12 min-h-12 px-5 text-sm gap-2',
-      // 56px: primary dose actions, tapped one-handed by someone who may be unwell.
       lg: 'h-14 min-h-14 px-7 text-base gap-2.5',
     };
 
@@ -57,12 +56,17 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       danger: 'bg-risk-bg text-risk-text border border-risk-border hover:brightness-[0.97]',
     };
 
+    const isInteractive = !disabled && !loading;
+
     return (
-      <button
+      <motion.button
         ref={ref}
         type={type}
         disabled={disabled || loading}
         aria-busy={loading}
+        whileTap={isInteractive ? { scale: 0.96 } : undefined}
+        transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+        onClick={onClick}
         className={twMerge(
           clsx(
             baseStyles,
@@ -99,7 +103,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
             {rightIcon && <span className="shrink-0">{rightIcon}</span>}
           </>
         )}
-      </button>
+      </motion.button>
     );
   }
 );

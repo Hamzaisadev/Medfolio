@@ -176,34 +176,34 @@ export function EditablePrescriptionWidget({
   if (items.length === 0) return null;
 
   return (
-    <div className="my-3 p-3.5 bg-white border border-teal-200 rounded-2xl shadow-xs space-y-3">
+    <div className="my-3 p-3.5 sm:p-4 bg-surface-raised border border-line-strong rounded-2xl shadow-card space-y-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-teal-900 font-bold text-xs flex items-center gap-1.5">
-            <PrescriptionIcon size={16} /> Detected Prescribed Medicines
+          <span className="text-content font-bold text-xs flex items-center gap-1.5">
+            <PrescriptionIcon size={16} className="text-accent shrink-0" /> Detected Prescribed Medicines
           </span>
           <Badge tone="ok" size="sm">{items.length} detected</Badge>
         </div>
 
         {isSaved ? (
-          <span className="text-xs font-bold text-teal-700 flex items-center gap-1">
-            <CheckIcon size={14} className="text-emerald-600" /> Added to Cabinet & Timetable
+          <span className="text-xs font-bold text-ok-text flex items-center gap-1">
+            <CheckIcon size={14} className="text-ok-text" /> Added to Cabinet & Timetable
           </span>
         ) : (
-          <span className="text-[11px] text-ink-500">Edit fields before adding to timetable</span>
+          <span className="text-[11px] text-content-muted">Edit fields before adding to timetable</span>
         )}
       </div>
 
       {saveError && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900 leading-relaxed">
+        <div className="rounded-lg border border-risk-border bg-risk-bg px-3 py-2 text-[11px] text-risk-text leading-relaxed">
           {saveError}
         </div>
       )}
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-left text-xs border-collapse">
+      <div className="overflow-x-auto -mx-1 px-1">
+        <table className="w-full min-w-[540px] text-left text-xs border-collapse">
           <thead>
-            <tr className="border-b border-ink-200 text-ink-500 text-[11px]">
+            <tr className="border-b border-line text-content-muted text-[11px]">
               <th className="py-1.5 font-semibold">Medicine</th>
               <th className="py-1.5 font-semibold">Strength</th>
               <th className="py-1.5 font-semibold">Dosage / Freq</th>
@@ -212,16 +212,16 @@ export function EditablePrescriptionWidget({
               <th className="py-1.5"></th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-ink-100">
+          <tbody className="divide-y divide-line">
             {items.map((med) => (
-              <tr key={med.rowId} className="hover:bg-ink-50/50">
+              <tr key={med.rowId} className="hover:bg-surface-hover/50">
                 <td className="py-1.5 pr-2">
                   <input
                     type="text"
                     disabled={isSaved}
                     value={med.medicine_name}
                     onChange={(e) => handleFieldChange(med.rowId, 'medicine_name', e.target.value)}
-                    className="w-full h-8 px-2 border border-ink-200 rounded-lg text-xs font-bold text-ink-900 focus:outline-teal-600 disabled:bg-transparent disabled:border-transparent"
+                    className="w-full h-8 px-2 bg-surface-sunken border border-line rounded-lg text-xs font-bold text-content focus:border-accent focus:outline-none disabled:bg-transparent disabled:border-transparent"
                   />
                 </td>
                 <td className="py-1.5 pr-2 w-20">
@@ -231,7 +231,7 @@ export function EditablePrescriptionWidget({
                     placeholder="e.g. 500mg"
                     value={med.strength || ''}
                     onChange={(e) => handleFieldChange(med.rowId, 'strength', e.target.value)}
-                    className="w-full h-8 px-2 border border-ink-200 rounded-lg text-xs text-ink-800 focus:outline-teal-600 disabled:bg-transparent disabled:border-transparent"
+                    className="w-full h-8 px-2 bg-surface-sunken border border-line rounded-lg text-xs text-content focus:border-accent focus:outline-none disabled:bg-transparent disabled:border-transparent"
                   />
                 </td>
                 <td className="py-1.5 pr-2 w-28">
@@ -241,7 +241,7 @@ export function EditablePrescriptionWidget({
                     placeholder="1-0-1 / BD"
                     value={med.frequency_raw}
                     onChange={(e) => handleFieldChange(med.rowId, 'frequency_raw', e.target.value)}
-                    className="w-full h-8 px-2 border border-ink-200 rounded-lg text-xs font-mono text-ink-800 focus:outline-teal-600 disabled:bg-transparent disabled:border-transparent"
+                    className="w-full h-8 px-2 bg-surface-sunken border border-line rounded-lg text-xs font-mono text-content focus:border-accent focus:outline-none disabled:bg-transparent disabled:border-transparent"
                   />
                 </td>
                 <td className="py-1.5 pr-2 w-16">
@@ -258,7 +258,7 @@ export function EditablePrescriptionWidget({
                         e.target.value === '' ? DEFAULT_DURATION_DAYS : parseInt(e.target.value, 10) || DEFAULT_DURATION_DAYS,
                       )
                     }
-                    className="w-full h-8 px-2 border border-ink-200 rounded-lg text-xs text-center font-bold text-ink-800 focus:outline-teal-600 disabled:bg-transparent disabled:border-transparent"
+                    className="w-full h-8 px-2 bg-surface-sunken border border-line rounded-lg text-xs text-center font-bold text-content focus:border-accent focus:outline-none disabled:bg-transparent disabled:border-transparent"
                   />
                 </td>
                 <td className="py-1.5 pr-2 w-36">
@@ -285,7 +285,7 @@ export function EditablePrescriptionWidget({
                     <button
                       type="button"
                       onClick={() => handleRemoveRow(med.rowId)}
-                      className="text-ink-400 hover:text-red-600 p-1"
+                      className="text-content-subtle hover:text-risk-text p-1 cursor-pointer"
                       title="Remove medicine"
                     >
                       <XIcon size={14} />
@@ -298,13 +298,13 @@ export function EditablePrescriptionWidget({
         </table>
       </div>
 
-      <div className="pt-2 border-t border-ink-100 flex items-center justify-between gap-2">
+      <div className="pt-2 border-t border-line flex flex-col sm:flex-row items-center justify-between gap-2">
         {!isSaved ? (
           <>
             <button
               type="button"
               onClick={handleAddRow}
-              className="text-xs text-teal-800 hover:text-teal-950 font-bold"
+              className="text-xs text-accent hover:underline font-bold cursor-pointer"
             >
               + Add another medicine
             </button>
@@ -313,7 +313,7 @@ export function EditablePrescriptionWidget({
               size="sm"
               loading={isSaving}
               onClick={handleSaveToTimetable}
-              className="font-bold text-xs shadow-xs"
+              className="font-bold text-xs shadow-xs w-full sm:w-auto"
               leftIcon={<PlusIcon size={14} />}
             >
               Add all to Medication Cabinet & Timetable
@@ -321,14 +321,12 @@ export function EditablePrescriptionWidget({
           </>
         ) : (
           <div className="w-full flex items-center justify-between">
-            <span className="text-xs text-teal-800 font-semibold">
+            <span className="text-xs text-ok-text font-semibold">
               Added to your daily schedule & timetable.
             </span>
-            {/* `/schedule` was not a registered route (404), and a raw anchor
-                forced a full page reload. */}
             <Link
               to="/medicines"
-              className="text-xs font-bold text-teal-900 hover:underline flex items-center gap-1"
+              className="text-xs font-bold text-accent hover:underline flex items-center gap-1"
             >
               <span>View Today's Schedule</span>
               <span>&rarr;</span>

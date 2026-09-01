@@ -1,7 +1,8 @@
 import { lazy, Suspense } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { motion, AnimatePresence } from 'motion/react';
 import { AppShell } from './components/layout/AppShell';
-import { Skeleton } from './components/ui/Skeleton';
+import { Skeleton, SkeletonMetricCard, SkeletonCardItem } from './components/ui/Skeleton';
 import { useAuth } from './lib/auth/AuthContext';
 
 // Lazy-loaded route components for code splitting.
@@ -101,10 +102,21 @@ const UiCatalogueScreen = lazy(() =>
 function RouteLoadingFallback() {
   return (
     <AppShell>
-      <div className="space-y-6 max-w-4xl mx-auto py-4">
-        <Skeleton className="h-10 w-1/3" />
-        <Skeleton className="h-32 w-full" />
-        <Skeleton className="h-48 w-full" />
+      <div className="space-y-6 max-w-4xl mx-auto py-2">
+        <div className="space-y-2">
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-4 w-72" />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+          <SkeletonMetricCard />
+          <SkeletonMetricCard />
+          <SkeletonMetricCard />
+          <SkeletonMetricCard />
+        </div>
+        <div className="space-y-3 pt-2">
+          <SkeletonCardItem />
+          <SkeletonCardItem />
+        </div>
       </div>
     </AppShell>
   );
@@ -131,9 +143,20 @@ function HomeRoute() {
 }
 
 export function AppRoutes() {
+  const location = useLocation();
+
   return (
     <Suspense fallback={<RouteLoadingFallback />}>
-      <Routes>
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={location.pathname}
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -6 }}
+          transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+          className="w-full flex-1 flex flex-col"
+        >
+          <Routes location={location} key={location.pathname}>
         {/* Auth */}
         <Route
           path="/login"
@@ -365,6 +388,8 @@ export function AppRoutes() {
 
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
+      </motion.div>
+      </AnimatePresence>
     </Suspense>
   );
 }

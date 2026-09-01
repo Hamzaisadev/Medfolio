@@ -26,7 +26,8 @@ import { StatusDot } from '../../components/ui/StatusDot';
 import { DoseCard } from '../../components/ui/DoseCard';
 import { DateStrip } from '../../components/ui/DateStrip';
 import { MilestoneBadgeCard } from '../../components/ui/MilestoneBadgeCard';
-import { PlusIcon, MedicineIcon, LabFlaskIcon } from '../../components/ui/icons';
+import { RollerNumberInput } from '../../components/ui/RollerNumberInput';
+import { PlusIcon, MedicineIcon, LabFlaskIcon, DropletIcon, HeartPulseIcon } from '../../components/ui/icons';
 import {
   EXTRACTION_DISCLAIMER,
   MEDICINE_INFO_DISCLAIMER,
@@ -74,6 +75,10 @@ export function UiCataloguePage() {
   const [toastOpen, setToastOpen] = useState(false);
   const [inputValue, setInputValue] = useState('');
   const [selectedDate, setSelectedDate] = useState(todayInAppTz());
+  const [demoGlucose, setDemoGlucose] = useState(105);
+  const [demoSystolic, setDemoSystolic] = useState(120);
+  const [demoDiastolic, setDemoDiastolic] = useState(80);
+  const [demoPulse, setDemoPulse] = useState(72);
 
   return (
     <AppShell>
@@ -233,6 +238,89 @@ export function UiCataloguePage() {
             <Field id="ui-textarea-1" label="Doctor’s advice">
               <Textarea placeholder="Dietary restrictions or notes…" />
             </Field>
+          </div>
+        </section>
+
+        <section className="space-y-4">
+          <SectionHeader
+            title="Precision Stepper & Scrubber Inputs"
+            meta="Direct type · Wheel scroll · Stepper buttons · Quick presets"
+          />
+          <div className="p-6 rounded-[var(--radius-lg)] border border-line bg-surface-raised space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+              {/* Blood Pressure Combo */}
+              <div className="p-5 rounded-2xl border border-line bg-surface-sunken/40 space-y-4">
+                <div className="flex items-center gap-2">
+                  <span className="p-1.5 rounded-lg bg-risk-bg text-risk-text">
+                    <HeartPulseIcon size={18} />
+                  </span>
+                  <div>
+                    <h4 className="text-sm font-bold text-content">Blood Pressure Drums</h4>
+                    <p className="text-2xs text-content-muted">Hover & scroll, drag, or tap to edit</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-around gap-2 pt-2">
+                  <RollerNumberInput
+                    label="Systolic"
+                    unit="mmHg"
+                    value={demoSystolic}
+                    onChange={setDemoSystolic}
+                    min={70}
+                    max={240}
+                    step={1}
+                    size="md"
+                  />
+                  <span className="text-2xl font-black text-content-subtle mt-4">/</span>
+                  <RollerNumberInput
+                    label="Diastolic"
+                    unit="mmHg"
+                    value={demoDiastolic}
+                    onChange={setDemoDiastolic}
+                    min={40}
+                    max={140}
+                    step={1}
+                    size="md"
+                  />
+                  <RollerNumberInput
+                    label="Pulse"
+                    unit="bpm"
+                    value={demoPulse}
+                    onChange={setDemoPulse}
+                    min={40}
+                    max={200}
+                    step={1}
+                    size="sm"
+                  />
+                </div>
+              </div>
+
+              {/* Glucose Demo */}
+              <div className="p-5 rounded-2xl border border-line bg-surface-sunken/40 space-y-4">
+                <div className="flex items-center gap-2">
+                  <span className="p-1.5 rounded-lg bg-accent-subtle text-accent">
+                    <DropletIcon size={18} />
+                  </span>
+                  <div>
+                    <h4 className="text-sm font-bold text-content">Blood Glucose Roller</h4>
+                    <p className="text-2xs text-content-muted">Large size with high precision</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-center gap-6 pt-2">
+                  <RollerNumberInput
+                    label="Blood Glucose"
+                    unit="mg/dL"
+                    value={demoGlucose}
+                    onChange={setDemoGlucose}
+                    min={40}
+                    max={400}
+                    step={1}
+                    size="lg"
+                  />
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 

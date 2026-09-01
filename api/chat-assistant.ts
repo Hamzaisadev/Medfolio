@@ -281,11 +281,16 @@ ${ragResult.retrievedPatientEvidence.length > 0 ? ragResult.retrievedPatientEvid
       let emittedDecodedLength = 0;
 
       const decodeJsonString = (raw: string): string => {
+        let sanitized = raw;
+        if (sanitized.endsWith('\\')) {
+          sanitized = sanitized.slice(0, -1);
+        }
         try {
-          return JSON.parse(`"${raw.replace(/\\"/g, '"').replace(/"/g, '\\"')}"`);
+          return JSON.parse(`"${sanitized}"`);
         } catch {
-          return raw
+          return sanitized
             .replace(/\\n/g, '\n')
+            .replace(/\\r/g, '\r')
             .replace(/\\"/g, '"')
             .replace(/\\\\/g, '\\')
             .replace(/\\t/g, '\t');
@@ -400,6 +405,31 @@ ${ragResult.retrievedPatientEvidence.length > 0 ? ragResult.retrievedPatientEvid
           if (!Array.isArray(data.citations)) {
             data.citations = [];
           }
+          if (Array.isArray(data.safetyAlerts)) {
+            data.safetyAlerts = data.safetyAlerts.map((item: any) => {
+              if (typeof item === 'string') return item;
+              if (item && typeof item === 'object') {
+                const title = item.title || item.headline || '';
+                const desc = item.description || item.message || item.text || '';
+                if (title && desc) return `${title}: ${desc}`;
+                return desc || title || JSON.stringify(item);
+              }
+              return String(item);
+            });
+          } else {
+            data.safetyAlerts = [];
+          }
+          if (Array.isArray(data.suggestions)) {
+            data.suggestions = data.suggestions.map((item: any) => {
+              if (typeof item === 'string') return item;
+              if (item && typeof item === 'object') {
+                return item.text || item.title || item.prompt || JSON.stringify(item);
+              }
+              return String(item);
+            });
+          } else {
+            data.suggestions = [];
+          }
         }
 
         res.write(`data: ${JSON.stringify({ type: 'complete', data })}\n\n`);
@@ -478,6 +508,31 @@ ${ragResult.retrievedPatientEvidence.length > 0 ? ragResult.retrievedPatientEvid
       }
       if (!Array.isArray(data.citations)) {
         data.citations = [];
+      }
+      if (Array.isArray(data.safetyAlerts)) {
+        data.safetyAlerts = data.safetyAlerts.map((item: any) => {
+          if (typeof item === 'string') return item;
+          if (item && typeof item === 'object') {
+            const title = item.title || item.headline || '';
+            const desc = item.description || item.message || item.text || '';
+            if (title && desc) return `${title}: ${desc}`;
+            return desc || title || JSON.stringify(item);
+          }
+          return String(item);
+        });
+      } else {
+        data.safetyAlerts = [];
+      }
+      if (Array.isArray(data.suggestions)) {
+        data.suggestions = data.suggestions.map((item: any) => {
+          if (typeof item === 'string') return item;
+          if (item && typeof item === 'object') {
+            return item.text || item.title || item.prompt || JSON.stringify(item);
+          }
+          return String(item);
+        });
+      } else {
+        data.suggestions = [];
       }
     }
 

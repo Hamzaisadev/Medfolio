@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
+import { motion } from 'motion/react';
 import { AppShell } from '../../components/layout/AppShell';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
@@ -20,6 +21,7 @@ import { readInventory, writeInventory } from '../../lib/inventory';
 import { todayInAppTz, addDaysAppTz, formatDateShort, formatDateMedium } from '../../lib/time';
 import { isActive, recentlyFinishedMedicines } from '../../domain/activeMedicines';
 import { mealRelationLabel } from '../../domain/mealRelation';
+import { staggerContainer, staggerItem } from '../../lib/motion';
 import type { Tables } from '../../lib/supabase/types';
 
 type Medicine = Tables<'medicines'>;
@@ -274,7 +276,12 @@ export function MedicineCabinetPage() {
                 }
               />
             ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <motion.div
+                variants={staggerContainer}
+                initial="hidden"
+                animate="visible"
+                className="grid grid-cols-1 lg:grid-cols-2 gap-4"
+              >
                 {scheduledActive.map((med) => {
                   const count = countFor(med);
                   const burn = dailyBurn(med.frequency_code);
@@ -283,96 +290,103 @@ export function MedicineCabinetPage() {
                   const isCaution = !isLow && daysLeft <= CAUTION_STOCK_DAYS;
 
                   return (
-                    <Card key={med.id} accent={isLow ? 'risk' : isCaution ? 'warn' : 'ok'}>
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <h3 className="text-base font-bold text-content">
-                            {med.medicine_name}
-                            {med.strength && (
-                              <span className="ml-1.5 text-sm font-medium text-content-muted">
-                                {med.strength}
-                              </span>
-                            )}
-                          </h3>
-                          <p className="mt-1 text-sm text-content-muted">
-                            {med.frequency_raw || med.frequency_code} ·{' '}
-                            {med.duration_raw || (med.is_ongoing ? 'Ongoing' : 'Fixed course')}
-                          </p>
-                          <p className="mt-0.5 text-xs text-content-subtle">
-                            {mealRelationLabel(med.with_food)}
-                          </p>
+                    <motion.div
+                      key={med.id}
+                      variants={staggerItem}
+                      whileHover={{ y: -2 }}
+                      transition={{ type: 'spring', stiffness: 450, damping: 30 }}
+                    >
+                      <Card accent={isLow ? 'risk' : isCaution ? 'warn' : 'ok'}>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <h3 className="text-base font-bold text-content">
+                              {med.medicine_name}
+                              {med.strength && (
+                                <span className="ml-1.5 text-sm font-medium text-content-muted">
+                                  {med.strength}
+                                </span>
+                              )}
+                            </h3>
+                            <p className="mt-1 text-sm text-content-muted">
+                              {med.frequency_raw || med.frequency_code} ·{' '}
+                              {med.duration_raw || (med.is_ongoing ? 'Ongoing' : 'Fixed course')}
+                            </p>
+                            <p className="mt-0.5 text-xs text-content-subtle">
+                              {mealRelationLabel(med.with_food)}
+                            </p>
+                          </div>
+
+                          <Badge tone={isLow ? 'risk' : isCaution ? 'warn' : 'ok'} size="sm" withIcon>
+                            {isLow ? 'Buy more' : isCaution ? 'A week left' : 'Stocked'}
+                          </Badge>
                         </div>
 
-                        <Badge tone={isLow ? 'risk' : isCaution ? 'warn' : 'ok'} size="sm" withIcon>
-                          {isLow ? 'Buy more' : isCaution ? 'A week left' : 'Stocked'}
-                        </Badge>
-                      </div>
+                        {med.instructions && (
+                          <p className="mt-3 text-sm text-content-muted bg-surface-sunken border border-line rounded-[var(--radius-md)] px-3 py-2.5">
+                            {med.instructions}
+                          </p>
+                        )}
 
-                      {med.instructions && (
-                        <p className="mt-3 text-sm text-content-muted bg-surface-sunken border border-line rounded-[var(--radius-md)] px-3 py-2.5">
-                          {med.instructions}
-                        </p>
-                      )}
+                        <div className="mt-4 p-3.5 rounded-[var(--radius-md)] bg-surface-sunken border border-line space-y-2">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="font-semibold text-content-muted">Supply left</span>
+                            <span className="font-bold text-content" data-numeric>
+                              {count} {count === 1 ? 'tablet' : 'tablets'}
+                              {count > 0 && ` · ${daysLeft} ${daysLeft === 1 ? 'day' : 'days'}`}
+                            </span>
+                          </div>
 
-                      <div className="mt-4 p-3.5 rounded-[var(--radius-md)] bg-surface-sunken border border-line space-y-2">
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="font-semibold text-content-muted">Supply left</span>
-                          <span className="font-bold text-content" data-numeric>
-                            {count} {count === 1 ? 'tablet' : 'tablets'}
-                            {count > 0 && ` · ${daysLeft} ${daysLeft === 1 ? 'day' : 'days'}`}
-                          </span>
-                        </div>
-
-                        <div
-                          className="w-full bg-line h-2 rounded-full overflow-hidden"
-                          role="progressbar"
-                          aria-valuenow={Math.min(30, daysLeft)}
-                          aria-valuemin={0}
-                          aria-valuemax={30}
-                          aria-label={`${daysLeft} days of supply remaining`}
-                        >
                           <div
-                            className={`h-full rounded-full transition-[width] duration-[var(--duration-slow)] ${
-                              isLow ? 'bg-risk-text' : isCaution ? 'bg-warn-text' : 'bg-accent'
-                            }`}
-                            style={{ width: `${Math.min(100, (daysLeft / 30) * 100)}%` }}
-                          />
-                        </div>
-
-                        <div className="flex items-center justify-between text-xs text-content-subtle">
-                          <span data-numeric>
-                            {burn} {burn === 1 ? 'tablet' : 'tablets'} a day
-                          </span>
-                          {count > 0 && (
-                            <span>Runs out {formatDateShort(addDaysAppTz(todayStr, daysLeft))}</span>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="mt-4 pt-4 border-t border-line flex items-center justify-between gap-2">
-                        <Button variant="secondary" size="sm" onClick={() => setRefillTarget(med)}>
-                          Log a refill
-                        </Button>
-                        <div className="flex items-center gap-1">
-                          <Link to={`/medicines/${med.id}`}>
-                            <Button variant="ghost" size="sm">
-                              Details
-                            </Button>
-                          </Link>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-risk-text hover:bg-risk-bg"
-                            onClick={() => setDiscontinueTarget(med)}
+                            className="w-full bg-line h-2 rounded-full overflow-hidden"
+                            role="progressbar"
+                            aria-valuenow={Math.min(30, daysLeft)}
+                            aria-valuemin={0}
+                            aria-valuemax={30}
+                            aria-label={`${daysLeft} days of supply remaining`}
                           >
-                            Stop
-                          </Button>
+                            <div
+                              className={`h-full rounded-full transition-[width] duration-[var(--duration-slow)] ${
+                                isLow ? 'bg-risk-text' : isCaution ? 'bg-warn-text' : 'bg-accent'
+                              }`}
+                              style={{ width: `${Math.min(100, (daysLeft / 30) * 100)}%` }}
+                            />
+                          </div>
+
+                          <div className="flex items-center justify-between text-xs text-content-subtle">
+                            <span data-numeric>
+                              {burn} {burn === 1 ? 'tablet' : 'tablets'} a day
+                            </span>
+                            {count > 0 && (
+                              <span>Runs out {formatDateShort(addDaysAppTz(todayStr, daysLeft))}</span>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    </Card>
+
+                        <div className="mt-4 pt-4 border-t border-line flex items-center justify-between gap-2">
+                          <Button variant="secondary" size="sm" onClick={() => setRefillTarget(med)}>
+                            Log a refill
+                          </Button>
+                          <div className="flex items-center gap-1">
+                            <Link to={`/medicines/${med.id}`}>
+                              <Button variant="ghost" size="sm">
+                                Details
+                              </Button>
+                            </Link>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-risk-text hover:bg-risk-bg"
+                              onClick={() => setDiscontinueTarget(med)}
+                            >
+                              Stop
+                            </Button>
+                          </div>
+                        </div>
+                      </Card>
+                    </motion.div>
                   );
                 })}
-              </div>
+              </motion.div>
             )}
           </TabsContent>
 

@@ -1,5 +1,7 @@
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { motion } from 'motion/react';
+import { RollingNumber } from './RollingNumber';
 
 export interface ProgressRingProps {
   percentage: number; // 0 to 100
@@ -53,26 +55,25 @@ export function ProgressRing({
             strokeWidth={strokeWidth}
             fill="none"
           />
-          <circle
+          <motion.circle
             cx={size / 2}
             cy={size / 2}
             r={radius}
             stroke={arcColor[tone]}
             strokeWidth={strokeWidth}
             strokeDasharray={circumference}
-            strokeDashoffset={strokeDashoffset}
             strokeLinecap="round"
             fill="none"
-            className="transition-[stroke-dashoffset] duration-[var(--duration-slow)] ease-[var(--ease-out-soft)]"
+            initial={{ strokeDashoffset: circumference }}
+            animate={{ strokeDashoffset }}
+            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
           />
         </svg>
 
-        {/* The number is rendered, not implied by the arc: an arc alone is not a
-            value anyone can read precisely. */}
         {!hideValue && (
           <div className="absolute inset-0 flex items-center justify-center">
             <span className="text-sm font-bold text-content leading-none" data-numeric>
-              {clamped}%
+              <RollingNumber value={clamped} duration={700} suffix="%" />
             </span>
           </div>
         )}

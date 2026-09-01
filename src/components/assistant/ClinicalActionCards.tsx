@@ -86,16 +86,24 @@ export interface ClinicalActionCall {
 interface ClinicalActionCardsProps {
   action: ClinicalActionCall;
   profileId: string;
+  userId?: string;
   onExecuted?: (message: string) => void;
 }
 
-export function ClinicalActionCards({ action, profileId, onExecuted }: ClinicalActionCardsProps) {
+export function ClinicalActionCards({ action, profileId, userId, onExecuted }: ClinicalActionCardsProps) {
   const [isExecuting, setIsExecuting] = useState(false);
   const [isDone, setIsDone] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+
+  const effectiveUserId = userId || profileId;
+  const data = action?.data || {};
   const [severity, setSeverity] = useState<'mild' | 'moderate' | 'severe'>(
-    action.data.severity || 'mild'
+    data.severity || 'mild'
   );
+
+  if (!action || !action.type || !action.data || typeof action.data !== 'object') {
+    return null;
+  }
 
   // 0. Tool: Adjust Schedule / Food Timing (1-Click Sync)
   if (action.type === 'adjust_schedule') {
@@ -128,17 +136,17 @@ export function ClinicalActionCards({ action, profileId, onExecuted }: ClinicalA
     };
 
     return (
-      <div className="my-3 p-3.5 bg-surface-raised border border-accent/30 rounded-2xl shadow-2xs space-y-2.5">
+      <div className="my-3 p-3.5 sm:p-4 bg-surface-raised border border-line-strong rounded-2xl shadow-card space-y-2.5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-content font-bold text-xs flex items-center gap-1.5">
-              <ClockIcon size={16} className="text-accent" /> Schedule Optimization Sentinel
+              <ClockIcon size={16} className="text-accent shrink-0" /> Schedule Optimization Sentinel
             </span>
             <Badge tone="ok" size="sm">1-Click Sync</Badge>
           </div>
           {isDone && (
-            <span className="text-2xs text-accent font-bold flex items-center gap-1">
-              <CheckIcon size={13} className="text-accent" /> Applied to Timetable
+            <span className="text-2xs text-ok-text font-bold flex items-center gap-1">
+              <CheckIcon size={13} className="text-ok-text" /> Applied to Timetable
             </span>
           )}
         </div>
@@ -188,7 +196,7 @@ export function ClinicalActionCards({ action, profileId, onExecuted }: ClinicalA
       setIsExecuting(true);
       try {
         await sideEffectsRepo.createSideEffect({
-          user_id: profileId,
+          user_id: effectiveUserId,
           profile_id: profileId,
           medicine_name: action.data.medicine_name || 'General Health Symptom',
           note: action.data.symptom || 'Reported symptom',
@@ -205,43 +213,47 @@ export function ClinicalActionCards({ action, profileId, onExecuted }: ClinicalA
     };
 
     return (
-      <div className="my-3 p-3.5 bg-white border border-teal-200 rounded-2xl shadow-xs space-y-2.5">
+      <div className="my-3 p-3.5 sm:p-4 bg-surface-raised border border-line-strong rounded-2xl shadow-card space-y-2.5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-teal-900 font-bold text-xs flex items-center gap-1.5">
-              <StethoscopeIcon size={16} /> Autonomous Symptom Logger
+            <span className="text-content font-bold text-xs flex items-center gap-1.5">
+              <StethoscopeIcon size={16} className="text-accent shrink-0" /> Autonomous Symptom Logger
             </span>
             <Badge tone="warn" size="sm">Triage</Badge>
           </div>
           {isDone && (
-            <span className="text-[11px] text-teal-700 font-bold flex items-center gap-1">
-              <CheckIcon size={13} className="text-emerald-600" /> Logged to Timeline
+            <span className="text-[11px] text-ok-text font-bold flex items-center gap-1">
+              <CheckIcon size={13} className="text-ok-text" /> Logged to Timeline
             </span>
           )}
         </div>
 
-        <p className="text-xs text-ink-800">
-          <strong className="text-ink-900">Symptom:</strong> {action.data.symptom}
+        <p className="text-xs text-content">
+          <strong className="font-bold">Symptom:</strong> {action.data.symptom}
           {action.data.medicine_name && (
-            <span className="text-ink-500 block text-[11px]">
-              Correlated with medication: <strong className="text-teal-900">{action.data.medicine_name}</strong>
+            <span className="text-content-muted block text-[11px] mt-0.5">
+              Correlated with medication: <strong className="text-accent">{action.data.medicine_name}</strong>
             </span>
           )}
         </p>
 
         {!isDone && (
-          <div className="pt-2 border-t border-ink-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="pt-2 border-t border-line flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div className="flex items-center gap-1.5 text-xs">
-              <span className="text-ink-500 text-[11px]">Severity:</span>
+              <span className="text-content-muted text-[11px]">Severity:</span>
               {(['mild', 'moderate', 'severe'] as const).map((s) => (
                 <button
                   key={s}
                   type="button"
                   onClick={() => setSeverity(s)}
-                  className={`px-2 py-0.5 rounded text-[10px] font-bold capitalize transition-colors ${
+                  className={`px-2 py-0.5 rounded-lg text-[10px] font-bold capitalize transition-colors cursor-pointer ${
                     severity === s
-                      ? s === 'severe' ? 'bg-red-500 text-white' : s === 'moderate' ? 'bg-amber-500 text-white' : 'bg-teal-600 text-white'
-                      : 'bg-ink-100 text-ink-600 hover:bg-ink-200'
+                      ? s === 'severe'
+                        ? 'bg-risk-fill text-content-onaccent'
+                        : s === 'moderate'
+                        ? 'bg-warn-border text-content'
+                        : 'bg-accent text-accent-onaccent'
+                      : 'bg-surface-sunken text-content-muted hover:text-content'
                   }`}
                 >
                   {s}
@@ -267,23 +279,23 @@ export function ClinicalActionCards({ action, profileId, onExecuted }: ClinicalA
   // 2. Tool: Missed Dose Protocol
   if (action.type === 'missed_dose') {
     return (
-      <div className="my-3 p-3.5 bg-amber-50/70 border border-amber-200 rounded-2xl shadow-xs space-y-2">
+      <div className="my-3 p-3.5 sm:p-4 bg-warn-bg/40 border border-warn-border rounded-2xl shadow-card space-y-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-amber-950 font-bold text-xs flex items-center gap-1.5">
+            <span className="text-warn-text font-bold text-xs flex items-center gap-1.5">
               <ClockIcon size={16} /> Missed Dose Clinical Safety Protocol
             </span>
             <Badge tone="warn" size="sm">Catch-up</Badge>
           </div>
         </div>
 
-        <p className="text-xs text-ink-900 leading-relaxed">
+        <p className="text-xs text-content leading-relaxed">
           {action.data.catchup_instructions || `If your next dose is more than 4 hours away, take your missed dose now. Otherwise, skip it and resume your normal schedule.`}
         </p>
 
         {action.data.do_not_double && (
-          <div className="p-2 rounded-lg bg-red-100 border border-red-200 text-red-950 text-[11px] font-bold flex items-center gap-1.5">
-            <AlertTriangleIcon size={14} className="text-red-700 shrink-0" />
+          <div className="p-2 rounded-xl bg-risk-bg border border-risk-border text-risk-text text-[11px] font-bold flex items-center gap-1.5">
+            <AlertTriangleIcon size={14} className="shrink-0" />
             <span>DO NOT DOUBLE UP: Never take two doses together to make up for a missed pill.</span>
           </div>
         )}
@@ -297,18 +309,18 @@ export function ClinicalActionCards({ action, profileId, onExecuted }: ClinicalA
     const waUrl = `https://wa.me/?text=${encodeURIComponent(rawMsg)}`;
 
     return (
-      <div className="my-3 p-3.5 bg-white border border-teal-200 rounded-2xl shadow-xs space-y-2.5">
+      <div className="my-3 p-3.5 sm:p-4 bg-surface-raised border border-line-strong rounded-2xl shadow-card space-y-2.5">
         <Toast open={Boolean(toastMsg)} onClose={() => setToastMsg(null)} message={toastMsg || ''} tone="ok" />
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-teal-900 font-bold text-xs flex items-center gap-1.5">
-              <SparklesIcon size={16} /> Family Caregiver Health Dispatch
+            <span className="text-content font-bold text-xs flex items-center gap-1.5">
+              <SparklesIcon size={16} className="text-accent shrink-0" /> Family Caregiver Health Dispatch
             </span>
             <Badge tone="info" size="sm">WhatsApp</Badge>
           </div>
         </div>
 
-        <div className="p-2.5 rounded-xl bg-ink-50/70 border border-ink-200 font-mono text-[11px] text-ink-800 whitespace-pre-line">
+        <div className="p-2.5 rounded-xl bg-surface-sunken border border-line font-mono text-[11px] text-content whitespace-pre-line">
           {rawMsg}
         </div>
 
@@ -319,7 +331,7 @@ export function ClinicalActionCards({ action, profileId, onExecuted }: ClinicalA
               navigator.clipboard.writeText(rawMsg);
               setToastMsg('Message copied to clipboard.');
             }}
-            className="text-xs text-ink-600 hover:text-ink-900 font-bold px-2 py-1 flex items-center gap-1"
+            className="text-xs text-content-muted hover:text-content font-bold px-2 py-1 flex items-center gap-1 cursor-pointer"
           >
             <CopyIcon size={13} /> Copy
           </button>
@@ -341,13 +353,13 @@ export function ClinicalActionCards({ action, profileId, onExecuted }: ClinicalA
     const isEq = action.data.is_equivalent ?? true;
 
     return (
-      <div className={`my-3 p-3.5 rounded-2xl border text-xs space-y-2 ${
-        isEq ? 'bg-teal-50/60 border-teal-200' : 'bg-amber-50/60 border-amber-200'
+      <div className={`my-3 p-3.5 sm:p-4 rounded-2xl border shadow-card text-xs space-y-2.5 ${
+        isEq ? 'bg-ok-bg/30 border-ok-border/50' : 'bg-warn-bg/30 border-warn-border/50'
       }`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="font-bold text-ink-900 flex items-center gap-1.5">
-              <MedicineIcon size={16} className="text-purple-700" /> Pharmacy Generic Substitution Audit
+            <span className="font-bold text-content flex items-center gap-1.5">
+              <MedicineIcon size={16} className="text-accent shrink-0" /> Pharmacy Generic Substitution Audit
             </span>
           </div>
           <Badge tone={isEq ? 'ok' : 'warn'} size="sm">
@@ -356,18 +368,18 @@ export function ClinicalActionCards({ action, profileId, onExecuted }: ClinicalA
         </div>
 
         <div className="grid grid-cols-2 gap-2 text-[11px]">
-          <div className="p-2 bg-white rounded-lg border border-ink-100">
-            <span className="text-ink-400 block text-[10px]">Prescribed Brand:</span>
-            <span className="font-bold text-ink-900">{action.data.prescribed_brand}</span>
+          <div className="p-2.5 bg-surface-raised rounded-xl border border-line">
+            <span className="text-content-subtle block text-[10px] uppercase tracking-wider font-semibold">Prescribed Brand:</span>
+            <span className="font-bold text-content text-xs mt-0.5 block">{action.data.prescribed_brand}</span>
           </div>
-          <div className="p-2 bg-white rounded-lg border border-ink-100">
-            <span className="text-ink-400 block text-[10px]">Dispensed Alternative:</span>
-            <span className="font-bold text-teal-900">{action.data.dispensed_brand}</span>
+          <div className="p-2.5 bg-surface-raised rounded-xl border border-line">
+            <span className="text-content-subtle block text-[10px] uppercase tracking-wider font-semibold">Dispensed Alternative:</span>
+            <span className="font-bold text-accent text-xs mt-0.5 block">{action.data.dispensed_brand}</span>
           </div>
         </div>
 
-        <p className="text-ink-700 text-[11px] leading-relaxed">
-          Active Chemical Salt: <strong className="text-ink-900">{action.data.generic_name}</strong>. {action.data.safety_note || 'Both brands contain the identical active pharmacological molecule and therapeutic strength.'}
+        <p className="text-content text-[11px] leading-relaxed">
+          Active Chemical Salt: <strong className="text-content">{action.data.generic_name}</strong>. {action.data.safety_note || 'Both brands contain the identical active pharmacological molecule and therapeutic strength.'}
         </p>
       </div>
     );
@@ -376,28 +388,28 @@ export function ClinicalActionCards({ action, profileId, onExecuted }: ClinicalA
   // 5. Tool: Pre-Surgery / Dental Extraction Cessation Audit
   if (action.type === 'pre_op_cessation') {
     return (
-      <div className="my-3 p-3.5 bg-red-50/60 border border-red-200 rounded-2xl shadow-xs space-y-2.5">
+      <div className="my-3 p-3.5 sm:p-4 bg-risk-bg/40 border border-risk-border rounded-2xl shadow-card space-y-2.5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-red-950 font-bold text-xs flex items-center gap-1.5">
-              <AlertTriangleIcon size={16} className="text-red-700" /> Pre-Procedure Medication Cessation Audit
+            <span className="text-risk-text font-bold text-xs flex items-center gap-1.5">
+              <AlertTriangleIcon size={16} className="shrink-0" /> Pre-Procedure Medication Cessation Audit
             </span>
             <Badge tone="risk" size="sm">Pre-Op</Badge>
           </div>
         </div>
 
-        <p className="text-xs text-ink-800">
-          Upcoming Procedure: <strong className="text-ink-900">{action.data.procedure_name || 'Surgery / Dental Procedure'}</strong>
+        <p className="text-xs text-content">
+          Upcoming Procedure: <strong className="text-content">{action.data.procedure_name || 'Surgery / Dental Procedure'}</strong>
           {action.data.procedure_date && ` (${action.data.procedure_date})`}
         </p>
 
         {action.data.meds_to_stop && action.data.meds_to_stop.length > 0 && (
           <div className="space-y-1.5">
             {action.data.meds_to_stop.map((m, idx) => (
-              <div key={idx} className="p-2 rounded-lg bg-white border border-red-200 text-[11px] flex justify-between items-center">
+              <div key={idx} className="p-2.5 rounded-xl bg-surface-raised border border-risk-border/50 text-[11px] flex justify-between items-center">
                 <div>
-                  <span className="font-bold text-red-900 block">{m.name}</span>
-                  <span className="text-ink-500 text-[10px]">Stop {m.stop_days_before} days before surgery</span>
+                  <span className="font-bold text-risk-text block">{m.name}</span>
+                  <span className="text-content-muted text-[10px]">Stop {m.stop_days_before} days before surgery</span>
                 </div>
                 <Badge tone="risk" size="sm">Stop by {m.stop_date}</Badge>
               </div>
@@ -414,22 +426,22 @@ export function ClinicalActionCards({ action, profileId, onExecuted }: ClinicalA
     const isSafe = cat.includes('A') || cat.includes('B');
 
     return (
-      <div className={`my-3 p-3.5 rounded-2xl border text-xs space-y-2 ${
-        isSafe ? 'bg-teal-50/60 border-teal-200' : 'bg-red-50/60 border-red-200'
+      <div className={`my-3 p-3.5 sm:p-4 rounded-2xl border shadow-card text-xs space-y-2 ${
+        isSafe ? 'bg-ok-bg/30 border-ok-border/50' : 'bg-risk-bg/30 border-risk-border/50'
       }`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="font-bold text-ink-900 flex items-center gap-1.5">
-              <MedicineIcon size={16} className="text-purple-700" /> Maternal & Fetal Safety: {action.data.medicine_name}
+            <span className="font-bold text-content flex items-center gap-1.5">
+              <MedicineIcon size={16} className="text-accent shrink-0" /> Maternal & Fetal Safety: {action.data.medicine_name}
             </span>
           </div>
           <Badge tone={isSafe ? 'ok' : 'risk'} size="sm">{cat}</Badge>
         </div>
 
-        <div className="text-[11px] space-y-1 text-ink-800 leading-relaxed">
+        <div className="text-[11px] space-y-1 text-content leading-relaxed">
           <p>{action.data.fetal_risk_summary}</p>
           {action.data.lactation_safety && (
-            <p className="text-teal-900 font-medium">LactMed / Nursing: {action.data.lactation_safety}</p>
+            <p className="text-accent font-medium">LactMed / Nursing: {action.data.lactation_safety}</p>
           )}
         </div>
       </div>
@@ -439,11 +451,11 @@ export function ClinicalActionCards({ action, profileId, onExecuted }: ClinicalA
   // 7. Tool: Flight & Timezone Chrono-Shift Planner
   if (action.type === 'travel_timezone') {
     return (
-      <div className="my-3 p-3.5 bg-white border border-teal-200 rounded-2xl shadow-xs space-y-2.5">
+      <div className="my-3 p-3.5 sm:p-4 bg-surface-raised border border-line-strong rounded-2xl shadow-card space-y-2.5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-teal-900 font-bold text-xs flex items-center gap-1.5">
-              <ClockIcon size={16} /> Flight Timezone Chrono-Shift Planner
+            <span className="text-content font-bold text-xs flex items-center gap-1.5">
+              <ClockIcon size={16} className="text-accent shrink-0" /> Flight Timezone Chrono-Shift Planner
             </span>
             <Badge tone="info" size="sm">{action.data.destination_city || 'Travel'}</Badge>
           </div>
@@ -452,9 +464,9 @@ export function ClinicalActionCards({ action, profileId, onExecuted }: ClinicalA
         {action.data.flight_plan && (
           <div className="space-y-1.5">
             {action.data.flight_plan.map((step, idx) => (
-              <div key={idx} className="p-2 rounded-lg bg-ink-50/60 border border-ink-100 text-[11px] flex items-center gap-2">
-                <span className="font-mono font-bold text-teal-800 shrink-0">{step.local_time}</span>
-                <span className="text-ink-800">{step.instruction}</span>
+              <div key={idx} className="p-2.5 rounded-xl bg-surface-sunken border border-line text-[11px] flex items-center gap-2.5">
+                <span className="font-mono font-bold text-accent shrink-0">{step.local_time}</span>
+                <span className="text-content">{step.instruction}</span>
               </div>
             ))}
           </div>
@@ -473,7 +485,7 @@ export function ClinicalActionCards({ action, profileId, onExecuted }: ClinicalA
       try {
         if (action.data.test_name) {
           await testOrdersRepo.createTestOrder({
-            user_id: profileId,
+            user_id: effectiveUserId,
             profile_id: profileId,
             test_name: action.data.test_name,
             ordered_date: today,
@@ -481,7 +493,7 @@ export function ClinicalActionCards({ action, profileId, onExecuted }: ClinicalA
           });
         } else {
           await visitsRepo.createVisit({
-            user_id: profileId,
+            user_id: effectiveUserId,
             profile_id: profileId,
             doctor_name: action.data.doctor_name || 'Physician',
             visit_date: targetDate,
@@ -498,40 +510,40 @@ export function ClinicalActionCards({ action, profileId, onExecuted }: ClinicalA
     };
 
     return (
-      <div className="my-3 p-3.5 bg-white border border-teal-200 rounded-2xl shadow-xs space-y-2.5">
+      <div className="my-3 p-3.5 sm:p-4 bg-surface-raised border border-line-strong rounded-2xl shadow-card space-y-2.5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-teal-900 font-bold text-xs flex items-center gap-1.5">
-              <CalendarDaysIcon size={16} /> Clinical Follow-up Tracker
+            <span className="text-content font-bold text-xs flex items-center gap-1.5">
+              <CalendarDaysIcon size={16} className="text-accent shrink-0" /> Clinical Follow-up Tracker
             </span>
             <Badge tone="info" size="sm">Calendar</Badge>
           </div>
           {isDone && (
-            <span className="text-[11px] text-teal-700 font-bold flex items-center gap-1">
-              <CheckIcon size={13} className="text-emerald-600" /> Scheduled
+            <span className="text-[11px] text-ok-text font-bold flex items-center gap-1">
+              <CheckIcon size={13} className="text-ok-text" /> Scheduled
             </span>
           )}
         </div>
 
-        <p className="text-xs text-ink-800">
+        <p className="text-xs text-content">
           {action.data.test_name ? (
-            <>Repeat diagnostic test: <strong className="text-ink-900">{action.data.test_name}</strong></>
+            <>Repeat diagnostic test: <strong className="text-content">{action.data.test_name}</strong></>
           ) : (
-            <>Doctor consultation: <strong className="text-ink-900">Dr. {action.data.doctor_name || 'Physician'}</strong></>
+            <>Doctor consultation: <strong className="text-content">Dr. {action.data.doctor_name || 'Physician'}</strong></>
           )}
           {action.data.followupDate && (
-            <span className="text-teal-900 block font-medium mt-0.5">Target Date: {action.data.followupDate}</span>
+            <span className="text-accent block font-medium mt-0.5">Target Date: {action.data.followupDate}</span>
           )}
         </p>
 
         {!isDone && (
-          <div className="pt-2 border-t border-ink-100 flex justify-end">
+          <div className="pt-2 border-t border-line flex justify-end">
             <Button
               variant="primary"
               size="sm"
               loading={isExecuting}
               onClick={handleSchedule}
-              className="text-xs font-bold"
+              className="text-xs font-bold shadow-xs"
               leftIcon={<CalendarDaysIcon size={14} />}
             >
               Set Follow-up Reminder
@@ -547,11 +559,11 @@ export function ClinicalActionCards({ action, profileId, onExecuted }: ClinicalA
     const days = action.data.daysRemaining || 7;
 
     return (
-      <div className="my-3 p-3.5 bg-white border border-teal-200 rounded-2xl shadow-xs space-y-2">
+      <div className="my-3 p-3.5 sm:p-4 bg-surface-raised border border-line-strong rounded-2xl shadow-card space-y-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-teal-900 font-bold text-xs flex items-center gap-1.5">
-              <MedicineIcon size={16} className="text-teal-700" /> Pill Supply & Refill Predictor
+            <span className="text-content font-bold text-xs flex items-center gap-1.5">
+              <MedicineIcon size={16} className="text-accent shrink-0" /> Pill Supply & Refill Predictor
             </span>
             <Badge tone={days <= 3 ? 'risk' : 'ok'} size="sm">
               {days} Days Left
@@ -559,13 +571,13 @@ export function ClinicalActionCards({ action, profileId, onExecuted }: ClinicalA
           </div>
         </div>
 
-        <p className="text-xs text-ink-700">
-          Based on your dosage, your pack of <strong className="text-ink-900">{action.data.medicine_name}</strong> will run out in <strong>{days} days</strong>.
+        <p className="text-xs text-content-muted">
+          Based on your dosage, your pack of <strong className="text-content">{action.data.medicine_name}</strong> will run out in <strong>{days} days</strong>.
         </p>
 
         <div className="pt-1 flex items-center justify-between text-xs">
-          <span className="text-[11px] text-ink-500">Refill Reminder Alert active</span>
-          <Link to="/medicines/cabinet" className="text-xs text-teal-800 font-bold hover:underline">
+          <span className="text-[11px] text-content-subtle">Refill Reminder Alert active</span>
+          <Link to="/medicines/cabinet" className="text-xs text-accent font-bold hover:underline">
             Manage Cabinet &rarr;
           </Link>
         </div>
@@ -580,34 +592,34 @@ export function ClinicalActionCards({ action, profileId, onExecuted }: ClinicalA
     const gradeText = grade === 'safe' ? 'Compatible' : grade === 'prohibited' ? 'Contraindicated (Dangerous)' : 'Caution Required';
 
     return (
-      <div className={`my-3 p-3.5 rounded-2xl border text-xs space-y-2 ${
+      <div className={`my-3 p-3.5 sm:p-4 rounded-2xl border shadow-card text-xs space-y-2.5 ${
         grade === 'prohibited'
-          ? 'bg-red-50/60 border-red-200'
+          ? 'bg-risk-bg/40 border-risk-border/60'
           : grade === 'safe'
-          ? 'bg-teal-50/60 border-teal-200'
-          : 'bg-amber-50/60 border-amber-200'
+          ? 'bg-ok-bg/30 border-ok-border/50'
+          : 'bg-warn-bg/30 border-warn-border/50'
       }`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="font-bold text-ink-900 flex items-center gap-1.5">
-              <MedicineIcon size={16} /> OTC Safety Checker: {action.data.otc_name}
+            <span className="font-bold text-content flex items-center gap-1.5">
+              <MedicineIcon size={16} className="text-accent shrink-0" /> OTC Safety Checker: {action.data.otc_name}
             </span>
           </div>
           <Badge tone={badgeTone} size="sm">{gradeText}</Badge>
         </div>
 
         {action.data.safety_note && (
-          <p className="text-ink-800 text-[11px] leading-relaxed">
+          <p className="text-content text-[11px] leading-relaxed">
             {action.data.safety_note}
           </p>
         )}
 
         {action.data.safe_alternative && (
-          <div className="p-2 rounded-lg bg-white border border-ink-200/80 text-[11px] flex items-center gap-1.5">
-            <SparklesIcon size={14} className="text-teal-700 shrink-0" />
+          <div className="p-2.5 rounded-xl bg-surface-raised border border-line text-[11px] flex items-center gap-2">
+            <SparklesIcon size={14} className="text-accent shrink-0" />
             <div>
-              <span className="font-bold text-teal-900">Recommended Safe Alternative: </span>
-              <span className="text-ink-800">{action.data.safe_alternative}</span>
+              <span className="font-bold text-content">Recommended Safe Alternative: </span>
+              <span className="text-accent font-semibold">{action.data.safe_alternative}</span>
             </div>
           </div>
         )}

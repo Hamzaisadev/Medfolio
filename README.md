@@ -1,5 +1,5 @@
 # 🌿 Medfolio — Your Personal Health & Prescription Vault
-> **Version 3.0** · *Take control of your health journey with smart prescription scanning, intelligent dose scheduling, lab biomarker tracking, and doctor-ready medical briefs.*
+> **Version 4.0** · *Experience a fluid, living clinical vault with physics-based interactions, smart prescription scanning, intelligent dose scheduling, and doctor-ready medical briefs.*
 
 ---
 

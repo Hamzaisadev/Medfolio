@@ -11,6 +11,7 @@ import { Badge } from '../../components/ui/Badge';
 import { Disclaimer } from '../../components/ui/Disclaimer';
 import { Toast } from '../../components/ui/Toast';
 import { evaluateLabResult, type ProfileSex } from '../../domain/referenceRange';
+import { getStandardTestName, areTestsEquivalent } from '../../domain/testAliases';
 import { useAuth } from '../../lib/auth/AuthContext';
 import { todayInAppTz } from '../../lib/time';
 import { REPORT_OUT_OF_RANGE_NOTE } from '../../lib/disclaimer';
@@ -86,9 +87,10 @@ export function ReviewReportPage() {
   const [results, setResults] = useState<ResultItemDraft[]>(
     (initialDraft?.results || []).map((r, idx) => {
       const evalStatus = evaluateLabResult(r.value_text, r.reference_range || undefined, profileSex);
+      const rawName = r.test_name || '';
       return {
         id: `res-${idx}-${Date.now()}`,
-        test_name: r.test_name || '',
+        test_name: getStandardTestName(rawName) || rawName,
         value_text: r.value_text || '',
         unit: r.unit || '',
         reference_range: r.reference_range || '',
@@ -110,12 +112,23 @@ export function ReviewReportPage() {
       try {
         const list = await testOrdersRepo.listPendingTestOrders(effectiveProfileId);
         setPendingOrders(list);
+
+        // If no order explicitly pre-selected, check for auto-matching order
+        if (!selectedOrderId && list.length > 0) {
+          const matchedOrder = list.find((order) =>
+            areTestsEquivalent(order.test_name, reportTitle) ||
+            results.some((r) => areTestsEquivalent(order.test_name, r.test_name))
+          );
+          if (matchedOrder) {
+            setSelectedOrderId(matchedOrder.id);
+          }
+        }
       } catch (err) {
         console.error('Failed to load pending orders:', err);
       }
     }
     loadPending();
-  }, [effectiveProfileId]);
+  }, [effectiveProfileId, reportTitle, selectedOrderId, results]);
 
   const handleAddResult = () => {
     setResults((prev) => [
@@ -189,7 +202,7 @@ export function ReviewReportPage() {
         return {
           user_id: effectiveUserId,
           report_id: createdReport.id,
-          test_name: r.test_name,
+          test_name: getStandardTestName(r.test_name) || r.test_name.trim(),
           value_text: r.value_text,
           value_numeric: isNaN(numVal) ? null : numVal,
           unit: r.unit || null,

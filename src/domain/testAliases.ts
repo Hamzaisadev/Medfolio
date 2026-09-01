@@ -32,7 +32,7 @@ export const TEST_DEFINITIONS: TestDefinition[] = [
   { canonical: 'Echocardiogram', aliases: ['echo', 'echocardiogram', '2d echo'] },
   { canonical: 'Vitamin D', aliases: ['vit d', '25 oh vitamin d', 'vitamin d3', 'vitamin d'] },
   { canonical: 'Vitamin B12', aliases: ['vit b12', 'b12', 'cobalamin', 'vitamin b12'] },
-  { canonical: 'Serum Creatinine', aliases: ['s creatinine', 'creat', 'creatinine', 'serum creatinine'] },
+  { canonical: 'Serum Creatinine', aliases: ['s creatinine', 'creat', 'creatinine', 'serum creatinine', 'creatine', 's creat', 'cr'] },
   { canonical: 'Serum Electrolytes', aliases: ['s electrolytes', 'electrolytes', 'serum electrolytes'] },
   { canonical: 'Dengue NS1 Antigen', aliases: ['dengue ns1', 'ns1', 'dengue antigen', 'dengue ns1 antigen'] },
   { canonical: 'Typhoid Serology', aliases: ['typhidot', 'widal', 'typhoid serology'] },
@@ -40,9 +40,21 @@ export const TEST_DEFINITIONS: TestDefinition[] = [
   { canonical: 'Hepatitis B Surface Antigen', aliases: ['hbsag', 'hepatitis b surface antigen'] },
   { canonical: 'Hepatitis C Antibody', aliases: ['anti hcv', 'hcv', 'anti-hcv', 'hepatitis c antibody'] },
   { canonical: 'Prothrombin Time / INR', aliases: ['pt inr', 'inr', 'pt', 'pt/inr', 'prothrombin time'] },
-  { canonical: 'Serum Uric Acid', aliases: ['uric acid', 'serum uric acid'] },
+  { canonical: 'Serum Uric Acid', aliases: ['uric acid', 'serum uric acid', 's uric acid'] },
   { canonical: 'Prostate Specific Antigen', aliases: ['psa', 'prostate specific antigen'] },
   { canonical: 'Beta HCG', aliases: ['beta hcg', 'b hcg', 'b-hcg'] },
+  { canonical: 'ALT / SGPT', aliases: ['alt', 'sgpt', 'alanine aminotransferase', 's.g.p.t', 'alt/sgpt', 'alt (sgpt)', 'sgpt (alt)', 's alt', 's sgpt'] },
+  { canonical: 'AST / SGOT', aliases: ['ast', 'sgot', 'aspartate aminotransferase', 's.g.o.t', 'ast/sgot', 'ast (sgot)', 'sgot (ast)', 's ast', 's sgot'] },
+  { canonical: 'Total Bilirubin', aliases: ['total bilirubin', 't bilirubin', 's bilirubin total', 't. bili', 'bilirubin total', 'bilirubin'] },
+  { canonical: 'Serum Urea / BUN', aliases: ['urea', 'serum urea', 'bun', 'blood urea nitrogen', 's urea'] },
+  { canonical: 'Total Cholesterol', aliases: ['total cholesterol', 'cholesterol', 't cholesterol', 's cholesterol'] },
+  { canonical: 'HDL Cholesterol', aliases: ['hdl', 'hdl cholesterol', 'hdl c', 'hdl-c', 'high density lipoprotein'] },
+  { canonical: 'LDL Cholesterol', aliases: ['ldl', 'ldl cholesterol', 'ldl c', 'ldl-c', 'low density lipoprotein'] },
+  { canonical: 'Triglycerides', aliases: ['triglycerides', 'tg', 'trigs', 'serum triglycerides', 's triglycerides'] },
+  { canonical: 'Serum Calcium', aliases: ['calcium', 'serum calcium', 's calcium', 'ca'] },
+  { canonical: 'Platelet Count', aliases: ['platelets', 'platelet count', 'plt', 'platelet'] },
+  { canonical: 'White Blood Cell Count', aliases: ['wbc', 'tlc', 'total leukocyte count', 'white blood cells', 'wbc count'] },
+  { canonical: 'Red Blood Cell Count', aliases: ['rbc', 'trbc', 'red blood cells', 'rbc count'] },
 ];
 
 /**
@@ -80,14 +92,48 @@ export function resolveCanonicalTestName(rawName: string | null | undefined): st
 }
 
 /**
+ * Formats a raw test name into a clean, standardized display name.
+ * Returns the canonical name if recognized, or clean Title Case if unmapped.
+ */
+export function getStandardTestName(rawName: string | null | undefined): string {
+  if (!rawName) return '';
+  const canonical = resolveCanonicalTestName(rawName);
+  if (canonical) return canonical;
+
+  const cleaned = rawName.trim().replace(/\s+/g, ' ');
+  if (!cleaned) return '';
+
+  // If text is all uppercase or all lowercase, convert to Title Case for uniform display
+  if (cleaned === cleaned.toUpperCase() || cleaned === cleaned.toLowerCase()) {
+    return cleaned
+      .toLowerCase()
+      .split(' ')
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ');
+  }
+
+  return cleaned;
+}
+
+/**
  * Matches two test names to determine if they refer to the same clinical investigation.
  */
 export function areTestsEquivalent(nameA: string, nameB: string): boolean {
+  if (!nameA || !nameB) return false;
+
   const canonA = resolveCanonicalTestName(nameA);
   const canonB = resolveCanonicalTestName(nameB);
 
   if (canonA && canonB) {
     return canonA === canonB;
+  }
+
+  if (canonA && !canonB) {
+    return normalizeTestName(canonA) === normalizeTestName(nameB);
+  }
+
+  if (!canonA && canonB) {
+    return normalizeTestName(nameA) === normalizeTestName(canonB);
   }
 
   return normalizeTestName(nameA) === normalizeTestName(nameB);

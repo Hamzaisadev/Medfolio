@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import { motion, AnimatePresence } from 'motion/react';
 import { AppShell } from '../../components/layout/AppShell';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
@@ -12,9 +13,13 @@ import { Toast } from '../../components/ui/Toast';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { DateStrip } from '../../components/ui/DateStrip';
 import { DoseCard } from '../../components/ui/DoseCard';
-import { SectionHeader } from '../../components/ui/SectionHeader';
 import { SLOT_META } from '../../components/ui/slotMeta';
-import { PlusIcon, MedicineIcon } from '../../components/ui/icons';
+import {
+  PlusIcon,
+  MedicineIcon,
+  CheckIcon,
+  AlertTriangleIcon,
+} from '../../components/ui/icons';
 import { todayInAppTz, formatDayHeading } from '../../lib/time';
 import { bucketOf, Bucket, BUCKET_ORDER } from '../../domain/timeBuckets';
 import { deriveStatusOnRead, calculateAdherence } from '../../domain/adherence';
@@ -24,6 +29,7 @@ import { computeEndDate } from '../../domain/duration';
 import { useAuth } from '../../lib/auth/AuthContext';
 import { dosesRepo, medicinesRepo } from '../../lib/db';
 import { decrementPill, incrementPill } from '../../lib/inventory';
+import { staggerContainer, staggerItem } from '../../lib/motion';
 import type { Tables } from '../../lib/supabase/types';
 
 type Dose = Tables<'doses'>;
@@ -67,7 +73,6 @@ async function topUpScheduleFor(
 
     if (!isOngoing && effectiveEndDate && effectiveEndDate < dateStr) continue;
 
-    // frequency_code is the authority; frequency_raw is only a fallback.
     const freqCode = m.frequency_code ?? parseFrequency(m.frequency_raw);
     if (!freqCode) continue;
 
@@ -120,52 +125,42 @@ export function TodaySchedulePage() {
   const effectiveProfileId = profile?.id || effectiveUserId;
 
   const loadData = useCallback(
-    async (dateStr: string) => {
+    async (targetDate: string) => {
       if (!effectiveProfileId) return;
       setIsLoading(true);
       setLoadError(null);
       try {
-        const [fetchedDoses, fetchedMeds] = await Promise.all([
-          dosesRepo.listDosesForDate(effectiveProfileId, dateStr),
+        const [medsList, initialDoses] = await Promise.all([
           medicinesRepo.listMedicines(effectiveProfileId),
+          dosesRepo.listDosesForDate(effectiveProfileId, targetDate),
         ]);
 
         const map: Record<string, Medicine> = {};
-        for (const m of fetchedMeds) map[m.id] = m;
+        for (const m of medsList) map[m.id] = m;
         setMedicinesMap(map);
 
-        // Top up the schedule when a still-active course has no doses for a
-        // present/future date — this is what keeps ongoing medicines going past
-        // the 30-day generation horizon.
-        //
-        // Deliberately forward-only: generating rows for a past date invents an
-        // adherence record for a day that already happened.
-        const today = todayInAppTz();
-        if (fetchedDoses.length === 0 && fetchedMeds.length > 0 && dateStr >= today) {
+        if (initialDoses.length === 0 && medsList.length > 0) {
           const created = await topUpScheduleFor(
-            fetchedMeds,
-            dateStr,
+            medsList,
+            targetDate,
             effectiveUserId,
             effectiveProfileId
           );
-          setDoses(
-            created ? await dosesRepo.listDosesForDate(effectiveProfileId, dateStr) : fetchedDoses
-          );
-          return;
+          if (created) {
+            const refreshed = await dosesRepo.listDosesForDate(effectiveProfileId, targetDate);
+            setDoses(refreshed);
+            return;
+          }
         }
-
-        setDoses(fetchedDoses);
+        setDoses(initialDoses);
       } catch (err) {
-        console.warn('Error loading schedule:', err);
-        setDoses([]);
-        setLoadError(
-          err instanceof Error ? err.message : 'Could not load your schedule for this day.'
-        );
+        console.error('Failed to load schedule:', err);
+        setLoadError('Failed to load schedule for this date.');
       } finally {
         setIsLoading(false);
       }
     },
-    [effectiveUserId, effectiveProfileId]
+    [effectiveProfileId, effectiveUserId]
   );
 
   useEffect(() => {
@@ -173,47 +168,49 @@ export function TodaySchedulePage() {
   }, [loadData, selectedDate]);
 
   const handleMarkTaken = async (dose: Dose) => {
-    // Guard against re-marking: the old "Change Status" button called this again
-    // on an already-taken dose, decrementing the pill count on each click.
-    if (dose.status === 'taken') return;
+    const prev = doses;
+    const nowIso = new Date().toISOString();
+    setDoses((curr) =>
+      curr.map((d) => (d.id === dose.id ? { ...d, status: 'taken', taken_at: nowIso } : d))
+    );
 
     try {
-      const updated = await dosesRepo.updateDoseStatus(dose.id, 'taken');
-      setDoses((prev) => prev.map((d) => (d.id === dose.id ? updated : d)));
-
-      const remaining = decrementPill(effectiveProfileId, dose.medicine_id);
-      setToast({
-        tone: 'ok',
-        message:
-          remaining === null
-            ? 'Dose marked as taken.'
-            : `Dose marked as taken — ${remaining} left in your cabinet.`,
-      });
-    } catch (err: unknown) {
-      console.error(err);
-      setToast({
-        tone: 'risk',
-        message: err instanceof Error ? err.message : 'Could not record this dose. Please try again.',
-      });
+      await dosesRepo.updateDoseStatus(dose.id, 'taken', nowIso);
+      decrementPill(effectiveProfileId, dose.medicine_id);
+      setToast({ message: 'Dose logged as taken', tone: 'ok' });
+    } catch {
+      setDoses(prev);
+      setToast({ message: 'Could not log dose. Check connection.', tone: 'risk' });
     }
   };
 
-  /** Reverts a taken/skipped dose back to pending, restoring the pill count. */
-  const handleUndo = async (dose: Dose) => {
-    try {
-      const updated = await dosesRepo.updateDoseStatus(dose.id, 'pending');
-      setDoses((prev) => prev.map((d) => (d.id === dose.id ? updated : d)));
+  const handleMarkAllSlotTaken = async (slotDoses: Dose[]) => {
+    const actionable = slotDoses.filter((d) => {
+      const st = deriveStatusOnRead(d, new Date());
+      return st === 'pending' || st === 'missed';
+    });
 
-      if (dose.status === 'taken') {
-        incrementPill(effectiveProfileId, dose.medicine_id);
-      }
-      setToast({ tone: 'ok', message: 'Dose reset to pending.' });
-    } catch (err: unknown) {
-      console.error(err);
-      setToast({
-        tone: 'risk',
-        message: err instanceof Error ? err.message : 'Could not update this dose. Please try again.',
-      });
+    if (actionable.length === 0) return;
+
+    const prev = doses;
+    const nowIso = new Date().toISOString();
+    const actionableIds = new Set(actionable.map((d) => d.id));
+
+    setDoses((curr) =>
+      curr.map((d) => (actionableIds.has(d.id) ? { ...d, status: 'taken', taken_at: nowIso } : d))
+    );
+
+    try {
+      await Promise.all(
+        actionable.map((d) => {
+          decrementPill(effectiveProfileId, d.medicine_id);
+          return dosesRepo.updateDoseStatus(d.id, 'taken', nowIso);
+        })
+      );
+      setToast({ message: `Logged ${actionable.length} doses as taken`, tone: 'ok' });
+    } catch {
+      setDoses(prev);
+      setToast({ message: 'Could not complete batch update.', tone: 'risk' });
     }
   };
 
@@ -225,37 +222,68 @@ export function TodaySchedulePage() {
 
   const handleConfirmSkip = async () => {
     if (!activeDoseForSkip) return;
+    const dose = activeDoseForSkip;
+    setSkipDialogOpen(false);
+
+    const prev = doses;
+    setDoses((curr) =>
+      curr.map((d) =>
+        d.id === dose.id
+          ? { ...d, status: 'skipped', skipped_reason: selectedSkipReason }
+          : d
+      )
+    );
+
     try {
-      const updated = await dosesRepo.updateDoseStatus(
-        activeDoseForSkip.id,
-        'skipped',
-        null,
-        selectedSkipReason
-      );
-      setDoses((prev) => prev.map((d) => (d.id === activeDoseForSkip.id ? updated : d)));
-      setSkipDialogOpen(false);
-      setToast({ tone: 'ok', message: `Dose marked as skipped (${selectedSkipReason}).` });
-    } catch (err: unknown) {
-      console.error(err);
-      setToast({
-        tone: 'risk',
-        message: err instanceof Error ? err.message : 'Could not record this dose. Please try again.',
-      });
+      await dosesRepo.updateDoseStatus(dose.id, 'skipped', null, selectedSkipReason);
+      setToast({ message: 'Dose marked as skipped', tone: 'ok' });
+    } catch {
+      setDoses(prev);
+      setToast({ message: 'Could not update dose.', tone: 'risk' });
     }
   };
 
-  const buckets: Record<Bucket, Dose[]> = {
-    morning: [],
-    afternoon: [],
-    evening: [],
-    night: [],
+  const handleUndo = async (dose: Dose) => {
+    const prev = doses;
+    const previousStatus = dose.status;
+
+    setDoses((curr) =>
+      curr.map((d) =>
+        d.id === dose.id
+          ? { ...d, status: 'pending', taken_at: null, skipped_reason: null }
+          : d
+      )
+    );
+
+    try {
+      await dosesRepo.updateDoseStatus(dose.id, 'pending', null, null);
+
+      if (previousStatus === 'taken') {
+        incrementPill(effectiveProfileId, dose.medicine_id);
+      }
+      setToast({ message: 'Dose reset to pending', tone: 'ok' });
+    } catch {
+      setDoses(prev);
+      setToast({ message: 'Could not undo dose status.', tone: 'risk' });
+    }
   };
-  for (const d of doses) {
-    buckets[bucketOf(d.scheduled_minutes)].push(d);
-  }
-  for (const key of BUCKET_ORDER) {
-    buckets[key].sort((a, b) => a.scheduled_minutes - b.scheduled_minutes);
-  }
+
+  const buckets: Record<Bucket, Dose[]> = useMemo(() => {
+    const res: Record<Bucket, Dose[]> = {
+      morning: [],
+      afternoon: [],
+      evening: [],
+      night: [],
+    };
+    for (const d of doses) {
+      const b = bucketOf(d.scheduled_minutes);
+      res[b].push(d);
+    }
+    for (const key of BUCKET_ORDER) {
+      res[key].sort((a, b) => a.scheduled_minutes - b.scheduled_minutes);
+    }
+    return res;
+  }, [doses]);
 
   const adherence = calculateAdherence(
     doses.map((d) => ({
@@ -265,154 +293,254 @@ export function TodaySchedulePage() {
       scheduled_minutes: d.scheduled_minutes,
       status: d.status,
       taken_at: d.taken_at,
+      is_prn: medicinesMap[d.medicine_id]?.frequency_code === 'PRN',
     })),
     { from: selectedDate, to: selectedDate },
     new Date()
   );
 
-  const today = todayInAppTz();
-  const isPast = selectedDate < today;
+  const isPast = selectedDate < todayInAppTz();
+  const isToday = selectedDate === todayInAppTz();
   const takenCount = doses.filter((d) => d.status === 'taken').length;
+  const missedCount = doses.filter((d) => deriveStatusOnRead(d, new Date()) === 'missed').length;
+  const pendingCount = doses.filter((d) => deriveStatusOnRead(d, new Date()) === 'pending').length;
 
   return (
     <AppShell>
+      <Toast
+        open={Boolean(toast)}
+        message={toast?.message || ''}
+        tone={toast?.tone || 'ok'}
+        onClose={() => setToast(null)}
+      />
+
       <PageHeader
-        title="Your schedule"
-        description="Doses are timed for Pakistan Standard Time. Mark each one as you take it."
+        title="Medication Schedule"
+        description="Daily timetable organized by meal times and dayparts."
         action={
-          <Link to="/medicines/cabinet" className="hidden sm:block">
-            <Button variant="secondary" leftIcon={<MedicineIcon size={17} />}>
-              Medicine cabinet
-            </Button>
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link to="/medicines/cabinet">
+              <Button variant="secondary" leftIcon={<MedicineIcon size={16} />}>
+                Cabinet
+              </Button>
+            </Link>
+            <Link to="/prescriptions/new">
+              <Button leftIcon={<PlusIcon size={16} />}>Add Course</Button>
+            </Link>
+          </div>
         }
       />
 
-      {toast && (
-        <Toast
-          open
-          onClose={() => setToast(null)}
-          message={toast.message}
-          tone={toast.tone}
-        />
-      )}
+      {/* Date Strip Navigator */}
+      <DateStrip value={selectedDate} onChange={setSelectedDate} className="mb-6" />
 
-      <DateStrip value={selectedDate} onChange={setSelectedDate} className="mb-5" />
-
-      {/* Day summary. Only shown once something is actually scheduled, so an empty
-          day does not display a 0% ring that reads as failure. */}
+      {/* Modern Day Adherence & Progress Command Hub */}
       {!isLoading && doses.length > 0 && (
-        <Card className="mb-6">
-          <div className="flex items-center gap-4">
-            <ProgressRing
-              percentage={adherence.percentage}
-              size={60}
-              strokeWidth={6}
-              tone={adherence.percentage >= 80 ? 'ok' : 'warn'}
-            />
-            <div className="min-w-0">
-              <p className="text-base font-bold text-content">
-                {formatDayHeading(selectedDate)}
-              </p>
-              <p className="mt-0.5 text-sm text-content-muted">
-                {takenCount} of {doses.length} doses taken
-                {adherence.missed > 0 && ` · ${adherence.missed} overdue`}
-              </p>
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-8"
+        >
+          <Card className="p-5 sm:p-6 bg-surface-raised border border-line shadow-card overflow-hidden relative">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5">
+              {/* Left: Ring & Completion Label */}
+              <div className="flex items-center gap-4.5">
+                <ProgressRing
+                  percentage={adherence.percentage}
+                  size={68}
+                  strokeWidth={7}
+                  tone={adherence.percentage === 100 ? 'ok' : adherence.percentage >= 50 ? 'ok' : 'warn'}
+                />
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="text-lg font-bold text-content tracking-tight">
+                      {formatDayHeading(selectedDate)}
+                    </h2>
+                    {isToday && (
+                      <span className="text-2xs font-bold px-2 py-0.5 rounded-full bg-accent-subtle text-accent border border-accent/20">
+                        Today
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-0.5 text-xs text-content-muted">
+                    {takenCount} of {doses.length} doses taken ({adherence.percentage}%)
+                  </p>
+                </div>
+              </div>
+
+              {/* Right: Quick Pill Metric Counters */}
+              <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+                <div className="flex-1 sm:flex-initial px-3.5 py-2 rounded-xl bg-ok-bg/50 border border-ok-border text-center">
+                  <span className="block text-xs font-bold text-ok-text" data-numeric>
+                    {takenCount} Taken
+                  </span>
+                </div>
+                {pendingCount > 0 && (
+                  <div className="flex-1 sm:flex-initial px-3.5 py-2 rounded-xl bg-surface-sunken border border-line text-center">
+                    <span className="block text-xs font-bold text-content-muted" data-numeric>
+                      {pendingCount} Due
+                    </span>
+                  </div>
+                )}
+                {missedCount > 0 && (
+                  <div className="flex-1 sm:flex-initial px-3.5 py-2 rounded-xl bg-warn-bg text-warn-text border border-warn-border text-center flex items-center gap-1.5 justify-center">
+                    <AlertTriangleIcon size={13} />
+                    <span className="text-xs font-bold" data-numeric>
+                      {missedCount} Overdue
+                    </span>
+                  </div>
+                )}
+                {adherence.percentage === 100 && doses.length > 0 && (
+                  <div className="flex-1 sm:flex-initial px-3.5 py-2 rounded-xl bg-ok-bg text-ok-text border border-ok-border text-center flex items-center gap-1.5 justify-center">
+                    <CheckIcon size={14} className="stroke-[2.5]" />
+                    <span className="text-xs font-bold">100% Completed</span>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        </Card>
+          </Card>
+        </motion.div>
       )}
 
+      {/* Loading Skeleton */}
       {isLoading ? (
-        <div className="space-y-4">
-          {[0, 1, 2].map((i) => (
-            <Skeleton key={i} className="h-40 w-full rounded-[var(--radius-xl)]" />
-          ))}
+        <div className="space-y-6">
+          <Skeleton className="h-28 w-full rounded-[var(--radius-xl)]" />
+          <Skeleton className="h-40 w-full rounded-[var(--radius-xl)]" />
+          <Skeleton className="h-40 w-full rounded-[var(--radius-xl)]" />
         </div>
       ) : loadError ? (
         <ErrorState
-          title="Could not load this day"
+          title="Could not load schedule"
           message={loadError}
           onRetry={() => loadData(selectedDate)}
         />
       ) : doses.length === 0 ? (
         <EmptyState
-          heading={isPast ? 'Nothing was scheduled this day' : 'No doses scheduled'}
+          heading={isPast ? 'No doses recorded for this date' : 'No doses scheduled for today'}
           description={
             isPast
-              ? 'There are no dose records for this date.'
-              : 'Scan a prescription and your dose times are worked out for you.'
+              ? 'There are no active medication courses logged for this date.'
+              : 'Add your prescribed medicines to generate your personalized daily timetable.'
           }
           action={
             !isPast ? (
               <Link to="/prescriptions/new">
-                <Button leftIcon={<PlusIcon size={17} />}>Scan a prescription</Button>
+                <Button leftIcon={<PlusIcon size={16} />}>Scan Prescription</Button>
               </Link>
             ) : undefined
           }
         />
       ) : (
-        <div className="space-y-8">
-          {BUCKET_ORDER.map((key) => {
-            const bucketDoses = buckets[key];
-            if (bucketDoses.length === 0) return null;
-            const slot = SLOT_META[key];
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={selectedDate}
+            variants={staggerContainer}
+            initial="hidden"
+            animate="visible"
+            exit={{ opacity: 0 }}
+            className="space-y-8"
+          >
+            {BUCKET_ORDER.map((key) => {
+              const bucketDoses = buckets[key];
+              if (bucketDoses.length === 0) return null;
+              const slot = SLOT_META[key];
 
-            return (
-              <section key={key} aria-labelledby={`slot-${key}`}>
-                <SectionHeader
-                  title={slot.label}
-                  icon={slot.icon(16)}
-                  tone={slot.tone}
-                  meta={slot.timeRange}
-                  className="mb-4"
-                />
-                <h2 id={`slot-${key}`} className="sr-only">
-                  {slot.label} doses
-                </h2>
+              const pendingInSlot = bucketDoses.filter((d) => {
+                const st = deriveStatusOnRead(d, new Date());
+                return st === 'pending' || st === 'missed';
+              });
+              const allSlotTaken = pendingInSlot.length === 0 && bucketDoses.length > 0;
 
-                <div className="space-y-3">
-                  {bucketDoses.map((dose) => {
-                    const medicine = medicinesMap[dose.medicine_id];
-                    return (
-                      <DoseCard
-                        key={dose.id}
-                        medicineName={medicine?.medicine_name || 'Prescribed medicine'}
-                        strength={medicine?.strength}
-                        doseAmount={medicine?.dose_amount}
-                        scheduledMinutes={dose.scheduled_minutes}
-                        status={deriveStatusOnRead(dose, new Date())}
-                        withFood={medicine?.with_food}
-                        instructions={medicine?.instructions}
-                        skippedReason={dose.skipped_reason}
-                        onTake={() => handleMarkTaken(dose)}
-                        onSkip={() => handleOpenSkip(dose)}
-                        onUndo={() => handleUndo(dose)}
-                      />
-                    );
-                  })}
-                </div>
-              </section>
-            );
-          })}
-        </div>
+              return (
+                <motion.section key={key} variants={staggerItem} aria-labelledby={`slot-${key}`}>
+                  {/* Slot Header Banner with Batch Action */}
+                  <div className="flex items-center justify-between gap-3 mb-3 px-1">
+                    <div className="flex items-center gap-2.5">
+                      <span
+                        className={`shrink-0 flex items-center justify-center w-8 h-8 rounded-xl border ${slot.surface} ${slot.text} ${slot.border}`}
+                      >
+                        {slot.icon(16)}
+                      </span>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 id={`slot-${key}`} className="text-sm font-bold text-content">
+                            {slot.label}
+                          </h3>
+                          <span className="text-xs text-content-subtle font-mono">
+                            • {slot.timeRange}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Batch Action Pill / Slot Done status */}
+                    <div>
+                      {allSlotTaken ? (
+                        <span className="inline-flex items-center gap-1 text-xs font-bold text-ok-text bg-ok-bg border border-ok-border px-2.5 py-1 rounded-lg">
+                          <CheckIcon size={12} className="stroke-[2.5]" /> Done
+                        </span>
+                      ) : pendingInSlot.length > 1 && !isPast ? (
+                        <button
+                          type="button"
+                          onClick={() => handleMarkAllSlotTaken(bucketDoses)}
+                          className="text-xs font-bold text-accent hover:bg-accent-subtle border border-accent/30 hover:border-accent px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                        >
+                          Take all {pendingInSlot.length}
+                        </button>
+                      ) : (
+                        <span className="text-xs font-medium text-content-subtle" data-numeric>
+                          {bucketDoses.length} {bucketDoses.length === 1 ? 'dose' : 'doses'}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Slot Dose Cards */}
+                  <div className="space-y-3">
+                    {bucketDoses.map((dose) => {
+                      const medicine = medicinesMap[dose.medicine_id];
+                      return (
+                        <DoseCard
+                          key={dose.id}
+                          medicineName={medicine?.medicine_name || 'Prescribed medicine'}
+                          strength={medicine?.strength}
+                          doseAmount={medicine?.dose_amount}
+                          scheduledMinutes={dose.scheduled_minutes}
+                          status={deriveStatusOnRead(dose, new Date())}
+                          withFood={medicine?.with_food}
+                          instructions={medicine?.instructions}
+                          skippedReason={dose.skipped_reason}
+                          onTake={() => handleMarkTaken(dose)}
+                          onSkip={() => handleOpenSkip(dose)}
+                          onUndo={() => handleUndo(dose)}
+                        />
+                      );
+                    })}
+                  </div>
+                </motion.section>
+              );
+            })}
+          </motion.div>
+        </AnimatePresence>
       )}
 
+      {/* Skip Reason Dialog */}
       <Dialog
         open={skipDialogOpen}
         onOpenChange={setSkipDialogOpen}
-        title="Why are you skipping this dose?"
-        description="Recording a reason keeps your record accurate for your doctor."
+        title="Reason for skipping dose"
+        description="Logging a reason helps keep an accurate clinical history for your doctor."
       >
         <div className="space-y-4">
           <div className="space-y-2">
             {SKIP_REASONS.map((reason) => (
               <label
                 key={reason}
-                className={`flex items-center gap-3 p-3.5 rounded-[var(--radius-md)] border cursor-pointer transition-colors ${
+                className={`flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-colors ${
                   selectedSkipReason === reason
-                    ? 'border-accent bg-accent-subtle'
-                    : 'border-line hover:bg-surface-hover'
+                    ? 'border-accent bg-accent-subtle font-semibold text-content'
+                    : 'border-line hover:bg-surface-hover text-content-muted'
                 }`}
               >
                 <input
@@ -421,9 +549,9 @@ export function TodaySchedulePage() {
                   value={reason}
                   checked={selectedSkipReason === reason}
                   onChange={(e) => setSelectedSkipReason(e.target.value)}
-                  className="accent-accent w-4 h-4"
+                  className="accent-accent w-4 h-4 cursor-pointer"
                 />
-                <span className="text-sm font-medium text-content">{reason}</span>
+                <span className="text-sm font-medium">{reason}</span>
               </label>
             ))}
           </div>
@@ -433,7 +561,7 @@ export function TodaySchedulePage() {
               Cancel
             </Button>
             <Button variant="primary" onClick={handleConfirmSkip}>
-              Confirm skip
+              Confirm Skip
             </Button>
           </div>
         </div>

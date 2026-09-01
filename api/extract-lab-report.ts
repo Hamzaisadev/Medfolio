@@ -9,7 +9,11 @@ import {
 } from './_lib/schemas';
 
 const SYSTEM_INSTRUCTION = `Extract test results printed on this lab report. Return only values actually printed.
-For each row: test name, value exactly as printed, unit, and reference range as printed.
+For each row:
+- test_name: Standardized clinical test name (e.g. "Serum Creatinine", "Hemoglobin", "HbA1c", "Platelet Count", "ALT / SGPT"). Avoid all-caps or idiosyncratic uppercase/lowercase formatting.
+- value_text: The numeric or qualitative value exactly as printed on the report.
+- unit: The measurement unit as printed (e.g. "mg/dL", "%", "U/L", "g/dL").
+- reference_range: The reference or normal range string as printed.
 Do not judge whether a value is normal or abnormal — the application computes that.
 Qualitative results (Negative, Non-reactive, Nil) go in the value_text field as text.
 If a page contains no test results, return an empty array for results.`;
