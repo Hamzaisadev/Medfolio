@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { AppShell } from '../../components/layout/AppShell';
 import { PageHeader } from '../../components/layout/PageHeader';
@@ -13,8 +13,17 @@ import { Skeleton } from '../../components/ui/Skeleton';
 import { DateStrip } from '../../components/ui/DateStrip';
 import { DoseCard } from '../../components/ui/DoseCard';
 import { SectionHeader } from '../../components/ui/SectionHeader';
+import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { SLOT_META } from '../../components/ui/slotMeta';
 import { PlusIcon, MedicineIcon } from '../../components/ui/icons';
+import {
+  Clock,
+  CheckCircle2,
+  AlertTriangle,
+  Sparkles,
+  CalendarCheck,
+  Archive,
+} from 'lucide-react';
 import { todayInAppTz, formatDayHeading } from '../../lib/time';
 import { bucketOf, Bucket, BUCKET_ORDER } from '../../domain/timeBuckets';
 import { deriveStatusOnRead, calculateAdherence } from '../../domain/adherence';
@@ -28,6 +37,7 @@ import type { Tables } from '../../lib/supabase/types';
 
 type Dose = Tables<'doses'>;
 type Medicine = Tables<'medicines'>;
+type ScheduleFilter = 'all' | 'actionable' | 'taken';
 
 const SKIP_REASONS = [
   'Forgot',
@@ -109,6 +119,7 @@ export function TodaySchedulePage() {
   const [medicinesMap, setMedicinesMap] = useState<Record<string, Medicine>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [activeFilter, setActiveFilter] = useState<ScheduleFilter>('all');
 
   const [skipDialogOpen, setSkipDialogOpen] = useState(false);
   const [activeDoseForSkip, setActiveDoseForSkip] = useState<Dose | null>(null);
@@ -134,12 +145,6 @@ export function TodaySchedulePage() {
         for (const m of fetchedMeds) map[m.id] = m;
         setMedicinesMap(map);
 
-        // Top up the schedule when a still-active course has no doses for a
-        // present/future date — this is what keeps ongoing medicines going past
-        // the 30-day generation horizon.
-        //
-        // Deliberately forward-only: generating rows for a past date invents an
-        // adherence record for a day that already happened.
         const today = todayInAppTz();
         if (fetchedDoses.length === 0 && fetchedMeds.length > 0 && dateStr >= today) {
           const created = await topUpScheduleFor(
@@ -173,8 +178,6 @@ export function TodaySchedulePage() {
   }, [loadData, selectedDate]);
 
   const handleMarkTaken = async (dose: Dose) => {
-    // Guard against re-marking: the old "Change Status" button called this again
-    // on an already-taken dose, decrementing the pill count on each click.
     if (dose.status === 'taken') return;
 
     try {
@@ -198,7 +201,6 @@ export function TodaySchedulePage() {
     }
   };
 
-  /** Reverts a taken/skipped dose back to pending, restoring the pill count. */
   const handleUndo = async (dose: Dose) => {
     try {
       const updated = await dosesRepo.updateDoseStatus(dose.id, 'pending');
@@ -244,13 +246,30 @@ export function TodaySchedulePage() {
     }
   };
 
+  const today = todayInAppTz();
+  const isPast = selectedDate < today;
+
+  // Filtered doses based on active filter tab
+  const filteredDoses = useMemo(() => {
+    return doses.filter((d) => {
+      const status = deriveStatusOnRead(d, new Date());
+      if (activeFilter === 'actionable') {
+        return status === 'pending' || status === 'missed';
+      }
+      if (activeFilter === 'taken') {
+        return status === 'taken' || status === 'skipped';
+      }
+      return true;
+    });
+  }, [doses, activeFilter]);
+
   const buckets: Record<Bucket, Dose[]> = {
     morning: [],
     afternoon: [],
     evening: [],
     night: [],
   };
-  for (const d of doses) {
+  for (const d of filteredDoses) {
     buckets[bucketOf(d.scheduled_minutes)].push(d);
   }
   for (const key of BUCKET_ORDER) {
@@ -270,19 +289,25 @@ export function TodaySchedulePage() {
     new Date()
   );
 
-  const today = todayInAppTz();
-  const isPast = selectedDate < today;
   const takenCount = doses.filter((d) => d.status === 'taken').length;
+  const missedCount = doses.filter((d) => deriveStatusOnRead(d, new Date()) === 'missed').length;
+  const pendingCount = doses.filter((d) => deriveStatusOnRead(d, new Date()) === 'pending').length;
+  const actionableCount = pendingCount + missedCount;
 
   return (
     <AppShell>
+      {/* Executive Page Header with Timezone Indicator */}
       <PageHeader
-        title="Your schedule"
-        description="Doses are timed for Pakistan Standard Time. Mark each one as you take it."
+        title="Medication Schedule"
+        description="Chronotherapy-timed doses for Pakistan Standard Time (PKT). Track every dose with precision."
         action={
-          <Link to="/medicines/cabinet" className="hidden sm:block">
-            <Button variant="secondary" leftIcon={<MedicineIcon size={17} />}>
-              Medicine cabinet
+          <Link to="/medicines/cabinet">
+            <Button
+              variant="secondary"
+              leftIcon={<MedicineIcon size={16} />}
+              className="h-10 text-xs font-bold tap-spring shadow-2xs"
+            >
+              Medicine Cabinet
             </Button>
           </Link>
         }
@@ -297,36 +322,130 @@ export function TodaySchedulePage() {
         />
       )}
 
+      {/* Date Navigator Strip */}
       <DateStrip value={selectedDate} onChange={setSelectedDate} className="mb-5" />
 
-      {/* Day summary. Only shown once something is actually scheduled, so an empty
-          day does not display a 0% ring that reads as failure. */}
+      {/* Daily Clinical Intelligence Hero Deck */}
       {!isLoading && doses.length > 0 && (
-        <Card className="mb-6">
-          <div className="flex items-center gap-4">
-            <ProgressRing
-              percentage={adherence.percentage}
-              size={60}
-              strokeWidth={6}
-              tone={adherence.percentage >= 80 ? 'ok' : 'warn'}
-            />
-            <div className="min-w-0">
-              <p className="text-base font-bold text-content">
-                {formatDayHeading(selectedDate)}
-              </p>
-              <p className="mt-0.5 text-sm text-content-muted">
-                {takenCount} of {doses.length} doses taken
-                {adherence.missed > 0 && ` · ${adherence.missed} overdue`}
-              </p>
+        <Card className="mb-6 p-5 sm:p-6 shadow-sm border border-line glass-card rounded-2xl overflow-hidden relative">
+          {/* Subtle decorative glow */}
+          <div
+            className={`absolute -right-12 -bottom-12 w-48 h-48 rounded-full blur-3xl pointer-events-none opacity-20 ${
+              adherence.percentage === 100
+                ? 'bg-teal-500'
+                : adherence.missed > 0
+                  ? 'bg-amber-500'
+                  : 'bg-teal-500'
+            }`}
+          />
+
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+            {/* Left: Progress Ring + Date & Clinical Adherence Status */}
+            <div className="flex items-center gap-4.5">
+              <div className="relative shrink-0">
+                <ProgressRing
+                  percentage={adherence.percentage}
+                  size={68}
+                  strokeWidth={7}
+                  tone={adherence.percentage >= 80 ? 'ok' : adherence.missed > 0 ? 'warn' : 'warn'}
+                />
+              </div>
+
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="text-lg font-bold text-content tracking-tight">
+                    {formatDayHeading(selectedDate)}
+                  </h2>
+                  {adherence.percentage === 100 && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-teal-500/10 border border-teal-500/20 text-teal-700 dark:text-teal-400 text-xs font-semibold">
+                      <Sparkles size={12} />
+                      All Complete
+                    </span>
+                  )}
+                  {adherence.missed > 0 && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 text-xs font-semibold">
+                      <AlertTriangle size={12} />
+                      {adherence.missed} Overdue
+                    </span>
+                  )}
+                </div>
+
+                <p className="mt-1 text-xs text-content-muted leading-relaxed">
+                  {adherence.percentage === 100
+                    ? 'All scheduled medication doses for this day are accounted for.'
+                    : adherence.missed > 0
+                      ? `${adherence.missed} dose is past its scheduled timing window. Please review.`
+                      : `${pendingCount} dose${pendingCount === 1 ? '' : 's'} remaining to be taken today.`}
+                </p>
+              </div>
+            </div>
+
+            {/* Right: 4-Column Clinical KPI Metrics */}
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 pt-2 md:pt-0 border-t md:border-t-0 border-line">
+              <div className="p-2.5 rounded-xl bg-surface-sunken/80 border border-line text-center">
+                <span className="text-[11px] font-medium text-content-subtle block">Scheduled</span>
+                <span className="text-base font-bold text-content block mt-0.5" data-numeric>
+                  {doses.length}
+                </span>
+              </div>
+
+              <div className="p-2.5 rounded-xl bg-teal-500/5 border border-teal-500/15 text-center">
+                <span className="text-[11px] font-medium text-teal-700 dark:text-teal-400 block flex items-center justify-center gap-1">
+                  <CheckCircle2 size={11} />
+                  Taken
+                </span>
+                <span className="text-base font-bold text-teal-700 dark:text-teal-400 block mt-0.5" data-numeric>
+                  {takenCount}
+                </span>
+              </div>
+
+              <div className="p-2.5 rounded-xl bg-surface-sunken/80 border border-line text-center">
+                <span className="text-[11px] font-medium text-content-muted block flex items-center justify-center gap-1">
+                  <Clock size={11} />
+                  Pending
+                </span>
+                <span className="text-base font-bold text-content block mt-0.5" data-numeric>
+                  {pendingCount}
+                </span>
+              </div>
+
+              <div className="hidden sm:block p-2.5 rounded-xl bg-surface-sunken/80 border border-line text-center">
+                <span className="text-[11px] font-medium text-content-subtle block">Adherence</span>
+                <span className="text-base font-bold text-content block mt-0.5" data-numeric>
+                  {adherence.percentage}%
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Filter Segmented Control */}
+          <div className="mt-5 pt-4 border-t border-line flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="text-xs font-semibold text-content flex items-center gap-1.5">
+              <CalendarCheck size={14} className="text-accent" />
+              <span>Dose View Filter:</span>
+            </div>
+
+            <div className="w-full sm:w-auto">
+              <SegmentedControl<ScheduleFilter>
+                value={activeFilter}
+                onChange={setActiveFilter}
+                size="sm"
+                options={[
+                  { value: 'all', label: `All Doses (${doses.length})` },
+                  { value: 'actionable', label: `Due / Overdue (${actionableCount})` },
+                  { value: 'taken', label: `Completed (${takenCount})` },
+                ]}
+              />
             </div>
           </div>
         </Card>
       )}
 
+      {/* Loading Skeleton */}
       {isLoading ? (
         <div className="space-y-4">
           {[0, 1, 2].map((i) => (
-            <Skeleton key={i} className="h-40 w-full rounded-[var(--radius-xl)]" />
+            <Skeleton key={i} className="h-44 w-full rounded-2xl" />
           ))}
         </div>
       ) : loadError ? (
@@ -337,41 +456,71 @@ export function TodaySchedulePage() {
         />
       ) : doses.length === 0 ? (
         <EmptyState
-          heading={isPast ? 'Nothing was scheduled this day' : 'No doses scheduled'}
+          heading={isPast ? 'No records for this day' : 'No doses scheduled'}
           description={
             isPast
-              ? 'There are no dose records for this date.'
-              : 'Scan a prescription and your dose times are worked out for you.'
+              ? 'There are no medication records recorded for this date.'
+              : 'Scan a prescription or add your active medicines to automatically generate your chronotherapy schedule.'
           }
           action={
             !isPast ? (
               <Link to="/prescriptions/new">
-                <Button leftIcon={<PlusIcon size={17} />}>Scan a prescription</Button>
+                <Button leftIcon={<PlusIcon size={17} />} className="tap-spring">
+                  Scan a prescription
+                </Button>
               </Link>
             ) : undefined
           }
         />
+      ) : filteredDoses.length === 0 ? (
+        <div className="p-8 rounded-2xl border border-line bg-surface-raised text-center space-y-3">
+          <div className="w-12 h-12 rounded-2xl bg-surface-sunken mx-auto flex items-center justify-center text-content-subtle">
+            <Archive size={22} />
+          </div>
+          <h3 className="text-base font-bold text-content">No doses match this filter</h3>
+          <p className="text-xs text-content-muted max-w-sm mx-auto">
+            {activeFilter === 'actionable'
+              ? 'Great work! You have no pending or overdue doses for this day.'
+              : 'No completed or skipped doses recorded under this filter.'}
+          </p>
+          <Button variant="secondary" size="sm" onClick={() => setActiveFilter('all')}>
+            Show all doses
+          </Button>
+        </div>
       ) : (
+        /* Chronotherapy Timed Sections */
         <div className="space-y-8">
           {BUCKET_ORDER.map((key) => {
             const bucketDoses = buckets[key];
             if (bucketDoses.length === 0) return null;
             const slot = SLOT_META[key];
+            const bucketPending = bucketDoses.filter(
+              (d) => deriveStatusOnRead(d, new Date()) === 'pending' || deriveStatusOnRead(d, new Date()) === 'missed'
+            ).length;
 
             return (
-              <section key={key} aria-labelledby={`slot-${key}`}>
+              <section key={key} aria-labelledby={`slot-${key}`} className="space-y-3.5">
                 <SectionHeader
                   title={slot.label}
                   icon={slot.icon(16)}
                   tone={slot.tone}
-                  meta={slot.timeRange}
-                  className="mb-4"
+                  meta={
+                    <span className="flex items-center gap-2">
+                      <span>{slot.timeRange}</span>
+                      <span className="text-content-subtle font-normal">·</span>
+                      <span className="font-semibold text-content">
+                        {bucketDoses.length} dose{bucketDoses.length === 1 ? '' : 's'}
+                        {bucketPending > 0 && ` (${bucketPending} due)`}
+                      </span>
+                    </span>
+                  }
+                  className="mb-3"
                 />
                 <h2 id={`slot-${key}`} className="sr-only">
                   {slot.label} doses
                 </h2>
 
-                <div className="space-y-3">
+                <div className="grid grid-cols-1 gap-3.5">
                   {bucketDoses.map((dose) => {
                     const medicine = medicinesMap[dose.medicine_id];
                     return (
@@ -398,20 +547,21 @@ export function TodaySchedulePage() {
         </div>
       )}
 
+      {/* Skip Reason Recording Dialog */}
       <Dialog
         open={skipDialogOpen}
         onOpenChange={setSkipDialogOpen}
-        title="Why are you skipping this dose?"
-        description="Recording a reason keeps your record accurate for your doctor."
+        title="Record Reason for Skipping Dose"
+        description="Recording a reason ensures clinical accuracy for your attending physician and adherence analytics."
       >
-        <div className="space-y-4">
+        <div className="space-y-4 pt-1">
           <div className="space-y-2">
             {SKIP_REASONS.map((reason) => (
               <label
                 key={reason}
-                className={`flex items-center gap-3 p-3.5 rounded-[var(--radius-md)] border cursor-pointer transition-colors ${
+                className={`flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
                   selectedSkipReason === reason
-                    ? 'border-accent bg-accent-subtle'
+                    ? 'border-accent bg-accent/5 ring-1 ring-accent/20'
                     : 'border-line hover:bg-surface-hover'
                 }`}
               >
@@ -421,19 +571,27 @@ export function TodaySchedulePage() {
                   value={reason}
                   checked={selectedSkipReason === reason}
                   onChange={(e) => setSelectedSkipReason(e.target.value)}
-                  className="accent-accent w-4 h-4"
+                  className="accent-accent w-4 h-4 cursor-pointer"
                 />
-                <span className="text-sm font-medium text-content">{reason}</span>
+                <span className="text-sm font-semibold text-content">{reason}</span>
               </label>
             ))}
           </div>
 
           <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2.5 pt-4 border-t border-line">
-            <Button variant="ghost" onClick={() => setSkipDialogOpen(false)}>
+            <Button
+              variant="ghost"
+              onClick={() => setSkipDialogOpen(false)}
+              className="text-xs font-semibold"
+            >
               Cancel
             </Button>
-            <Button variant="primary" onClick={handleConfirmSkip}>
-              Confirm skip
+            <Button
+              variant="primary"
+              onClick={handleConfirmSkip}
+              className="text-xs font-bold tap-spring"
+            >
+              Confirm Skip
             </Button>
           </div>
         </div>
