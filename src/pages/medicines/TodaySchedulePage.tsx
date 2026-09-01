@@ -504,40 +504,37 @@ export function TodaySchedulePage() {
 
             return (
               <section key={key} aria-labelledby={`slot-${key}`} className="space-y-3">
-                {/* Executive Stage Header Banner */}
-                <div className="flex items-center justify-between gap-3 p-3 px-4 rounded-2xl bg-surface-raised border border-line shadow-2xs">
-                  <div className="flex items-center gap-3 min-w-0">
+                {/* Modern Chronotherapy Routine Header */}
+                <div className="flex items-center justify-between gap-3 px-1 py-1">
+                  <div className="flex items-center gap-2.5 min-w-0">
                     <span
                       className={clsx(
-                        'w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border shadow-2xs',
+                        'w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border shadow-2xs',
                         slot.surface,
                         slot.text,
                         slot.border
                       )}
                     >
-                      {slot.icon(16)}
+                      {slot.icon(15)}
                     </span>
-                    <div>
-                      <h2 id={`slot-${key}`} className="text-xs sm:text-sm font-black text-content uppercase tracking-wider">
-                        {slot.label} Routine
-                      </h2>
-                      <span className="text-[11px] text-content-subtle font-medium block">
-                        {slot.timeRange}
-                      </span>
-                    </div>
+                    <h2 id={`slot-${key}`} className="text-sm font-bold text-content tracking-tight uppercase">
+                      {slot.label}
+                    </h2>
+                    <span className="text-[11px] text-content-subtle font-semibold px-2 py-0.5 rounded-md bg-surface-sunken border border-line">
+                      {slot.timeRange}
+                    </span>
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
                     <span
                       className={clsx(
-                        'px-2.5 py-1 rounded-lg border text-xs font-bold shadow-2xs',
+                        'px-2.5 py-0.5 rounded-full border text-[11px] font-semibold',
                         bucketPending > 0
-                          ? 'bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-400'
+                          ? 'bg-amber-500/10 border-amber-500/20 text-amber-800 dark:text-amber-300'
                           : 'bg-teal-500/10 border-teal-500/20 text-teal-700 dark:text-teal-400'
                       )}
                     >
-                      {bucketDoses.length} {bucketDoses.length === 1 ? 'dose' : 'doses'}
-                      {bucketPending > 0 ? ` · ${bucketPending} due` : ' · All Done'}
+                      {bucketPending > 0 ? `${bucketPending} of ${bucketDoses.length} due` : 'All taken ✓'}
                     </span>
                   </div>
                 </div>
