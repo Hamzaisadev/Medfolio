@@ -307,9 +307,9 @@ export function TimelinePage() {
 
       {/* 2-Panel Responsive Clinical Workspace */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left Sticky Sidebar (4 cols): Ultra-Compact Executive Control Deck */}
+        {/* Left Sticky Sidebar (4 cols): Executive Control Deck */}
         <aside className="lg:col-span-4 lg:sticky lg:top-24">
-          <Card className="p-5 shadow-card border border-line bg-surface-raised/95 backdrop-blur-md rounded-3xl space-y-4">
+          <Card className="p-5 sm:p-6 shadow-card border border-line bg-surface-raised/95 backdrop-blur-md rounded-3xl space-y-5">
             {/* Header: Date / Health Record Profile */}
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2.5 min-w-0">
@@ -327,14 +327,14 @@ export function TimelinePage() {
                 </div>
               </div>
 
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-teal-500/10 border border-teal-500/20 text-teal-700 dark:text-teal-400 text-[10px] font-bold shrink-0">
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-teal-500/10 border border-teal-500/20 text-teal-700 dark:text-teal-400 text-[10px] font-bold shrink-0">
                 <ShieldCheck size={11} />
                 Verified
               </span>
             </div>
 
             {/* Unified 4-Column Metric Strip (Space-Efficient) */}
-            <div className="grid grid-cols-4 gap-1 p-2 rounded-2xl bg-surface-sunken/80 border border-line text-center">
+            <div className="grid grid-cols-4 gap-1 p-2.5 rounded-2xl bg-surface-sunken/80 border border-line text-center pt-2">
               <div className="py-1">
                 <span className="text-[10px] font-bold text-content-subtle block uppercase tracking-wider">Visits</span>
                 <span className="text-sm font-black text-content block mt-0.5" data-numeric>{counts.visit}</span>
@@ -354,29 +354,31 @@ export function TimelinePage() {
             </div>
 
             {/* Search Input Box */}
-            <div className="relative">
-              <Input
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search doctor, medicine, lab..."
-                className="pl-8 pr-7 h-9 text-xs rounded-xl bg-surface-sunken border border-line"
-              />
-              <Search size={13} className="absolute left-2.5 top-3 text-content-subtle pointer-events-none" />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-2.5 text-content-subtle hover:text-content p-0.5 cursor-pointer"
-                >
-                  <X size={12} />
-                </button>
-              )}
+            <div className="pt-2 border-t border-line/60">
+              <div className="relative">
+                <Input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search doctor, medicine, lab..."
+                  className="pl-8 pr-7 h-9.5 text-xs rounded-xl bg-surface-sunken border border-line"
+                />
+                <Search size={13} className="absolute left-2.5 top-3 text-content-subtle pointer-events-none" />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2.5 top-2.5 text-content-subtle hover:text-content p-0.5 cursor-pointer"
+                  >
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Compact Filter Capsules Strip */}
-            <div className="space-y-1.5 pt-1 border-t border-line/60">
+            <div className="space-y-2.5 pt-3 border-t border-line/60">
               <div className="flex items-center justify-between text-[11px] text-content-subtle font-bold uppercase tracking-wider">
-                <span className="flex items-center gap-1">
+                <span className="flex items-center gap-1.5">
                   <Filter size={11} className="text-teal-600 dark:text-teal-400" />
                   Filter Records
                 </span>
@@ -384,14 +386,14 @@ export function TimelinePage() {
                   <button
                     type="button"
                     onClick={() => setFilterType('all')}
-                    className="text-teal-600 hover:underline cursor-pointer normal-case"
+                    className="text-teal-600 hover:underline cursor-pointer normal-case font-bold"
                   >
-                    Clear
+                    Clear Filter
                   </button>
                 )}
               </div>
 
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-2">
                 {[
                   { id: 'all', label: 'All', count: counts.all },
                   { id: 'visit', label: 'Visits', count: counts.visit },
@@ -404,7 +406,7 @@ export function TimelinePage() {
                     type="button"
                     onClick={() => setFilterType(tab.id)}
                     className={clsx(
-                      'inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all tap-spring cursor-pointer border',
+                      'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all tap-spring cursor-pointer border',
                       filterType === tab.id
                         ? 'bg-teal-600 text-white border-teal-600 shadow-xs font-bold'
                         : 'bg-surface-sunken/60 border-line/60 text-content-muted hover:text-content hover:bg-surface-hover hover:border-line'
@@ -427,13 +429,13 @@ export function TimelinePage() {
             </div>
 
             {/* Quick Actions Shortcuts */}
-            <div className="pt-2 border-t border-line/60 space-y-2">
+            <div className="pt-3 border-t border-line/60 space-y-2">
               <Link to="/reports/new" className="w-full block">
                 <Button
                   variant="secondary"
                   size="sm"
                   leftIcon={<LabFlaskIcon size={14} />}
-                  className="w-full h-9 justify-center text-xs font-bold tap-spring shadow-2xs rounded-xl"
+                  className="w-full h-10 justify-center text-xs font-bold tap-spring shadow-2xs rounded-xl"
                 >
                   Upload Lab Report
                 </Button>
