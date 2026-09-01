@@ -23,6 +23,7 @@ import {
   Sparkles,
   CalendarCheck,
   Archive,
+  Check,
 } from 'lucide-react';
 import { todayInAppTz, formatDayHeading } from '../../lib/time';
 import { bucketOf, Bucket, BUCKET_ORDER } from '../../domain/timeBuckets';
@@ -201,6 +202,39 @@ export function TodaySchedulePage() {
       setToast({
         tone: 'risk',
         message: err instanceof Error ? err.message : 'Could not record this dose. Please try again.',
+      });
+    }
+  };
+
+  /** Batch action to mark all due doses in a specific routine slot as taken */
+  const handleMarkRoutineTaken = async (routineDoses: Dose[], routineName: string) => {
+    const actionable = routineDoses.filter(
+      (d) => deriveStatusOnRead(d, new Date()) === 'pending' || deriveStatusOnRead(d, new Date()) === 'missed'
+    );
+    if (actionable.length === 0) return;
+
+    try {
+      const updatedList = await Promise.all(
+        actionable.map((d) => dosesRepo.updateDoseStatus(d.id, 'taken'))
+      );
+
+      for (const d of actionable) {
+        decrementPill(effectiveProfileId, d.medicine_id);
+      }
+      setInventory(readInventory(effectiveProfileId));
+
+      const updatedMap = new Map(updatedList.map((d) => [d.id, d]));
+      setDoses((prev) => prev.map((d) => updatedMap.get(d.id) || d));
+
+      setToast({
+        tone: 'ok',
+        message: `Marked ${actionable.length} ${routineName.toLowerCase()} doses as taken.`,
+      });
+    } catch (err: unknown) {
+      console.error(err);
+      setToast({
+        tone: 'risk',
+        message: 'Could not complete batch update. Please try marking individually.',
       });
     }
   };
@@ -492,8 +526,8 @@ export function TodaySchedulePage() {
           </Button>
         </div>
       ) : (
-        /* Chronotherapy Timed Sections */
-        <div className="space-y-7">
+        /* Chronotherapy Timed Sections with Vertical Connected Rail */
+        <div className="space-y-8">
           {BUCKET_ORDER.map((key) => {
             const bucketDoses = buckets[key];
             if (bucketDoses.length === 0) return null;
@@ -526,6 +560,18 @@ export function TodaySchedulePage() {
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
+                    {/* Batch Action "Take all due" when multiple doses pending */}
+                    {bucketPending > 1 && !isPast && (
+                      <button
+                        type="button"
+                        onClick={() => handleMarkRoutineTaken(bucketDoses, slot.label)}
+                        className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-teal-500/10 hover:bg-teal-500/20 text-teal-700 dark:text-teal-300 text-xs font-bold border border-teal-500/20 transition-all cursor-pointer tap-spring"
+                      >
+                        <Check size={12} />
+                        Take all due ({bucketPending})
+                      </button>
+                    )}
+
                     <span
                       className={clsx(
                         'px-2.5 py-0.5 rounded-full border text-[11px] font-semibold',
@@ -539,8 +585,8 @@ export function TodaySchedulePage() {
                   </div>
                 </div>
 
-                {/* Doses List */}
-                <div className="grid grid-cols-1 gap-2.5">
+                {/* Connected Chronotherapy Doses Track */}
+                <div className="relative pl-3 sm:pl-4 border-l-2 border-line/60 ml-3.5 space-y-3">
                   {bucketDoses.map((dose) => {
                     const medicine = medicinesMap[dose.medicine_id];
                     return (
