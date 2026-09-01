@@ -526,8 +526,8 @@ export function TodaySchedulePage() {
           </Button>
         </div>
       ) : (
-        /* Chronotherapy Timed Sections with Vertical Connected Rail */
-        <div className="space-y-8">
+        /* Chronotherapy Timed Sections Grouped into Executive Decks */
+        <div className="space-y-6">
           {BUCKET_ORDER.map((key) => {
             const bucketDoses = buckets[key];
             if (bucketDoses.length === 0) return null;
@@ -537,61 +537,71 @@ export function TodaySchedulePage() {
             ).length;
 
             return (
-              <section key={key} aria-labelledby={`slot-${key}`} className="space-y-3">
-                {/* Modern Chronotherapy Routine Header */}
-                <div className="flex items-center justify-between gap-3 px-1 py-1">
-                  <div className="flex items-center gap-2.5 min-w-0">
+              <section
+                key={key}
+                aria-labelledby={`slot-${key}`}
+                className="rounded-3xl border border-line bg-surface-raised/90 backdrop-blur-md shadow-card overflow-hidden transition-all"
+              >
+                {/* Executive Routine Group Header */}
+                <div className="p-4 sm:p-4.5 flex items-center justify-between gap-4 border-b border-line bg-surface-sunken/40">
+                  <div className="flex items-center gap-3 min-w-0">
                     <span
                       className={clsx(
-                        'w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border shadow-2xs',
+                        'w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border shadow-2xs',
                         slot.surface,
                         slot.text,
                         slot.border
                       )}
                     >
-                      {slot.icon(15)}
+                      {slot.icon(18)}
                     </span>
-                    <h2 id={`slot-${key}`} className="text-sm font-bold text-content tracking-tight uppercase">
-                      {slot.label}
-                    </h2>
-                    <span className="text-[11px] text-content-subtle font-semibold px-2 py-0.5 rounded-md bg-surface-sunken border border-line">
-                      {slot.timeRange}
-                    </span>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h2 id={`slot-${key}`} className="text-sm sm:text-base font-bold text-content tracking-tight">
+                          {slot.label} Routine
+                        </h2>
+                        <span className="px-2 py-0.5 rounded-md bg-surface-raised border border-line text-[11px] font-bold text-content-muted">
+                          {slot.timeRange}
+                        </span>
+                      </div>
+                      <p className="text-xs text-content-subtle font-medium mt-0.5">
+                        {bucketDoses.length} {bucketDoses.length === 1 ? 'medicine' : 'medicines'}
+                        {bucketPending > 0 ? ` · ${bucketPending} due` : ' · All taken'}
+                      </p>
+                    </div>
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
-                    {/* Batch Action "Take all due" when multiple doses pending */}
-                    {bucketPending > 1 && !isPast && (
-                      <button
-                        type="button"
+                    {/* Batch Action "Take all due" */}
+                    {bucketPending > 0 && !isPast && (
+                      <Button
+                        variant="primary"
+                        size="sm"
                         onClick={() => handleMarkRoutineTaken(bucketDoses, slot.label)}
-                        className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-teal-500/10 hover:bg-teal-500/20 text-teal-700 dark:text-teal-300 text-xs font-bold border border-teal-500/20 transition-all cursor-pointer tap-spring"
+                        leftIcon={<Check size={14} />}
+                        className="text-xs font-bold tap-spring shadow-2xs h-8 sm:h-9 px-3 sm:px-3.5 bg-teal-600 hover:bg-teal-700 whitespace-nowrap"
                       >
-                        <Check size={12} />
-                        Take all due ({bucketPending})
-                      </button>
+                        Take all ({bucketPending})
+                      </Button>
                     )}
 
-                    <span
-                      className={clsx(
-                        'px-2.5 py-0.5 rounded-full border text-[11px] font-semibold',
-                        bucketPending > 0
-                          ? 'bg-amber-500/10 border-amber-500/20 text-amber-800 dark:text-amber-300'
-                          : 'bg-teal-500/10 border-teal-500/20 text-teal-700 dark:text-teal-400'
-                      )}
-                    >
-                      {bucketPending > 0 ? `${bucketPending} of ${bucketDoses.length} due` : 'All taken ✓'}
-                    </span>
+                    {bucketPending === 0 && (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-teal-500/10 border border-teal-500/20 text-teal-700 dark:text-teal-400 text-xs font-bold">
+                        <CheckCircle2 size={13} />
+                        Completed
+                      </span>
+                    )}
                   </div>
                 </div>
 
-                {/* Connected Chronotherapy Doses Track */}
-                <div className="relative pl-3 sm:pl-4 border-l-2 border-line/60 ml-3.5 space-y-3">
+                {/* Medications List inside this Routine */}
+                <div className="divide-y divide-line/60">
                   {bucketDoses.map((dose) => {
                     const medicine = medicinesMap[dose.medicine_id];
                     return (
                       <DoseCard
                         key={dose.id}
+                        variant="row"
                         medicineName={medicine?.medicine_name || 'Prescribed medicine'}
                         strength={medicine?.strength}
                         doseAmount={medicine?.dose_amount}
