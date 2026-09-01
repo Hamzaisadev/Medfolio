@@ -29,6 +29,7 @@ import {
   ArrowRight,
   TrendingUp,
   FileText,
+  Filter,
 } from 'lucide-react';
 import { visitsRepo, reportsRepo, medicinesRepo, sideEffectsRepo } from '../../lib/db';
 import { todayInAppTz } from '../../lib/time';
@@ -81,8 +82,8 @@ export function TimelinePage() {
           id: `visit-${v.id}`,
           type: 'visit',
           date: v.visit_date,
-          title: v.doctor_name ? `Doctor Consultation — ${v.doctor_name}` : 'Doctor Consultation',
-          subtitle: v.clinic_name || 'Clinic / Hospital Encounter',
+          title: v.doctor_name ? `Dr. ${v.doctor_name.replace(/^dr\.?\s*/i, '')}` : 'Doctor Visit',
+          subtitle: v.clinic_name || 'Clinic / Hospital',
           tags: v.diagnosis ? [v.diagnosis] : [],
           notes: v.doctor_advice || v.notes,
           cost: v.visit_cost,
@@ -98,8 +99,8 @@ export function TimelinePage() {
           type: 'report',
           date: r.report_date,
           title: r.title,
-          subtitle: r.lab_name || 'Diagnostic Laboratory Report',
-          tags: ['Diagnostic Lab'],
+          subtitle: r.lab_name || 'Diagnostic Laboratory',
+          tags: ['Lab Report'],
           notes: null,
           cost: null,
           linkUrl: `/reports`,
@@ -113,9 +114,9 @@ export function TimelinePage() {
           id: `med-${m.id}`,
           type: 'medicine',
           date: m.start_date,
-          title: `Prescription Started — ${m.medicine_name}`,
-          subtitle: `${m.strength || 'Standard Strength'} • ${m.frequency_code || m.frequency_raw || 'Daily Course'}`,
-          tags: m.is_ongoing ? ['Ongoing Regimen'] : m.duration_days ? [`${m.duration_days} days course`] : [],
+          title: m.medicine_name,
+          subtitle: `${m.strength || ''}${m.strength && m.frequency_code ? ' • ' : ''}${m.frequency_code || m.frequency_raw || 'Daily Course'}`,
+          tags: m.is_ongoing ? ['Ongoing'] : m.duration_days ? [`${m.duration_days} days`] : [],
           notes: m.instructions,
           cost: null,
           linkUrl: `/medicines/cabinet`,
@@ -130,9 +131,9 @@ export function TimelinePage() {
           id: `side-${s.id}`,
           type: 'side_effect',
           date: effDate || todayInAppTz(),
-          title: `Clinical Symptom Logged`,
-          subtitle: s.severity ? `Recorded Severity: ${s.severity}` : 'Patient symptom entry',
-          tags: [s.severity ? `Severity: ${s.severity}` : 'mild'],
+          title: 'Symptom Entry',
+          subtitle: s.severity ? `Severity: ${s.severity}` : 'Patient log',
+          tags: [s.severity || 'mild'],
           notes: s.note,
           cost: null,
           linkUrl: `/symptoms`,
@@ -243,30 +244,30 @@ export function TimelinePage() {
     switch (type) {
       case 'visit':
         return {
-          icon: <StethoscopeIcon size={18} className="text-teal-600 dark:text-teal-400" />,
+          icon: <StethoscopeIcon size={16} className="text-teal-600 dark:text-teal-400" />,
           bg: 'bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/20',
           badge: <Badge tone="ok" size="sm">Doctor Visit</Badge>,
           accentBar: 'bg-teal-500',
         };
       case 'report':
         return {
-          icon: <LabFlaskIcon size={18} className="text-blue-600 dark:text-blue-400" />,
+          icon: <LabFlaskIcon size={16} className="text-blue-600 dark:text-blue-400" />,
           bg: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20',
-          badge: <Badge tone="info" size="sm">Lab Investigation</Badge>,
+          badge: <Badge tone="info" size="sm">Lab Report</Badge>,
           accentBar: 'bg-blue-500',
         };
       case 'medicine':
         return {
-          icon: <MedicineIcon size={18} className="text-purple-600 dark:text-purple-400" />,
+          icon: <MedicineIcon size={16} className="text-purple-600 dark:text-purple-400" />,
           bg: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20',
           badge: <Badge tone="neutral" size="sm">Prescription</Badge>,
           accentBar: 'bg-purple-500',
         };
       case 'side_effect':
         return {
-          icon: <AlertTriangleIcon size={18} className="text-amber-600 dark:text-amber-400" />,
+          icon: <AlertTriangleIcon size={16} className="text-amber-600 dark:text-amber-400" />,
           bg: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',
-          badge: <Badge tone="warn" size="sm">Symptom Note</Badge>,
+          badge: <Badge tone="warn" size="sm">Symptom</Badge>,
           accentBar: 'bg-amber-500',
         };
     }
@@ -287,7 +288,7 @@ export function TimelinePage() {
                 leftIcon={<PrinterIcon size={15} />}
                 className="font-bold tap-spring shadow-2xs"
               >
-                Export Clinical Dossier PDF
+                Export Dossier PDF
               </Button>
             </Link>
             <Link to="/prescriptions/new">
@@ -298,16 +299,6 @@ export function TimelinePage() {
                 className="font-bold tap-spring shadow-2xs"
               >
                 Add Visit / Rx
-              </Button>
-            </Link>
-            <Link to="/reports/new">
-              <Button
-                variant="secondary"
-                size="sm"
-                leftIcon={<LabFlaskIcon size={15} />}
-                className="font-bold tap-spring shadow-2xs"
-              >
-                Upload Lab
               </Button>
             </Link>
           </div>
@@ -323,283 +314,328 @@ export function TimelinePage() {
         />
       )}
 
-      {/* Lifetime Clinical Milestone Hero Deck */}
-      {!isLoading && items.length > 0 && (
-        <Card className="mb-6 p-5 sm:p-6 shadow-sm border border-line glass-card rounded-3xl overflow-hidden relative">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-5 relative z-10">
-            {/* Left: Overall Record Span */}
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-accent/10 border border-accent/20 flex items-center justify-center text-accent shrink-0 shadow-2xs">
-                <TrendingUp size={24} />
-              </div>
-
-              <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h2 className="text-base sm:text-lg font-bold text-content tracking-tight">
-                    Longitudinal Health Record
-                  </h2>
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-teal-500/10 border border-teal-500/20 text-teal-700 dark:text-teal-400 text-xs font-semibold">
-                    <ShieldCheck size={12} />
-                    Verified Timeline
-                  </span>
-                </div>
-
-                <p className="text-xs text-content-muted mt-0.5">
-                  {historySpan
-                    ? `Chronological medical records spanning from ${historySpan} to Present.`
-                    : `${items.length} health milestones recorded in your medical profile.`}
-                </p>
-              </div>
-            </div>
-
-            {/* Right: 4-Column KPI Stats Deck */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-2 md:pt-0 border-t md:border-t-0 border-line">
-              <div className="p-3 rounded-2xl bg-teal-500/5 border border-teal-500/15 text-center">
-                <span className="text-[11px] font-semibold text-teal-700 dark:text-teal-400 block tracking-wide uppercase">
-                  Visits
+      {/* 2-Panel Responsive Clinical Workspace */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Left Sticky Sidebar (4 cols): Control Deck & Stats */}
+        <aside className="lg:col-span-4 lg:sticky lg:top-24 space-y-5">
+          <Card className="p-6 space-y-6 rounded-3xl border border-line bg-surface-raised/95 backdrop-blur-md shadow-xs">
+            {/* Header: Longitudinal Record Span */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-content-subtle">
+                  Health Record Profile
                 </span>
-                <span className="text-lg font-black text-teal-700 dark:text-teal-400 block mt-0.5" data-numeric>
-                  {counts.visit}
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-teal-500/10 border border-teal-500/20 text-teal-700 dark:text-teal-400 text-[10px] font-bold">
+                  <ShieldCheck size={11} />
+                  Verified
                 </span>
               </div>
 
-              <div className="p-3 rounded-2xl bg-blue-500/5 border border-blue-500/15 text-center">
-                <span className="text-[11px] font-semibold text-blue-700 dark:text-blue-400 block tracking-wide uppercase">
-                  Lab Tests
-                </span>
-                <span className="text-lg font-black text-blue-700 dark:text-blue-400 block mt-0.5" data-numeric>
-                  {counts.report}
-                </span>
-              </div>
-
-              <div className="p-3 rounded-2xl bg-purple-500/5 border border-purple-500/15 text-center">
-                <span className="text-[11px] font-semibold text-purple-700 dark:text-purple-400 block tracking-wide uppercase">
-                  Medicines
-                </span>
-                <span className="text-lg font-black text-purple-700 dark:text-purple-400 block mt-0.5" data-numeric>
-                  {counts.medicine}
-                </span>
-              </div>
-
-              <div className="p-3 rounded-2xl bg-surface-sunken border border-line text-center">
-                <span className="text-[11px] font-semibold text-content-subtle block tracking-wide uppercase">
-                  Total
-                </span>
-                <span className="text-lg font-black text-content block mt-0.5" data-numeric>
-                  {counts.all}
-                </span>
-              </div>
-            </div>
-          </div>
-        </Card>
-      )}
-
-      {/* Filter and Search Controls Bar */}
-      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3.5 mb-6">
-        {/* Category Pill Filters */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
-          {[
-            { id: 'all', label: 'All History', count: counts.all, icon: <Layers size={13} /> },
-            { id: 'visit', label: 'Doctor Visits', count: counts.visit, icon: <StethoscopeIcon size={13} /> },
-            { id: 'report', label: 'Lab Reports', count: counts.report, icon: <LabFlaskIcon size={13} /> },
-            { id: 'medicine', label: 'Prescriptions', count: counts.medicine, icon: <MedicineIcon size={13} /> },
-            { id: 'side_effect', label: 'Symptoms', count: counts.side_effect, icon: <AlertTriangleIcon size={13} /> },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setFilterType(tab.id)}
-              className={clsx(
-                'inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap tap-spring cursor-pointer border',
-                filterType === tab.id
-                  ? 'bg-accent text-white border-accent shadow-xs'
-                  : 'bg-surface-raised border-line text-content-muted hover:text-content hover:bg-surface-hover'
-              )}
-            >
-              {tab.icon}
-              <span>{tab.label}</span>
-              <span
-                className={clsx(
-                  'px-1.5 py-0.2 rounded-full text-[10px] font-extrabold',
-                  filterType === tab.id ? 'bg-white/20 text-white' : 'bg-surface-sunken text-content-subtle'
-                )}
-              >
-                {tab.count}
-              </span>
-            </button>
-          ))}
-        </div>
-
-        {/* Search Input */}
-        <div className="w-full md:w-80 relative">
-          <Input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by doctor, lab, diagnosis..."
-            className="pl-9 pr-8 h-10 text-xs"
-          />
-          <Search size={15} className="absolute left-3 top-3 text-content-subtle pointer-events-none" />
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => setSearchQuery('')}
-              className="absolute right-2.5 top-2.5 text-content-subtle hover:text-content p-0.5 rounded cursor-pointer"
-            >
-              <X size={14} />
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Timeline Stream */}
-      {isLoading ? (
-        <div className="space-y-6">
-          <Skeleton className="h-7 w-40 rounded-xl" />
-          <Skeleton className="h-32 w-full rounded-2xl" />
-          <Skeleton className="h-32 w-full rounded-2xl" />
-        </div>
-      ) : filteredItems.length === 0 ? (
-        <EmptyState
-          heading={searchQuery ? 'No matching records found' : 'No medical history recorded yet'}
-          description={
-            searchQuery
-              ? 'Try adjusting your search keywords or switching category filters.'
-              : 'Add your first prescription, doctor consultation, or lab report to begin your chronological dossier.'
-          }
-          action={
-            <Link to="/prescriptions/new">
-              <Button leftIcon={<PrescriptionIcon size={16} />} size="sm" className="tap-spring">
-                Add First Prescription
-              </Button>
-            </Link>
-          }
-        />
-      ) : (
-        <div className="space-y-9">
-          {groupedTimeline.map(([monthGroup, groupItems]) => (
-            <section key={monthGroup} className="space-y-4">
-              {/* Executive Month / Year Milestone Header */}
               <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-surface-raised border border-line shadow-2xs">
-                  <Calendar size={13} className="text-accent" />
-                  <span className="text-xs font-black uppercase tracking-wider text-content">
-                    {monthGroup}
+                <div className="w-10 h-10 rounded-2xl bg-accent/10 border border-accent/20 flex items-center justify-center text-accent shrink-0 shadow-2xs">
+                  <TrendingUp size={20} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-content">Longitudinal History</h3>
+                  <p className="text-xs text-content-muted">
+                    {historySpan ? `${historySpan} – Present` : 'Active health record'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* 4-Stat KPI Grid */}
+            <div className="pt-3 border-t border-line/70">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-content-subtle block mb-3">
+                Summary Milestones
+              </span>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3 rounded-2xl bg-teal-500/5 border border-teal-500/15">
+                  <span className="text-[11px] font-bold text-teal-700 dark:text-teal-400 block tracking-wide uppercase">
+                    Visits
                   </span>
-                  <span className="text-[11px] font-bold text-content-subtle px-2 py-0.2 rounded-md bg-surface-sunken border border-line">
-                    {groupItems.length} {groupItems.length === 1 ? 'event' : 'events'}
+                  <span className="text-lg font-black text-teal-700 dark:text-teal-400 block mt-0.5" data-numeric>
+                    {counts.visit}
                   </span>
                 </div>
-                <div className="h-px bg-line/80 flex-1" />
+
+                <div className="p-3 rounded-2xl bg-blue-500/5 border border-blue-500/15">
+                  <span className="text-[11px] font-bold text-blue-700 dark:text-blue-400 block tracking-wide uppercase">
+                    Labs
+                  </span>
+                  <span className="text-lg font-black text-blue-700 dark:text-blue-400 block mt-0.5" data-numeric>
+                    {counts.report}
+                  </span>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-purple-500/5 border border-purple-500/15">
+                  <span className="text-[11px] font-bold text-purple-700 dark:text-purple-400 block tracking-wide uppercase">
+                    Medicines
+                  </span>
+                  <span className="text-lg font-black text-purple-700 dark:text-purple-400 block mt-0.5" data-numeric>
+                    {counts.medicine}
+                  </span>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-surface-sunken border border-line">
+                  <span className="text-[11px] font-bold text-content-subtle block tracking-wide uppercase">
+                    Total
+                  </span>
+                  <span className="text-lg font-black text-content block mt-0.5" data-numeric>
+                    {counts.all}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Filter and Search Section */}
+            <div className="space-y-3 pt-3 border-t border-line/70">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-content-subtle flex items-center gap-1.5">
+                  <Filter size={12} />
+                  Filter Records
+                </span>
+                {filterType !== 'all' && (
+                  <button
+                    type="button"
+                    onClick={() => setFilterType('all')}
+                    className="text-[11px] font-bold text-accent hover:underline cursor-pointer"
+                  >
+                    Reset
+                  </button>
+                )}
               </div>
 
-              {/* Connected Chronological Event Cards */}
-              <div className="relative pl-3.5 sm:pl-5 border-l-2 border-line/80 ml-3.5 space-y-3.5">
-                {groupItems.map((item) => {
-                  const style = getEventStyling(item.type);
+              {/* Search Box */}
+              <div className="relative">
+                <Input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search doctor, medicine, lab..."
+                  className="pl-8 pr-7 h-9 text-xs"
+                />
+                <Search size={13} className="absolute left-2.5 top-2.5 text-content-subtle pointer-events-none" />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2 top-2 text-content-subtle hover:text-content p-0.5 cursor-pointer"
+                  >
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
 
-                  return (
-                    <article
-                      key={item.id}
-                      className="group relative overflow-hidden rounded-2xl border border-line bg-surface-raised/95 backdrop-blur-md p-4 sm:p-5 shadow-2xs hover:shadow-card-hover hover:border-line-strong transition-all duration-200"
+              {/* Category Pills List */}
+              <div className="space-y-1.5 pt-1">
+                {[
+                  { id: 'all', label: 'All Records', count: counts.all, icon: <Layers size={13} /> },
+                  { id: 'visit', label: 'Doctor Visits', count: counts.visit, icon: <StethoscopeIcon size={13} /> },
+                  { id: 'report', label: 'Lab Reports', count: counts.report, icon: <LabFlaskIcon size={13} /> },
+                  { id: 'medicine', label: 'Prescriptions', count: counts.medicine, icon: <MedicineIcon size={13} /> },
+                  { id: 'side_effect', label: 'Symptoms', count: counts.side_effect, icon: <AlertTriangleIcon size={13} /> },
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setFilterType(tab.id)}
+                    className={clsx(
+                      'w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all tap-spring cursor-pointer border',
+                      filterType === tab.id
+                        ? 'bg-accent text-white border-accent shadow-xs'
+                        : 'bg-surface-sunken/60 border-line/60 text-content-muted hover:text-content hover:bg-surface-hover'
+                    )}
+                  >
+                    <div className="flex items-center gap-2">
+                      {tab.icon}
+                      <span>{tab.label}</span>
+                    </div>
+                    <span
+                      className={clsx(
+                        'px-1.5 py-0.2 rounded-full text-[10px] font-bold',
+                        filterType === tab.id ? 'bg-white/20 text-white' : 'bg-surface-raised border border-line text-content-subtle'
+                      )}
                     >
-                      {/* Left Accent Rail */}
-                      <span
-                        className={clsx('absolute inset-y-0 left-0 w-1.5 transition-all', style.accentBar)}
-                        aria-hidden="true"
-                      />
+                      {tab.count}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
 
-                      <div className="space-y-3 pl-1 sm:pl-2">
-                        {/* Top Header: Icon + Title & Badges + Date & Cost */}
-                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                          <div className="flex items-start gap-3.5 min-w-0">
-                            <div
-                              className={clsx(
-                                'w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border shadow-2xs transition-transform duration-200 group-hover:scale-105',
-                                style.bg
-                              )}
-                            >
-                              {style.icon}
-                            </div>
+            {/* Quick Actions Footer */}
+            <div className="pt-3 border-t border-line/70 space-y-2">
+              <Link to="/reports/new" className="block w-full">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  leftIcon={<LabFlaskIcon size={14} />}
+                  className="w-full h-10 font-bold tap-spring shadow-2xs text-xs justify-center"
+                >
+                  Upload Lab Report
+                </Button>
+              </Link>
+            </div>
+          </Card>
+        </aside>
 
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <h3 className="text-sm sm:text-base font-bold text-content tracking-tight">
-                                  {item.title}
-                                </h3>
+        {/* Right Main Stream (8 cols): Chronological Multi-Column Grid */}
+        <main className="lg:col-span-8 space-y-7">
+          {isLoading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              {[0, 1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-40 w-full rounded-2xl" />
+              ))}
+            </div>
+          ) : filteredItems.length === 0 ? (
+            <EmptyState
+              heading={searchQuery ? 'No matching records found' : 'No medical history recorded yet'}
+              description={
+                searchQuery
+                  ? 'Try adjusting your search keywords or switching category filters.'
+                  : 'Add your first prescription, doctor consultation, or lab report to begin your chronological dossier.'
+              }
+              action={
+                <Link to="/prescriptions/new">
+                  <Button leftIcon={<PrescriptionIcon size={16} />} size="sm" className="tap-spring">
+                    Add First Prescription
+                  </Button>
+                </Link>
+              }
+            />
+          ) : (
+            <div className="space-y-7">
+              {groupedTimeline.map(([monthGroup, groupItems]) => (
+                <section key={monthGroup} aria-labelledby={`month-${monthGroup}`} className="space-y-3.5">
+                  {/* Executive Month Header */}
+                  <div className="flex items-center justify-between gap-3 px-1 py-1.5 border-b border-line/60 pb-2">
+                    <div className="flex items-center gap-2">
+                      <Calendar size={14} className="text-accent" />
+                      <h2
+                        id={`month-${monthGroup}`}
+                        className="text-xs font-black uppercase tracking-wider text-content"
+                      >
+                        {monthGroup}
+                      </h2>
+                    </div>
+
+                    <span className="text-[11px] font-bold text-content-subtle px-2.5 py-0.5 rounded-lg bg-surface-sunken border border-line">
+                      {groupItems.length} {groupItems.length === 1 ? 'event' : 'events'}
+                    </span>
+                  </div>
+
+                  {/* Multi-Column Proportioned Event Tiles Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    {groupItems.map((item) => {
+                      const style = getEventStyling(item.type);
+
+                      return (
+                        <article
+                          key={item.id}
+                          className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-line bg-surface-raised p-4 transition-all duration-200 shadow-2xs hover:shadow-card-hover hover:border-line-strong"
+                        >
+                          {/* Top Accent Strip */}
+                          <span
+                            className={clsx('absolute top-0 inset-x-0 h-1 transition-all', style.accentBar)}
+                            aria-hidden="true"
+                          />
+
+                          <div className="space-y-3">
+                            {/* Top Header: Badge + Date & Delete */}
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-1.5">
+                                <div
+                                  className={clsx(
+                                    'w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border shadow-2xs',
+                                    style.bg
+                                  )}
+                                >
+                                  {style.icon}
+                                </div>
                                 {style.badge}
-                                {item.tags.map((tag, idx) => (
-                                  <span
-                                    key={idx}
-                                    className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-surface-sunken border border-line text-content-muted"
-                                  >
-                                    {tag}
-                                  </span>
-                                ))}
                               </div>
 
-                              <p className="text-xs text-content-muted font-medium mt-0.5">
+                              <div className="flex items-center gap-1">
+                                <span className="text-[11px] font-bold text-content-subtle px-2 py-0.5 rounded-md bg-surface-sunken border border-line">
+                                  {item.date}
+                                </span>
+
+                                <button
+                                  type="button"
+                                  onClick={() => setDeleteTarget(item)}
+                                  className="w-7 h-7 rounded-lg flex items-center justify-center text-content-subtle hover:text-rose-600 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                                  title="Delete record"
+                                >
+                                  <TrashIcon size={12} />
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Center: Title & Subtitle */}
+                            <div>
+                              <h3
+                                className="text-sm font-bold text-content leading-snug tracking-tight truncate"
+                                title={item.title}
+                              >
+                                {item.title}
+                              </h3>
+
+                              <p className="text-xs text-content-muted mt-0.5 truncate" title={item.subtitle}>
                                 {item.subtitle}
                               </p>
+
+                              {/* Tags Row */}
+                              {item.tags.length > 0 && (
+                                <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                                  {item.tags.map((tag, idx) => (
+                                    <span
+                                      key={idx}
+                                      className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-surface-sunken border border-line text-content-muted"
+                                    >
+                                      {tag}
+                                    </span>
+                                  ))}
+                                  {item.cost && (
+                                    <span className="text-[10px] font-black text-teal-700 dark:text-teal-400 px-1.5 py-0.5 rounded-md bg-teal-500/10 border border-teal-500/20">
+                                      PKR {item.cost.toLocaleString()}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
                             </div>
-                          </div>
 
-                          {/* Right Metadata: Date, Fee & Delete */}
-                          <div className="flex items-center gap-2.5 self-start sm:self-auto shrink-0">
-                            <span className="text-xs font-bold text-content-subtle px-2.5 py-1 rounded-lg bg-surface-sunken border border-line">
-                              {item.date}
-                            </span>
-
-                            {item.cost && (
-                              <span className="text-xs font-black text-teal-700 dark:text-teal-400 px-2 py-1 rounded-lg bg-teal-500/10 border border-teal-500/20">
-                                PKR {item.cost.toLocaleString()}
-                              </span>
+                            {/* Clinical Notes (if present) */}
+                            {item.notes && (
+                              <div className="text-[11px] text-content-muted bg-surface-sunken/80 border border-line/60 rounded-xl px-2.5 py-1.5 flex items-start gap-1.5 leading-tight">
+                                <FileText size={12} className="text-accent shrink-0 mt-0.5" />
+                                <span className="truncate">{item.notes}</span>
+                              </div>
                             )}
-
-                            <button
-                              type="button"
-                              onClick={() => setDeleteTarget(item)}
-                              className="w-8 h-8 rounded-lg flex items-center justify-center text-content-subtle hover:text-rose-600 hover:bg-rose-500/10 transition-colors cursor-pointer"
-                              title="Delete record"
-                            >
-                              <TrashIcon size={14} />
-                            </button>
                           </div>
-                        </div>
 
-                        {/* Doctor Advice or Clinical Notes (if present) */}
-                        {item.notes && (
-                          <div className="mt-2.5 p-3 rounded-xl bg-surface-sunken/70 border border-line/60 text-xs text-content-muted leading-relaxed flex items-start gap-2">
-                            <FileText size={13} className="text-accent shrink-0 mt-0.5" />
-                            <div>
-                              <span className="font-bold text-content block text-[11px] uppercase tracking-wide">
-                                Clinical Notes & Advice:
-                              </span>
-                              <span>{item.notes}</span>
+                          {/* Bottom Action Footer */}
+                          {item.linkUrl && (
+                            <div className="mt-3 pt-2.5 border-t border-line/60 flex items-center justify-end">
+                              <Link
+                                to={item.linkUrl}
+                                className="inline-flex items-center gap-1 text-[11px] font-bold text-accent hover:underline tap-spring"
+                              >
+                                <span>View Details</span>
+                                <ArrowRight size={12} />
+                              </Link>
                             </div>
-                          </div>
-                        )}
-
-                        {/* Footer Action Links */}
-                        {item.linkUrl && (
-                          <div className="pt-2 flex items-center justify-end">
-                            <Link
-                              to={item.linkUrl}
-                              className="inline-flex items-center gap-1 text-xs font-bold text-accent hover:underline tap-spring"
-                            >
-                              <span>View Associated Record</span>
-                              <ArrowRight size={13} />
-                            </Link>
-                          </div>
-                        )}
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
-            </section>
-          ))}
-        </div>
-      )}
+                          )}
+                        </article>
+                      );
+                    })}
+                  </div>
+                </section>
+              ))}
+            </div>
+          )}
+        </main>
+      </div>
 
       {/* Delete Confirmation Dialog */}
       <ConfirmDialog
