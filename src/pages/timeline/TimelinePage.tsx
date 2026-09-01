@@ -307,12 +307,12 @@ export function TimelinePage() {
       )}
 
       {/* 2-Panel Responsive Clinical Workspace */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-7 items-start">
         {/* Left Sticky Sidebar (4 cols): Executive Control Deck */}
         <aside className="lg:col-span-4 lg:sticky lg:top-24">
-          <Card className="p-6 shadow-card border border-line bg-surface-raised/95 backdrop-blur-md rounded-3xl space-y-6">
+          <Card className="p-6 shadow-card border border-line bg-surface-raised/95 backdrop-blur-md rounded-3xl space-y-5">
             {/* 1. Header: Health Record Profile */}
-            <div className="flex items-center gap-3.5">
+            <div className="flex items-center gap-3.5 pb-1">
               <div className="w-11 h-11 rounded-2xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-teal-600 dark:text-teal-400 shrink-0 shadow-2xs">
                 <TrendingUp size={20} />
               </div>
@@ -327,13 +327,13 @@ export function TimelinePage() {
                     Verified
                   </span>
                 </div>
-                <p className="mt-0.5 text-xs text-content-muted">
+                <p className="mt-1 text-xs text-content-muted">
                   {historySpan ? `Span: ${historySpan} – Present` : 'Longitudinal health history'}
                 </p>
               </div>
             </div>
 
-            {/* 2. Unified 4-Column Metric Strip (Generous padding & spacing) */}
+            {/* 2. Unified 4-Column Metric Strip */}
             <div className="pt-4 border-t border-line/70">
               <div className="grid grid-cols-4 gap-1.5 p-3 rounded-2xl bg-surface-sunken/80 border border-line text-center">
                 <div className="py-1">
@@ -356,7 +356,7 @@ export function TimelinePage() {
             </div>
 
             {/* 3. Search Box Section */}
-            <div className="pt-4 border-t border-line/70 space-y-2">
+            <div className="pt-4 border-t border-line/70">
               <div className="relative">
                 <Input
                   value={searchQuery}
@@ -377,8 +377,8 @@ export function TimelinePage() {
               </div>
             </div>
 
-            {/* 4. Symmetrical Filter Chips */}
-            <div className="space-y-3 pt-4 border-t border-line/70">
+            {/* 4. Symmetrical Filter Chips with Generous Gaps */}
+            <div className="space-y-3.5 pt-4 border-t border-line/70">
               <div className="flex items-center justify-between text-xs font-bold text-content uppercase tracking-wider">
                 <span className="flex items-center gap-1.5">
                   <Filter size={13} className="text-teal-600 dark:text-teal-400" />
@@ -395,13 +395,13 @@ export function TimelinePage() {
                 )}
               </div>
 
-              {/* Clean Symmetrical Filter Grid */}
-              <div className="grid grid-cols-2 gap-2">
+              {/* Symmetrical Filter Grid with Airy Gaps */}
+              <div className="space-y-2.5">
                 <button
                   type="button"
                   onClick={() => setFilterType('all')}
                   className={clsx(
-                    'col-span-2 flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all tap-spring cursor-pointer border',
+                    'w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all tap-spring cursor-pointer border',
                     filterType === 'all'
                       ? 'bg-teal-600 text-white border-teal-600 shadow-xs'
                       : 'bg-surface-sunken/60 border-line/60 text-content-muted hover:text-content hover:bg-surface-hover hover:border-line'
@@ -425,46 +425,48 @@ export function TimelinePage() {
                   </span>
                 </button>
 
-                {[
-                  { id: 'visit', label: 'Doctor Visits', count: counts.visit, icon: <StethoscopeIcon size={13} /> },
-                  { id: 'report', label: 'Lab Reports', count: counts.report, icon: <LabFlaskIcon size={13} /> },
-                  { id: 'medicine', label: 'Prescriptions', count: counts.medicine, icon: <MedicineIcon size={13} /> },
-                  { id: 'side_effect', label: 'Symptoms', count: counts.side_effect, icon: <AlertTriangleIcon size={13} /> },
-                ].map((tab) => (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => setFilterType(tab.id)}
-                    className={clsx(
-                      'flex items-center justify-between px-3 py-2.5 rounded-2xl text-xs font-semibold transition-all tap-spring cursor-pointer border',
-                      filterType === tab.id
-                        ? 'bg-teal-600 text-white border-teal-600 shadow-xs font-bold'
-                        : 'bg-surface-sunken/60 border-line/60 text-content-muted hover:text-content hover:bg-surface-hover hover:border-line'
-                    )}
-                  >
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <span className={clsx(filterType === tab.id ? 'text-white' : 'text-teal-600 dark:text-teal-400')}>
-                        {tab.icon}
-                      </span>
-                      <span className="truncate">{tab.label}</span>
-                    </div>
-                    <span
+                <div className="grid grid-cols-2 gap-2.5">
+                  {[
+                    { id: 'visit', label: 'Doctor Visits', count: counts.visit, icon: <StethoscopeIcon size={13} /> },
+                    { id: 'report', label: 'Lab Reports', count: counts.report, icon: <LabFlaskIcon size={13} /> },
+                    { id: 'medicine', label: 'Prescriptions', count: counts.medicine, icon: <MedicineIcon size={13} /> },
+                    { id: 'side_effect', label: 'Symptoms', count: counts.side_effect, icon: <AlertTriangleIcon size={13} /> },
+                  ].map((tab) => (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setFilterType(tab.id)}
                       className={clsx(
-                        'px-1.5 py-0.2 rounded-full text-[10px] font-black shrink-0 ml-1',
+                        'flex items-center justify-between px-3 py-2.5 rounded-2xl text-xs font-semibold transition-all tap-spring cursor-pointer border',
                         filterType === tab.id
-                          ? 'bg-white/20 text-white'
-                          : 'bg-surface-raised border border-line text-content-subtle'
+                          ? 'bg-teal-600 text-white border-teal-600 shadow-xs font-bold'
+                          : 'bg-surface-sunken/60 border-line/60 text-content-muted hover:text-content hover:bg-surface-hover hover:border-line'
                       )}
                     >
-                      {tab.count}
-                    </span>
-                  </button>
-                ))}
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className={clsx(filterType === tab.id ? 'text-white' : 'text-teal-600 dark:text-teal-400')}>
+                          {tab.icon}
+                        </span>
+                        <span className="truncate">{tab.label}</span>
+                      </div>
+                      <span
+                        className={clsx(
+                          'px-1.5 py-0.2 rounded-full text-[10px] font-black shrink-0 ml-1',
+                          filterType === tab.id
+                            ? 'bg-white/20 text-white'
+                            : 'bg-surface-raised border border-line text-content-subtle'
+                        )}
+                      >
+                        {tab.count}
+                      </span>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
             {/* 5. Quick Actions Shortcuts */}
-            <div className="pt-4 border-t border-line/70 space-y-2.5">
+            <div className="pt-4 border-t border-line/70 space-y-3">
               <Link to="/reports/new" className="w-full block">
                 <Button
                   variant="secondary"
@@ -475,7 +477,7 @@ export function TimelinePage() {
                   Upload Lab Report
                 </Button>
               </Link>
-              <div className="flex items-center justify-center gap-1.5 text-[11px] text-content-subtle pt-1">
+              <div className="flex items-center justify-center gap-1.5 text-[11px] text-content-subtle">
                 <ShieldCheck size={13} className="text-teal-600" />
                 <span>EHR Verified Medical Timeline</span>
               </div>
@@ -484,9 +486,9 @@ export function TimelinePage() {
         </aside>
 
         {/* Right Main Stream (8 cols): Chronological Multi-Column Grid */}
-        <main className="lg:col-span-8 space-y-7">
+        <main className="lg:col-span-8 space-y-8">
           {isLoading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {[0, 1, 2, 3].map((i) => (
                 <Skeleton key={i} className="h-40 w-full rounded-2xl" />
               ))}
@@ -508,11 +510,11 @@ export function TimelinePage() {
               }
             />
           ) : (
-            <div className="space-y-7">
+            <div className="space-y-8">
               {groupedTimeline.map(([monthGroup, groupItems]) => (
-                <section key={monthGroup} aria-labelledby={`month-${monthGroup}`} className="space-y-3.5">
+                <section key={monthGroup} aria-labelledby={`month-${monthGroup}`} className="space-y-4">
                   {/* Executive Month Header */}
-                  <div className="flex items-center justify-between gap-3 px-1 py-1.5 border-b border-line/60 pb-2">
+                  <div className="flex items-center justify-between gap-3 px-1 py-1.5 border-b border-line/60 pb-2.5">
                     <div className="flex items-center gap-2">
                       <Calendar size={14} className="text-teal-600 dark:text-teal-400" />
                       <h2
@@ -529,16 +531,16 @@ export function TimelinePage() {
                   </div>
 
                   {/* Multi-Column Proportioned Event Tiles Grid */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {groupItems.map((item) => {
                       const style = getEventStyling(item.type);
 
                       return (
                         <article
                           key={item.id}
-                          className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-line bg-surface-raised p-4 transition-all duration-200 shadow-2xs hover:shadow-card-hover hover:border-line-strong"
+                          className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-line bg-surface-raised p-4.5 transition-all duration-200 shadow-2xs hover:shadow-card-hover hover:border-line-strong"
                         >
-                          <div className="space-y-3">
+                          <div className="space-y-3.5">
                             {/* Top Header: Badge + Date & Delete */}
                             <div className="flex items-center justify-between gap-2">
                               <div className="flex items-center gap-1.5">
@@ -573,13 +575,13 @@ export function TimelinePage() {
                                 {item.title}
                               </h3>
 
-                              <p className="text-xs text-content-muted mt-0.5 truncate" title={item.subtitle}>
+                              <p className="text-xs text-content-muted mt-1 truncate" title={item.subtitle}>
                                 {item.subtitle}
                               </p>
 
                               {/* Tags Row */}
                               {item.tags.length > 0 && (
-                                <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                                <div className="mt-2.5 flex items-center gap-1.5 flex-wrap">
                                   {item.tags.map((tag, idx) => (
                                     <span
                                       key={idx}
@@ -599,7 +601,7 @@ export function TimelinePage() {
 
                             {/* Clinical Notes (if present) */}
                             {item.notes && (
-                              <div className="text-[11px] text-content-muted bg-surface-sunken/80 border border-line/60 rounded-xl px-2.5 py-1.5 flex items-start gap-1.5 leading-tight">
+                              <div className="text-[11px] text-content-muted bg-surface-sunken/80 border border-line/60 rounded-xl p-2.5 flex items-start gap-1.5 leading-relaxed">
                                 <FileText size={12} className="text-teal-600 dark:text-teal-400 shrink-0 mt-0.5" />
                                 <span className="truncate">{item.notes}</span>
                               </div>
@@ -608,7 +610,7 @@ export function TimelinePage() {
 
                           {/* Bottom Action Footer */}
                           {item.linkUrl && (
-                            <div className="mt-3 pt-2.5 border-t border-line/60 flex items-center justify-end">
+                            <div className="mt-3.5 pt-3 border-t border-line/60 flex items-center justify-end">
                               <Link
                                 to={item.linkUrl}
                                 className="inline-flex items-center gap-1 text-[11px] font-bold text-teal-600 dark:text-teal-400 hover:underline tap-spring"
