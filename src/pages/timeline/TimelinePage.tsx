@@ -244,31 +244,27 @@ export function TimelinePage() {
     switch (type) {
       case 'visit':
         return {
-          icon: <StethoscopeIcon size={16} className="text-teal-600 dark:text-teal-400" />,
-          bg: 'bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/20',
+          icon: <StethoscopeIcon size={16} className="text-teal-700 dark:text-teal-400" />,
           badge: <Badge tone="ok" size="sm">Doctor Visit</Badge>,
-          accentBar: 'bg-teal-500',
+          borderAccent: 'border-l-teal-600',
         };
       case 'report':
         return {
-          icon: <LabFlaskIcon size={16} className="text-blue-600 dark:text-blue-400" />,
-          bg: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20',
+          icon: <LabFlaskIcon size={16} className="text-blue-700 dark:text-blue-400" />,
           badge: <Badge tone="info" size="sm">Lab Report</Badge>,
-          accentBar: 'bg-blue-500',
+          borderAccent: 'border-l-blue-600',
         };
       case 'medicine':
         return {
-          icon: <MedicineIcon size={16} className="text-purple-600 dark:text-purple-400" />,
-          bg: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20',
+          icon: <MedicineIcon size={16} className="text-purple-700 dark:text-purple-400" />,
           badge: <Badge tone="neutral" size="sm">Prescription</Badge>,
-          accentBar: 'bg-purple-500',
+          borderAccent: 'border-l-purple-600',
         };
       case 'side_effect':
         return {
-          icon: <AlertTriangleIcon size={16} className="text-amber-600 dark:text-amber-400" />,
-          bg: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',
+          icon: <AlertTriangleIcon size={16} className="text-amber-700 dark:text-amber-400" />,
           badge: <Badge tone="warn" size="sm">Symptom</Badge>,
-          accentBar: 'bg-amber-500',
+          borderAccent: 'border-l-amber-600',
         };
     }
   };
@@ -316,13 +312,13 @@ export function TimelinePage() {
 
       {/* 2-Panel Responsive Clinical Workspace */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left Sticky Sidebar (4 cols): Compact Executive Control Deck */}
+        {/* Left Sticky Sidebar (4 cols): Executive Monochrome Control Deck */}
         <aside className="lg:col-span-4 lg:sticky lg:top-24 space-y-4">
           <Card className="p-4 sm:p-5 space-y-4 rounded-3xl border border-line bg-surface-raised/95 backdrop-blur-md shadow-xs">
             {/* Header: Compact Longitudinal Overview */}
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center text-accent shrink-0 shadow-2xs">
+                <div className="w-8 h-8 rounded-xl bg-surface-sunken border border-line flex items-center justify-center text-content shrink-0 shadow-2xs">
                   <TrendingUp size={16} />
                 </div>
                 <div className="min-w-0">
@@ -333,46 +329,46 @@ export function TimelinePage() {
                 </div>
               </div>
 
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-teal-500/10 border border-teal-500/20 text-teal-700 dark:text-teal-400 text-[10px] font-bold shrink-0">
-                <ShieldCheck size={11} />
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface-sunken border border-line text-content text-[10px] font-bold shrink-0">
+                <ShieldCheck size={11} className="text-teal-600 dark:text-teal-400" />
                 Verified
               </span>
             </div>
 
-            {/* Compact 4-Column KPI Stats Deck */}
+            {/* Unified Monochrome 4-Column KPI Stats Deck */}
             <div className="grid grid-cols-4 gap-1.5 pt-2 border-t border-line/60">
-              <div className="p-2 rounded-xl bg-teal-500/5 border border-teal-500/15 text-center">
-                <span className="text-[10px] font-bold text-teal-700 dark:text-teal-400 block uppercase tracking-wider">
+              <div className="p-2.5 rounded-2xl bg-surface-sunken/60 border border-line/70 text-center transition-all hover:bg-surface-sunken">
+                <span className="text-[10px] font-bold text-content-subtle block uppercase tracking-wider">
                   Visits
                 </span>
-                <span className="text-sm font-black text-teal-700 dark:text-teal-400 block mt-0.5" data-numeric>
+                <span className="text-base font-black text-content block mt-0.5" data-numeric>
                   {counts.visit}
                 </span>
               </div>
 
-              <div className="p-2 rounded-xl bg-blue-500/5 border border-blue-500/15 text-center">
-                <span className="text-[10px] font-bold text-blue-700 dark:text-blue-400 block uppercase tracking-wider">
+              <div className="p-2.5 rounded-2xl bg-surface-sunken/60 border border-line/70 text-center transition-all hover:bg-surface-sunken">
+                <span className="text-[10px] font-bold text-content-subtle block uppercase tracking-wider">
                   Labs
                 </span>
-                <span className="text-sm font-black text-blue-700 dark:text-blue-400 block mt-0.5" data-numeric>
+                <span className="text-base font-black text-content block mt-0.5" data-numeric>
                   {counts.report}
                 </span>
               </div>
 
-              <div className="p-2 rounded-xl bg-purple-500/5 border border-purple-500/15 text-center">
-                <span className="text-[10px] font-bold text-purple-700 dark:text-purple-400 block uppercase tracking-wider">
+              <div className="p-2.5 rounded-2xl bg-surface-sunken/60 border border-line/70 text-center transition-all hover:bg-surface-sunken">
+                <span className="text-[10px] font-bold text-content-subtle block uppercase tracking-wider">
                   Meds
                 </span>
-                <span className="text-sm font-black text-purple-700 dark:text-purple-400 block mt-0.5" data-numeric>
+                <span className="text-base font-black text-content block mt-0.5" data-numeric>
                   {counts.medicine}
                 </span>
               </div>
 
-              <div className="p-2 rounded-xl bg-surface-sunken border border-line text-center">
+              <div className="p-2.5 rounded-2xl bg-surface-sunken/60 border border-line/70 text-center transition-all hover:bg-surface-sunken">
                 <span className="text-[10px] font-bold text-content-subtle block uppercase tracking-wider">
                   Total
                 </span>
-                <span className="text-sm font-black text-content block mt-0.5" data-numeric>
+                <span className="text-base font-black text-content block mt-0.5" data-numeric>
                   {counts.all}
                 </span>
               </div>
@@ -402,7 +398,7 @@ export function TimelinePage() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search doctor, medicine, lab..."
-                  className="pl-8 pr-7 h-8 text-xs rounded-xl"
+                  className="pl-8 pr-7 h-8.5 text-xs rounded-xl"
                 />
                 <Search size={13} className="absolute left-2.5 top-2.5 text-content-subtle pointer-events-none" />
                 {searchQuery && (
@@ -416,14 +412,14 @@ export function TimelinePage() {
                 )}
               </div>
 
-              {/* Compact 2-Column Filter Chips Grid */}
+              {/* Executive 2-Column Filter Chips Grid */}
               <div className="grid grid-cols-2 gap-1.5 pt-1">
                 {/* All Records spans full width */}
                 <button
                   type="button"
                   onClick={() => setFilterType('all')}
                   className={clsx(
-                    'col-span-2 flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all tap-spring cursor-pointer border',
+                    'col-span-2 flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all tap-spring cursor-pointer border',
                     filterType === 'all'
                       ? 'bg-accent text-white border-accent shadow-xs'
                       : 'bg-surface-sunken/60 border-line/60 text-content-muted hover:text-content hover:bg-surface-hover'
@@ -548,22 +544,11 @@ export function TimelinePage() {
                           key={item.id}
                           className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-line bg-surface-raised p-4 transition-all duration-200 shadow-2xs hover:shadow-card-hover hover:border-line-strong"
                         >
-                          {/* Top Accent Strip */}
-                          <span
-                            className={clsx('absolute top-0 inset-x-0 h-1 transition-all', style.accentBar)}
-                            aria-hidden="true"
-                          />
-
                           <div className="space-y-3">
                             {/* Top Header: Badge + Date & Delete */}
                             <div className="flex items-center justify-between gap-2">
                               <div className="flex items-center gap-1.5">
-                                <div
-                                  className={clsx(
-                                    'w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border shadow-2xs',
-                                    style.bg
-                                  )}
-                                >
+                                <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-surface-sunken border border-line shadow-2xs">
                                   {style.icon}
                                 </div>
                                 {style.badge}
