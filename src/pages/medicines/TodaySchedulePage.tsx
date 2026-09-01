@@ -18,13 +18,11 @@ import { SLOT_META } from '../../components/ui/slotMeta';
 import { PlusIcon, MedicineIcon } from '../../components/ui/icons';
 import {
   Clock,
-  CheckCircle2,
   Sparkles,
   Archive,
   Check,
   CalendarCheck,
   ShieldCheck,
-  Flame,
 } from 'lucide-react';
 import { todayInAppTz, formatDayHeading } from '../../lib/time';
 import { bucketOf, Bucket, BUCKET_ORDER } from '../../domain/timeBuckets';
@@ -369,32 +367,37 @@ export function TodaySchedulePage() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left Panel (4 cols): Sticky Daily Adherence & Control Deck */}
         <aside className="lg:col-span-4 lg:sticky lg:top-24">
-          <Card className="p-6 shadow-card border border-line bg-surface-raised/95 backdrop-blur-md rounded-3xl space-y-6">
+          <Card bare className="p-4 sm:p-5 shadow-card border border-line bg-surface-raised/95 backdrop-blur-md rounded-3xl space-y-4">
             {/* Header: Date + Adherence Score Ring */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3.5">
               <div className="relative shrink-0">
                 <ProgressRing
                   percentage={adherence.percentage}
-                  size={64}
-                  strokeWidth={7}
+                  size={58}
+                  strokeWidth={6.5}
                   tone={adherence.percentage >= 80 ? 'ok' : 'warn'}
                 />
               </div>
 
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h2 className="text-lg font-bold text-content tracking-tight">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <h2 className="text-sm font-bold text-content tracking-tight">
                     {formatDayHeading(selectedDate)}
                   </h2>
-                  {adherence.percentage === 100 && (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-teal-500/10 border border-teal-500/20 text-teal-700 dark:text-teal-400 text-xs font-semibold">
+                  {adherence.percentage === 100 ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-teal-500/10 border border-teal-500/20 text-teal-700 dark:text-teal-400 text-[10px] font-bold">
                       <Sparkles size={11} />
                       Complete
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface-sunken border border-line text-content-subtle text-[10px] font-semibold">
+                      <Clock size={11} />
+                      In progress
                     </span>
                   )}
                 </div>
 
-                <p className="mt-1 text-xs text-content-muted leading-relaxed">
+                <p className="mt-0.5 text-xs text-content-muted">
                   {adherence.percentage === 100
                     ? 'All scheduled doses accounted for.'
                     : `${pendingCount} dose${pendingCount === 1 ? '' : 's'} remaining today.`}
@@ -402,51 +405,44 @@ export function TodaySchedulePage() {
               </div>
             </div>
 
-            {/* 4-Stat KPI Grid with comfortable padding & rounded corners */}
-            <div className="grid grid-cols-2 gap-3 pt-3 border-t border-line/70">
-              <div className="p-3 rounded-2xl bg-surface-sunken border border-line text-center transition-all hover:bg-surface-hover/50">
-                <span className="text-[11px] font-semibold text-content-subtle block tracking-wide uppercase">Scheduled</span>
-                <span className="text-lg font-black text-content block mt-0.5" data-numeric>
-                  {doses.length}
-                </span>
-              </div>
-
-              <div className="p-3 rounded-2xl bg-teal-500/5 border border-teal-500/15 text-center transition-all hover:bg-teal-500/10">
-                <span className="text-[11px] font-semibold text-teal-700 dark:text-teal-400 block flex items-center justify-center gap-1 tracking-wide uppercase">
-                  <CheckCircle2 size={11} />
-                  Taken
-                </span>
-                <span className="text-lg font-black text-teal-700 dark:text-teal-400 block mt-0.5" data-numeric>
-                  {takenCount}
-                </span>
-              </div>
-
-              <div className="p-3 rounded-2xl bg-surface-sunken border border-line text-center transition-all hover:bg-surface-hover/50">
-                <span className="text-[11px] font-semibold text-content-muted block flex items-center justify-center gap-1 tracking-wide uppercase">
-                  <Clock size={11} />
-                  Pending
-                </span>
-                <span className="text-lg font-black text-content block mt-0.5" data-numeric>
-                  {pendingCount}
-                </span>
-              </div>
-
-              <div className="p-3 rounded-2xl bg-amber-500/5 border border-amber-500/15 text-center transition-all hover:bg-amber-500/10">
-                <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-400 block flex items-center justify-center gap-1 tracking-wide uppercase">
-                  <Flame size={11} className="text-amber-500" />
-                  Score
-                </span>
-                <span className="text-lg font-black text-amber-700 dark:text-amber-400 block mt-0.5" data-numeric>
-                  {adherence.percentage}%
-                </span>
+            {/* 4-Stat Metric Strip */}
+            <div className="pt-3.5 border-t border-line/70">
+              <div className="grid grid-cols-4 gap-1 p-2.5 rounded-2xl bg-surface-sunken/80 border border-line text-center">
+                <div className="py-0.5">
+                  <span className="text-[10px] font-bold text-content-subtle block uppercase tracking-wider">Scheduled</span>
+                  <span className="text-sm font-black text-content block mt-0.5" data-numeric>{doses.length}</span>
+                </div>
+                <div className="py-0.5 border-l border-line/60">
+                  <span className="text-[10px] font-bold text-teal-700 dark:text-teal-400 block uppercase tracking-wider">Taken</span>
+                  <span className="text-sm font-black text-teal-700 dark:text-teal-400 block mt-0.5" data-numeric>{takenCount}</span>
+                </div>
+                <div className="py-0.5 border-l border-line/60">
+                  <span className="text-[10px] font-bold text-content-muted block uppercase tracking-wider">Pending</span>
+                  <span className="text-sm font-black text-content block mt-0.5" data-numeric>{pendingCount}</span>
+                </div>
+                <div className="py-0.5 border-l border-line/60">
+                  <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400 block uppercase tracking-wider">Score</span>
+                  <span className="text-sm font-black text-amber-700 dark:text-amber-400 block mt-0.5" data-numeric>{adherence.percentage}%</span>
+                </div>
               </div>
             </div>
 
             {/* Quick Segmented Filter */}
-            <div className="space-y-3 pt-3 border-t border-line/70">
-              <div className="text-xs font-bold text-content flex items-center gap-1.5 tracking-wider uppercase">
-                <CalendarCheck size={14} className="text-accent" />
-                <span>Filter View</span>
+            <div className="space-y-2.5 pt-3.5 border-t border-line/70">
+              <div className="text-xs font-bold text-content flex items-center justify-between tracking-wider uppercase">
+                <span className="flex items-center gap-1.5">
+                  <CalendarCheck size={13} className="text-accent" />
+                  Filter Doses
+                </span>
+                {activeFilter !== 'all' && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveFilter('all')}
+                    className="text-xs font-bold text-teal-600 hover:underline cursor-pointer normal-case"
+                  >
+                    Show all
+                  </button>
+                )}
               </div>
               <SegmentedControl<ScheduleFilter>
                 value={activeFilter}
@@ -461,19 +457,19 @@ export function TodaySchedulePage() {
             </div>
 
             {/* Quick Actions Shortcuts */}
-            <div className="pt-3 border-t border-line/70 space-y-2.5">
+            <div className="pt-3.5 border-t border-line/70 space-y-2">
               <Link to="/prescriptions/new" className="w-full block">
                 <Button
                   variant="secondary"
-                  size="md"
-                  leftIcon={<PlusIcon size={15} />}
-                  className="w-full h-11 justify-center text-xs font-bold tap-spring shadow-2xs rounded-xl"
+                  size="sm"
+                  leftIcon={<PlusIcon size={14} />}
+                  className="w-full h-10 justify-center text-xs font-bold tap-spring shadow-2xs rounded-xl"
                 >
                   Scan New Prescription
                 </Button>
               </Link>
-              <div className="flex items-center justify-center gap-1.5 text-[11px] text-content-subtle pt-1">
-                <ShieldCheck size={13} className="text-teal-600" />
+              <div className="flex items-center justify-center gap-1.5 text-[10px] text-content-subtle">
+                <ShieldCheck size={12} className="text-teal-600" />
                 <span>EHR Verified Chronotherapy</span>
               </div>
             </div>
