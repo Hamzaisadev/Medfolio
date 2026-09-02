@@ -23,7 +23,7 @@ export function OfflineBanner() {
     <div
       role="status"
       aria-live="polite"
-      className="bg-warn-bg border-b border-warn-border px-4 py-2.5 text-center text-xs font-semibold text-warn-text flex items-center justify-center gap-2"
+      className="offline-banner print:hidden bg-warn-bg border-b border-warn-border px-4 py-2.5 text-center text-xs font-semibold text-warn-text flex items-center justify-center gap-2"
     >
       <StatusDot tone="warn" pulse size={7} />
       <span>Working offline — your saved doses, records and emergency numbers still work.</span>

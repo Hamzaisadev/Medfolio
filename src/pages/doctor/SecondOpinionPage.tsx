@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { AppShell } from '../../components/layout/AppShell';
 import { useAuth } from '../../lib/auth/AuthContext';
@@ -9,7 +9,8 @@ import { listGlucoseReadings, listBloodPressureReadings } from '../../lib/db/vit
 import type { GlucoseReading, BloodPressureReading } from '../../domain/vitals';
 import { generateWatermarkMetadata, WatermarkMetadata } from '../../lib/security/watermark';
 import { Button } from '../../components/ui/Button';
-import { PrinterIcon, ShieldIcon } from '../../components/ui/icons';
+import { PrinterIcon, DownloadIcon, ShieldIcon } from '../../components/ui/icons';
+import { exportElementToPdf } from '../../lib/export/pdfExport';
 
 export function SecondOpinionPage() {
   const { user, profile } = useAuth();
@@ -26,6 +27,8 @@ export function SecondOpinionPage() {
   const [bp, setBp] = useState<BloodPressureReading[]>([]);
   const [watermark, setWatermark] = useState<WatermarkMetadata | null>(null);
   const [_isLoading, setIsLoading] = useState(true);
+  const [isExporting, setIsExporting] = useState(false);
+  const dossierRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     async function loadData() {
@@ -88,6 +91,22 @@ export function SecondOpinionPage() {
     return labResults.filter((r) => r.range_status === 'above' || r.range_status === 'below');
   }, [labResults]);
 
+  const handleExportPdf = async () => {
+    if (!dossierRef.current || isExporting) return;
+    setIsExporting(true);
+    try {
+      const slug = displayName.replace(/[^a-zA-Z0-9_-]/g, '_');
+      await exportElementToPdf(dossierRef.current, {
+        filename: `Second_Opinion_Dossier_${slug}.pdf`,
+      });
+    } catch (err) {
+      console.error('Failed to export PDF directly, falling back to print:', err);
+      window.print();
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const handlePrint = () => {
     window.print();
   };
@@ -114,9 +133,18 @@ export function SecondOpinionPage() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2 print:hidden">
-            <Button variant="primary" size="sm" onClick={handlePrint} leftIcon={<PrinterIcon size={14} />}>
-              Print / Save PDF
+          <div className="flex items-center gap-2 print:hidden flex-wrap">
+            <Button variant="secondary" size="sm" onClick={handlePrint} leftIcon={<PrinterIcon size={14} />}>
+              Print
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleExportPdf}
+              disabled={isExporting}
+              leftIcon={<DownloadIcon size={14} />}
+            >
+              {isExporting ? 'Generating PDF...' : 'Export Dossier (PDF)'}
             </Button>
           </div>
         </div>
@@ -160,7 +188,10 @@ export function SecondOpinionPage() {
         </div>
 
         {/* PRINTABLE DOSSIER SHEET */}
-        <div className="bg-white border border-ink-200/90 rounded-3xl p-6 sm:p-10 shadow-sm print:border-none print:shadow-none print:p-0 space-y-6">
+        <div
+          ref={dossierRef}
+          className="bg-white border border-ink-200/90 rounded-3xl p-6 sm:p-10 shadow-sm print:border-none print:shadow-none print:p-0 space-y-6"
+        >
           {/* Official Verification Watermark Header */}
           <div className="flex items-center justify-between pb-4 border-b-2 border-teal-900">
             <div>

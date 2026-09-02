@@ -336,6 +336,21 @@
    `.dark` is re-declared with light values so it wins on source order.
    --------------------------------------------------------------------------- */
 @media print {
+  header,
+  nav,
+  aside,
+  footer,
+  .print\:hidden,
+  [data-floating-assistant],
+  .offline-banner {
+    display: none !important;
+  }
+
+  @page {
+    size: A4 portrait;
+    margin: 10mm;
+  }
+
   :root, .dark {
     color-scheme: light;
 
@@ -377,6 +392,13 @@
   }
 
   body {
-    background: oklch(1 0 0);
+    background: oklch(1 0 0) !important;
+    color: #000000 !important;
+  }
+
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: 100% !important;
   }
 }

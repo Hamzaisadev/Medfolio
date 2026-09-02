@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { MessageCircle, ShoppingBag } from 'lucide-react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { AppShell } from '../../components/layout/AppShell';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
@@ -443,6 +443,15 @@ export function MedicineDetailPage() {
                     <p className="text-content-muted mt-0.5">{visit.doctor_advice}</p>
                   </div>
                 )}
+                <div className="pt-2 border-t border-line">
+                  <Link
+                    to={`/visits/${visit.id}`}
+                    className="text-xs font-bold text-teal-700 dark:text-teal-400 hover:underline flex items-center justify-between"
+                  >
+                    <span>View Full Visit Record</span>
+                    <span>&rarr;</span>
+                  </Link>
+                </div>
               </div>
             ) : (
               <p className="text-xs text-content-subtle">

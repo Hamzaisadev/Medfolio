@@ -1,10 +1,11 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { sharesRepo } from '../../lib/db';
 import { activeMedicines } from '../../domain/activeMedicines';
 import { mealRelationLabel } from '../../domain/mealRelation';
 import { todayInAppTz } from '../../lib/time';
-import { MedicineIcon, StethoscopeIcon, AlertTriangleIcon } from '../../components/ui/icons';
+import { MedicineIcon, StethoscopeIcon, AlertTriangleIcon, DownloadIcon, PrinterIcon } from '../../components/ui/icons';
+import { exportElementToPdf } from '../../lib/export/pdfExport';
 import type { Tables } from '../../lib/supabase/types';
 
 export function PublicShareView() {
@@ -13,6 +14,8 @@ export function PublicShareView() {
   const [isLoading, setIsLoading] = useState(true);
   const [isInvalid, setIsInvalid] = useState(false);
   const [invalidReason, setInvalidReason] = useState<string>('');
+  const [isExporting, setIsExporting] = useState(false);
+  const shareRef = useRef<HTMLDivElement>(null);
 
   const [profile, setProfile] = useState<Tables<'profiles'> | null>(null);
   const [medicines, setMedicines] = useState<Tables<'medicines'>[]>([]);
@@ -31,24 +34,22 @@ export function PublicShareView() {
 
       setIsLoading(true);
       try {
-        // Single security-definer call: it hashes the token server-side and
-        // returns only the records this link authorises. Unknown, revoked and
-        // expired tokens are indistinguishable by design.
         const brief = await sharesRepo.fetchSharedBrief(token);
-
-        if (!brief) {
+        if (!brief || !brief.profile) {
           setIsInvalid(true);
           setInvalidReason('This share link is invalid, has been revoked, or has expired.');
           return;
         }
-
         setProfile(brief.profile);
         setMedicines(brief.medicines);
         setVisits(brief.visits);
-      } catch (err) {
-        console.error('Failed to load shared record:', err);
+      } catch (err: unknown) {
         setIsInvalid(true);
-        setInvalidReason('Failed to load clinical brief. Please check your connection.');
+        setInvalidReason(
+          err instanceof Error
+            ? err.message
+            : 'This share link is invalid, expired, or has been revoked by the patient.'
+        );
       } finally {
         setIsLoading(false);
       }
@@ -61,38 +62,51 @@ export function PublicShareView() {
     return activeMedicines(medicines, today);
   }, [medicines, today]);
 
+  const handleExportPdf = async () => {
+    if (!shareRef.current || isExporting) return;
+    setIsExporting(true);
+    try {
+      const slug = (profile?.full_name || 'Patient').replace(/[^a-zA-Z0-9_-]/g, '_');
+      await exportElementToPdf(shareRef.current, {
+        filename: `${slug}_Shared_Medical_Brief.pdf`,
+      });
+    } catch (err) {
+      console.error('Failed to export shared brief PDF:', err);
+      window.print();
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-ink-50 flex items-center justify-center p-6">
+      <div className="min-h-screen bg-ink-50 flex items-center justify-center p-4">
         <div className="text-center space-y-3">
-          <div className="w-10 h-10 border-3 border-teal-600 border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-sm font-semibold text-ink-700">Loading Clinical Brief...</p>
+          <div className="w-8 h-8 border-2 border-teal-800 border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-xs text-ink-600 font-semibold">Verifying secure clinical share link...</p>
         </div>
       </div>
     );
   }
 
-  if (isInvalid) {
+  if (isInvalid || !profile) {
     return (
-      <div className="min-h-screen bg-ink-50 flex items-center justify-center p-6">
-        <div className="max-w-md w-full bg-white p-8 rounded-2xl border border-ink-200 shadow-sm text-center space-y-4">
-          <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center mx-auto text-xl font-bold">
-            !
+      <div className="min-h-screen bg-ink-50 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white border border-red-200 rounded-2xl p-6 text-center space-y-4 shadow-sm">
+          <div className="w-12 h-12 rounded-full bg-red-100 text-red-700 flex items-center justify-center mx-auto">
+            <AlertTriangleIcon size={24} />
           </div>
-          <h1 className="text-lg font-bold text-ink-900">Link No Longer Available</h1>
+          <h1 className="text-lg font-bold text-ink-900">Access Denied or Link Expired</h1>
           <p className="text-xs text-ink-600 leading-relaxed">{invalidReason}</p>
-          <p className="text-[11px] text-ink-400">
-            Please ask the patient to generate a new share link or QR code from their Medfolio application.
-          </p>
         </div>
       </div>
     );
   }
 
-  // Both columns are free-text; split on commas for display and drop blanks so
-  // a trailing comma does not render an empty chip.
-  const splitList = (value: string | null | undefined): string[] => {
+  const splitList = (value: unknown): string[] => {
+    if (Array.isArray(value)) return value;
     const parts = (value ?? '')
+      .toString()
       .split(',')
       .map((s) => s.trim())
       .filter(Boolean);
@@ -103,8 +117,11 @@ export function PublicShareView() {
   const conditions = splitList(profile?.chronic_conditions);
 
   return (
-    <div className="min-h-screen bg-ink-50 py-8 px-4 sm:px-6">
-      <div className="max-w-3xl mx-auto bg-white border border-ink-200 rounded-2xl shadow-sm p-6 sm:p-8 space-y-6">
+    <div className="min-h-screen bg-ink-50 py-8 px-4 sm:px-6 print:bg-white print:p-0">
+      <div
+        ref={shareRef}
+        className="max-w-3xl mx-auto bg-white border border-ink-200 rounded-2xl shadow-sm p-6 sm:p-8 space-y-6 print:border-0 print:shadow-none print:p-0"
+      >
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-6 border-b border-ink-200 gap-4">
           <div>
@@ -121,13 +138,25 @@ export function PublicShareView() {
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={() => window.print()}
-            className="text-xs font-bold px-3 py-1.5 rounded-md border border-ink-200 bg-ink-50 hover:bg-ink-100 text-ink-800"
-          >
-            Print Sheet (A4)
-          </button>
+          <div className="flex items-center gap-2 print:hidden flex-wrap">
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="inline-flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-md border border-ink-200 bg-ink-50 hover:bg-ink-100 text-ink-800 cursor-pointer"
+            >
+              <PrinterIcon size={13} />
+              <span>Print Sheet</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleExportPdf}
+              disabled={isExporting}
+              className="inline-flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-md bg-teal-700 hover:bg-teal-800 text-white cursor-pointer disabled:opacity-50"
+            >
+              <DownloadIcon size={13} />
+              <span>{isExporting ? 'Generating...' : 'Download PDF'}</span>
+            </button>
+          </div>
         </div>
 
         {/* High Risk Flags */}

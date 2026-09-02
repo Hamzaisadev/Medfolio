@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { AppShell } from '../../components/layout/AppShell';
 import { PageHeader } from '../../components/layout/PageHeader';
@@ -10,12 +10,14 @@ import {
   StethoscopeIcon,
   LabFlaskIcon,
   PrinterIcon,
+  DownloadIcon,
   AlertTriangleIcon,
 } from '../../components/ui/icons';
 import { activeMedicines, recentlyFinishedMedicines } from '../../domain/activeMedicines';
 import { todayInAppTz } from '../../lib/time';
 import { useAuth } from '../../lib/auth/AuthContext';
 import { medicinesRepo, profilesRepo, visitsRepo, reportsRepo } from '../../lib/db';
+import { exportElementToPdf } from '../../lib/export/pdfExport';
 import type { Tables } from '../../lib/supabase/types';
 
 export function DoctorBriefPage() {
@@ -26,6 +28,8 @@ export function DoctorBriefPage() {
   const [recentReports, setRecentReports] = useState<Tables<'reports'>[]>([]);
   const [reportResults, setReportResults] = useState<Record<string, Tables<'report_results'>[]>>({});
   const [isLoading, setIsLoading] = useState(true);
+  const [isExporting, setIsExporting] = useState(false);
+  const dossierRef = useRef<HTMLDivElement>(null);
 
   const effectiveUserId = user?.id || authProfile?.user_id || '';
   const effectiveProfileId = authProfile?.id || effectiveUserId;
@@ -73,6 +77,22 @@ export function DoctorBriefPage() {
     return recentlyFinishedMedicines(medicines, today, 30);
   }, [medicines, today]);
 
+  const handleExportPdf = async () => {
+    if (!dossierRef.current || isExporting) return;
+    setIsExporting(true);
+    try {
+      const patientSlug = (profile?.full_name || 'Patient').replace(/[^a-zA-Z0-9_-]/g, '_');
+      await exportElementToPdf(dossierRef.current, {
+        filename: `${patientSlug}_Clinical_Dossier_${today}.pdf`,
+      });
+    } catch (err) {
+      console.error('Failed to export PDF directly, falling back to print:', err);
+      window.print();
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const handlePrint = () => {
     window.print();
   };
@@ -109,12 +129,27 @@ export function DoctorBriefPage() {
           title="Printable Doctor Brief & Clinical Dossier"
           description="A concise, high-density clinical summary formatted for your consulting doctor or hospital triage."
           action={
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
               <Link to="/share">
-                <Button variant="secondary">Digital Share Link</Button>
+                <Button variant="secondary" size="sm">Digital Share Link</Button>
               </Link>
-              <Button variant="primary" onClick={handlePrint} className="font-bold shadow-xs" leftIcon={<PrinterIcon size={16} />}>
-                Export Clinical Dossier (PDF / Print)
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handlePrint}
+                leftIcon={<PrinterIcon size={15} />}
+              >
+                Print
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleExportPdf}
+                disabled={isExporting}
+                className="font-bold shadow-xs"
+                leftIcon={<DownloadIcon size={15} />}
+              >
+                {isExporting ? 'Generating PDF...' : 'Export Clinical Dossier (PDF)'}
               </Button>
             </div>
           }
@@ -122,7 +157,10 @@ export function DoctorBriefPage() {
       </div>
 
       {/* Printable Clinical Sheet (A4 Layout) */}
-      <div className="max-w-4xl mx-auto bg-white border border-ink-200 rounded-[var(--radius-lg)] p-6 sm:p-8 shadow-sm print:border-0 print:p-0 print:shadow-none space-y-6 print:space-y-4">
+      <div
+        ref={dossierRef}
+        className="max-w-4xl mx-auto bg-white border border-ink-200 rounded-[var(--radius-lg)] p-6 sm:p-8 shadow-sm print:border-0 print:p-0 print:shadow-none space-y-6 print:space-y-4"
+      >
         {/* Patient Clinical Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-4 border-b-2 border-ink-900 gap-4">
           <div>

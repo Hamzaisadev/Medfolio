@@ -86,7 +86,7 @@ export function SearchRecordsPage() {
           subtitle: v.clinic_name || 'Clinic / Hospital',
           snippet: v.diagnosis ? `Diagnosis: ${v.diagnosis}` : v.doctor_advice || 'Consultation record',
           date: v.visit_date,
-          linkUrl: '/timeline',
+          linkUrl: `/visits/${v.id}`,
           badgeText: 'Doctor Visit',
         });
       }

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { AppShell } from '../../components/layout/AppShell';
 import { useAuth } from '../../lib/auth/AuthContext';
@@ -7,7 +7,8 @@ import { listReports, getReportResults } from '../../lib/db/reports';
 import { listGlucoseReadings, listBloodPressureReadings } from '../../lib/db/vitals';
 import { generateDoctorQuestions, DoctorQuestion } from '../../domain/doctorQuestions';
 import { Button } from '../../components/ui/Button';
-import { CopyIcon, PrinterIcon, SparklesIcon, CheckIcon } from '../../components/ui/icons';
+import { CopyIcon, PrinterIcon, DownloadIcon, SparklesIcon, CheckIcon } from '../../components/ui/icons';
+import { exportElementToPdf } from '../../lib/export/pdfExport';
 
 export function DoctorQuestionsPage() {
   const { user, profile } = useAuth();
@@ -19,6 +20,8 @@ export function DoctorQuestionsPage() {
   const [customQuestionText, setCustomQuestionText] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const checklistRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     async function loadClinicalData() {
@@ -105,13 +108,28 @@ export function DoctorQuestionsPage() {
     }
   };
 
+  const handleExportPdf = async () => {
+    if (!checklistRef.current || isExporting) return;
+    setIsExporting(true);
+    try {
+      await exportElementToPdf(checklistRef.current, {
+        filename: 'Doctor_Consultation_Questions.pdf',
+      });
+    } catch (err) {
+      console.error('Failed to export questions PDF, falling back to print:', err);
+      window.print();
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const handlePrint = () => {
     window.print();
   };
 
   return (
     <AppShell>
-      <div className="space-y-6 max-w-4xl mx-auto print:max-w-full print:p-0">
+      <div ref={checklistRef} className="space-y-6 max-w-4xl mx-auto print:max-w-full print:p-0">
         {/* Header Bar */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-ink-200/80 pb-4">
           <div>
@@ -131,7 +149,7 @@ export function DoctorQuestionsPage() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2 print:hidden">
+          <div className="flex items-center gap-2 print:hidden flex-wrap">
             <Button
               variant="secondary"
               size="sm"
@@ -140,8 +158,17 @@ export function DoctorQuestionsPage() {
             >
               {copied ? 'Copied to Clipboard' : 'Copy All'}
             </Button>
-            <Button variant="primary" size="sm" onClick={handlePrint} leftIcon={<PrinterIcon size={14} />}>
-              Print Checklist
+            <Button variant="secondary" size="sm" onClick={handlePrint} leftIcon={<PrinterIcon size={14} />}>
+              Print
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleExportPdf}
+              disabled={isExporting}
+              leftIcon={<DownloadIcon size={14} />}
+            >
+              {isExporting ? 'Generating PDF...' : 'Download PDF'}
             </Button>
           </div>
         </div>

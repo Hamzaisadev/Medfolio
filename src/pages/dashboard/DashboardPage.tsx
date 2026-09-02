@@ -1,17 +1,14 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { AppShell } from '../../components/layout/AppShell';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Skeleton } from '../../components/ui/Skeleton';
-import { ProgressRing } from '../../components/ui/ProgressRing';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { SectionHeader } from '../../components/ui/SectionHeader';
 import { Toast } from '../../components/ui/Toast';
-import { MilestoneBadgeCard } from '../../components/ui/MilestoneBadgeCard';
-import { MilestoneCelebrationModal } from '../../components/ui/MilestoneCelebrationModal';
 import { QuickVitalsModal } from '../../components/vitals/QuickVitalsModal';
 import { mealRelationIcon } from '../../components/ui/slotMeta';
 import { VITAL_TONE } from '../../components/ui/vitalTone';
@@ -19,7 +16,6 @@ import {
   PrescriptionIcon,
   LabFlaskIcon,
   MedicineIcon,
-  MedalIcon,
   DropletIcon,
   HeartPulseIcon,
   QuestionIcon,
@@ -32,17 +28,24 @@ import {
   FlameIcon,
   ActivityIcon,
   PlusIcon,
-  CabinetIcon,
   CalendarIcon,
-  AlertTriangleIcon,
+  AlertCircleIcon,
+  DoctorIcon,
+  BarChartIcon,
 } from '../../components/ui/icons';
 import { useAuth } from '../../lib/auth/AuthContext';
-import { medicinesRepo, dosesRepo, testOrdersRepo, reportsRepo, visitsRepo } from '../../lib/db';
+import {
+  medicinesRepo,
+  dosesRepo,
+  testOrdersRepo,
+  reportsRepo,
+  visitsRepo,
+} from '../../lib/db';
+import { listResultsForReport, type ReportResult } from '../../lib/db/reports';
 import { listGlucoseReadings, listBloodPressureReadings } from '../../lib/db/vitals';
 import { decrementPill, readInventory } from '../../lib/inventory';
 import { activeMedicines } from '../../domain/activeMedicines';
-import { evaluateAchievements, type Achievement } from '../../domain/achievements';
-import { calculateAdherence, calculateAdherenceStreak, deriveStatusOnRead } from '../../domain/adherence';
+import { calculateAdherenceStreak, deriveStatusOnRead } from '../../domain/adherence';
 import {
   evaluateGlucose,
   evaluateBloodPressure,
@@ -50,8 +53,16 @@ import {
   type GlucoseReading,
   type BloodPressureReading,
 } from '../../domain/vitals';
+import { checkRedFlags } from '../../domain/redFlags';
 import { mealRelationOf, mealRelationInstruction } from '../../domain/mealRelation';
-import { todayInAppTz, addDaysAppTz, formatDoseTime, minutesInAppTz, formatDayHeading } from '../../lib/time';
+import {
+  todayInAppTz,
+  addDaysAppTz,
+  formatDoseTime,
+  minutesInAppTz,
+  formatDayHeading,
+  formatDateShort,
+} from '../../lib/time';
 import { staggerContainer, staggerItem } from '../../lib/motion';
 import type { Tables } from '../../lib/supabase/types';
 
@@ -75,23 +86,46 @@ const EMERGENCY_NUMBERS = [
   { tel: '1020', label: 'Chhipa Welfare' },
 ];
 
+const QUICK_SYMPTOM_TAGS = [
+  'Headache',
+  'Chest Tightness',
+  'Dizziness',
+  'Fever',
+  'Dry Cough',
+  'Nausea',
+  'Shortness of Breath',
+  'Stomach Pain',
+];
+
+interface TimelineEventSummary {
+  id: string;
+  type: 'visit' | 'report' | 'medicine';
+  title: string;
+  subtitle: string;
+  dateStr: string;
+  link: string;
+}
+
 export function DashboardPage() {
-  const navigate = useNavigate();
   const { user, profile } = useAuth();
   const [activeMedsList, setActiveMedsList] = useState<Tables<'medicines'>[]>([]);
   const [medsMap, setMedsMap] = useState<Record<string, Tables<'medicines'>>>({});
   const [todayDoses, setTodayDoses] = useState<Tables<'doses'>[]>([]);
   const [streakDoses, setStreakDoses] = useState<Tables<'doses'>[]>([]);
   const [pendingOrders, setPendingOrders] = useState<Tables<'test_orders'>[]>([]);
-  const [recordCounts, setRecordCounts] = useState({ reports: 0, visits: 0 });
+  const [recentReports, setRecentReports] = useState<Tables<'reports'>[]>([]);
+  const [recentVisits, setRecentVisits] = useState<Tables<'visits'>[]>([]);
+  const [labResults, setLabResults] = useState<ReportResult[]>([]);
 
   const [glucoseLogs, setGlucoseLogs] = useState<GlucoseReading[]>([]);
   const [bpLogs, setBpLogs] = useState<BloodPressureReading[]>([]);
 
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [selectedMilestone, setSelectedMilestone] = useState<Achievement | null>(null);
   const [toast, setToast] = useState<{ message: string; tone: 'ok' | 'risk' } | null>(null);
+
+  // Interactive Quick Symptom Checker State
+  const [selectedSymptom, setSelectedSymptom] = useState<string | null>(null);
 
   // Quick Vitals Logger Modal
   const [quickVitalsModal, setQuickVitalsModal] = useState<{
@@ -131,9 +165,22 @@ export function DashboardPage() {
       setStreakDoses(doses);
       setTodayDoses(doses.filter((d) => d.scheduled_date === today));
       setPendingOrders(orders);
-      setRecordCounts({ reports: reports.length, visits: visits.length });
+      setRecentReports(reports);
+      setRecentVisits(visits);
       setGlucoseLogs(glucose);
       setBpLogs(bp);
+
+      // Load lab results for top recent reports to surface out-of-range biomarkers
+      if (reports.length > 0) {
+        try {
+          const resultsNested = await Promise.all(
+            reports.slice(0, 5).map((r) => listResultsForReport(r.id))
+          );
+          setLabResults(resultsNested.flat());
+        } catch (rErr) {
+          console.warn('Could not load detailed lab results:', rErr);
+        }
+      }
     } catch (err) {
       console.error('Failed to load dashboard data:', err);
       setLoadError('Your dashboard could not be loaded. Check your connection and try again.');
@@ -173,14 +220,7 @@ export function DashboardPage() {
     is_prn: isPrnMedicine(medsMap[d.medicine_id]),
   });
 
-  const adherence = calculateAdherence(
-    todayDoses.map(toDoseRecord),
-    { from: today, to: today },
-    new Date()
-  );
   const streakDays = calculateAdherenceStreak(streakDoses.map(toDoseRecord), new Date());
-
-  const hasScheduledToday = adherence.scheduled > 0;
   const firstName = profile?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || 'there';
 
   const nowMinutes = minutesInAppTz();
@@ -192,9 +232,7 @@ export function DashboardPage() {
     .sort((a, b) => a.scheduled_minutes - b.scheduled_minutes);
   const nextDose = outstanding.find((d) => d.scheduled_minutes >= nowMinutes) ?? outstanding[0];
   const nextMedicine = nextDose ? medsMap[nextDose.medicine_id] : undefined;
-
   const remainingToday = outstanding.length;
-  const takenToday = todayDoses.filter((d) => d.status === 'taken').length;
 
   // Latest Vitals Computation
   const latestGlucose = glucoseLogs[0];
@@ -225,22 +263,90 @@ export function DashboardPage() {
     });
   }, [activeMedsList, profileId]);
 
-  // Adherence achievements
-  const achievements = evaluateAchievements({
-    adherenceStreakDays: streakDays,
-    totalPrescriptions: activeMedsList.length,
-    totalReports: recordCounts.reports,
-    totalVisits: recordCounts.visits,
-    glucoseLogsCount: glucoseLogs.length,
-    inRangeGlucoseCount: glucoseLogs.filter(
-      (g) => evaluateGlucose(g.value_mg_dl, g.type).status === 'normal'
-    ).length,
-    bpLogsCount: bpLogs.length,
-    normalBpCount: bpLogs.filter(
-      (b) => evaluateBloodPressure(b.systolic, b.diastolic).stage === 'normal'
-    ).length,
-  });
-  const unlockedCount = achievements.filter((a) => a.unlocked).length;
+  // Estimated Monthly Healthcare Spend (in PKR / Rs.)
+  const monthlySpendEstimate = useMemo(() => {
+    try {
+      const savedExpenses = localStorage.getItem(`medfolio_health_expenses_v1_${profileId}`);
+      if (savedExpenses) {
+        const parsed = JSON.parse(savedExpenses);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+        }
+      }
+    } catch {
+      // fallback
+    }
+    // Baseline projection based on active medicines + recorded visits
+    const medCost = activeMedsList.length * 950;
+    const visitCost = recentVisits.reduce((sum, v) => sum + (v.visit_cost || 0), 0);
+    return medCost + visitCost;
+  }, [profileId, activeMedsList, recentVisits]);
+
+  // Flagged out-of-range biomarkers from diagnostic lab reports
+  const outOfRangeBiomarkers = useMemo(() => {
+    return labResults.filter(
+      (r) => r.range_status !== 'within' && r.range_status !== 'unknown'
+    );
+  }, [labResults]);
+
+  // Live Symptom Triage Evaluation
+  const symptomTriageResult = useMemo(() => {
+    if (!selectedSymptom) return null;
+    const redFlagCheck = checkRedFlags(selectedSymptom);
+    return {
+      name: selectedSymptom,
+      isEmergency: redFlagCheck.isEmergency,
+      advice: redFlagCheck.isEmergency
+        ? 'High clinical priority: Seek urgent medical attention or consultation immediately.'
+        : 'Common clinical symptom: Monitor hydration and rest. Can be added to your doctor brief.',
+    };
+  }, [selectedSymptom]);
+
+  // Unified Longitudinal Timeline Summary (Last 3 events)
+  const recentTimelineEvents = useMemo(() => {
+    const events: TimelineEventSummary[] = [];
+
+    // 1. Doctor Visits
+    for (const v of recentVisits) {
+      events.push({
+        id: `visit-${v.id}`,
+        type: 'visit',
+        title: v.doctor_name ? `Dr. ${v.doctor_name}` : 'Doctor Consultation',
+        subtitle: [v.specialty, v.clinic_name].filter(Boolean).join(' · ') || 'Clinical visit',
+        dateStr: v.visit_date,
+        link: '/doctor/brief',
+      });
+    }
+
+    // 2. Lab Reports
+    for (const r of recentReports) {
+      events.push({
+        id: `report-${r.id}`,
+        type: 'report',
+        title: r.title || 'Diagnostic Lab Report',
+        subtitle: r.lab_name ? `Lab: ${r.lab_name}` : 'Test results added',
+        dateStr: r.report_date,
+        link: '/reports',
+      });
+    }
+
+    // 3. Active Medicines
+    for (const m of activeMedsList.slice(0, 3)) {
+      events.push({
+        id: `med-${m.id}`,
+        type: 'medicine',
+        title: m.medicine_name,
+        subtitle: [m.strength, m.frequency_raw].filter(Boolean).join(' · ') || 'Active prescription',
+        dateStr: m.start_date || today,
+        link: `/medicines/${m.id}`,
+      });
+    }
+
+    // Sort descending by date
+    return events
+      .sort((a, b) => new Date(b.dateStr).getTime() - new Date(a.dateStr).getTime())
+      .slice(0, 3);
+  }, [recentVisits, recentReports, activeMedsList, today]);
 
   const currentHour = new Date().getHours();
   const timeGreeting =
@@ -265,7 +371,7 @@ export function DashboardPage() {
         animate="visible"
         className="space-y-6"
       >
-        {/* Top Greeting & Action Header */}
+        {/* ── Top Greeting & Primary Actions ─────────────────────────────────── */}
         <motion.div
           variants={staggerItem}
           className="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
@@ -316,18 +422,18 @@ export function DashboardPage() {
         ) : (
           <>
             {/* ═════════════════════════════════════════════════════════════════════
-                BENTO ROW 1: MEDICATION & ADHERENCE COMMAND CENTER (HERO)
+                BENTO ROW 1: THE CORE COMMAND CENTER (8 + 4 COLS)
                 ═════════════════════════════════════════════════════════════════════ */}
-            <motion.section variants={staggerItem} aria-labelledby="medication-hub-heading">
-              <h2 id="medication-hub-heading" className="sr-only">
-                Medication & Adherence Command Center
+            <motion.section variants={staggerItem} aria-labelledby="core-hub-heading">
+              <h2 id="core-hub-heading" className="sr-only">
+                Medication and Spend Command Center
               </h2>
 
               {isLoading ? (
-                <Skeleton className="h-44 w-full rounded-[var(--radius-xl)]" />
+                <Skeleton className="h-48 w-full rounded-[var(--radius-xl)]" />
               ) : (
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
-                  {/* Next Scheduled Dose Hero (8 Columns) */}
+                  {/* Card 1: Next Scheduled Dose Hero (8 Columns) */}
                   <div className="lg:col-span-8 flex">
                     {nextDose ? (
                       <Card className="p-5 sm:p-6 bg-surface-raised border border-line shadow-card hover:shadow-raise transition-all relative overflow-hidden flex flex-col justify-between w-full">
@@ -372,6 +478,12 @@ export function DashboardPage() {
                               </span>
                               <span>{mealRelationInstruction(nextMedicine?.with_food)}</span>
                             </span>
+
+                            {remainingToday > 0 && (
+                              <span className="text-2xs px-2.5 py-1 rounded-lg bg-surface-sunken text-content-subtle font-medium border border-line">
+                                {remainingToday} dose{remainingToday === 1 ? '' : 's'} remaining today
+                              </span>
+                            )}
                           </div>
 
                           {nextMedicine?.instructions && (
@@ -382,11 +494,15 @@ export function DashboardPage() {
                           )}
                         </div>
 
-                        {/* Quick 1-Tap Take Action */}
+                        {/* Quick 1-Tap Take Action & Timetable Link */}
                         <div className="mt-5 pt-3 border-t border-line flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-                          <p className="text-xs text-content-muted">
-                            {remainingToday} dose{remainingToday === 1 ? '' : 's'} remaining today
-                          </p>
+                          <Link
+                            to="/medicines"
+                            className="text-xs font-bold text-accent hover:text-accent-hover flex items-center gap-1"
+                          >
+                            <span>Open Timetable</span>
+                            <ArrowRightIcon size={13} />
+                          </Link>
                           <Button
                             size="md"
                             variant="primary"
@@ -399,30 +515,36 @@ export function DashboardPage() {
                         </div>
                       </Card>
                     ) : (
-                      <Card className="p-6 bg-surface-raised border border-line shadow-card flex flex-col justify-center w-full">
+                      <Card className="p-6 bg-surface-raised border border-line shadow-card flex flex-col justify-between w-full">
                         <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                           <span className="shrink-0 flex items-center justify-center w-12 h-12 rounded-2xl bg-ok-bg text-ok-text border border-ok-border">
                             <CheckIcon size={24} className="stroke-[2.5]" />
                           </span>
                           <div className="flex-1 min-w-0">
                             <p className="text-base font-bold text-content">
-                              {hasScheduledToday
-                                ? 'All doses completed for today!'
-                                : activeMedsList.length > 0
-                                  ? 'Nothing due right now'
-                                  : 'No active medicine courses scheduled'}
+                              All scheduled doses completed!
                             </p>
                             <p className="mt-1 text-xs text-content-muted">
-                              {hasScheduledToday
-                                ? `You completed all ${takenToday} scheduled doses today. Outstanding consistency!`
-                                : activeMedsList.length > 0
-                                  ? 'Your next scheduled dose will show up here automatically.'
-                                  : 'Scan or enter a prescription to generate your automated timetable.'}
+                              {activeMedsList.length > 0
+                                ? 'Your upcoming schedule is clean. Next due doses will appear here automatically.'
+                                : 'Scan or enter a prescription to generate your automated timetable.'}
                             </p>
                           </div>
+                        </div>
+
+                        <div className="mt-4 pt-3 border-t border-line flex items-center justify-between">
+                          <Link
+                            to="/medicines"
+                            className="text-xs font-bold text-accent hover:underline flex items-center gap-1"
+                          >
+                            <span>View Full Timetable</span>
+                            <ArrowRightIcon size={13} />
+                          </Link>
                           {activeMedsList.length === 0 && (
-                            <Link to="/prescriptions/new" className="shrink-0">
-                              <Button leftIcon={<PrescriptionIcon size={16} />}>Scan Prescription</Button>
+                            <Link to="/prescriptions/new">
+                              <Button size="sm" leftIcon={<PrescriptionIcon size={14} />}>
+                                Scan Prescription
+                              </Button>
                             </Link>
                           )}
                         </div>
@@ -430,54 +552,69 @@ export function DashboardPage() {
                     )}
                   </div>
 
-                  {/* Today's Adherence Ring (4 Columns) */}
+                  {/* Card 2: Healthcare Finances & Pharmacy Budget (4 Columns) */}
                   <div className="lg:col-span-4 flex">
                     <Card className="p-5 sm:p-6 bg-surface-raised border border-line shadow-card flex flex-col justify-between w-full">
                       <div>
-                        <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center justify-between gap-2 mb-3">
                           <span className="text-2xs uppercase tracking-wider font-bold text-content-subtle">
-                            Today's Adherence
+                            Health Spend & Pharmacy
                           </span>
-                          {streakDays > 0 && (
-                            <span className="text-2xs font-bold text-accent flex items-center gap-1">
-                              <FlameIcon size={12} /> {streakDays}d streak
-                            </span>
-                          )}
+                          <Badge tone="info" size="sm">
+                            PKR
+                          </Badge>
                         </div>
 
-                        <div className="flex items-center gap-4">
-                          <ProgressRing
-                            percentage={hasScheduledToday ? adherence.percentage : 0}
-                            size={64}
-                            strokeWidth={6.5}
-                            tone={
-                              adherence.percentage === 100
-                                ? 'ok'
-                                : adherence.percentage >= 50
-                                  ? 'ok'
-                                  : 'warn'
-                            }
-                          />
-                          <div>
-                            <p className="text-lg font-black text-content leading-snug">
-                              {takenToday} of {takenToday + remainingToday} taken
-                            </p>
-                            <p className="mt-0.5 text-xs text-content-muted">
-                              {hasScheduledToday
-                                ? `${adherence.percentage}% daily adherence`
-                                : 'No doses scheduled'}
-                            </p>
+                        <div className="space-y-1">
+                          <span className="text-2xs text-content-muted block">Estimated Monthly Spend</span>
+                          <div className="flex items-baseline gap-1.5">
+                            <span className="text-2xl sm:text-3xl font-black text-content font-mono">
+                              Rs. {monthlySpendEstimate.toLocaleString()}
+                            </span>
+                            <span className="text-xs font-semibold text-content-subtle">/ month</span>
                           </div>
+                        </div>
+
+                        {/* Refill status badge */}
+                        <div className="mt-3.5 p-2.5 rounded-xl bg-surface-sunken/80 border border-line flex items-center justify-between gap-2">
+                          <div className="min-w-0">
+                            <span className="text-xs font-bold text-content block truncate">
+                              {lowStockMedicines.length > 0
+                                ? `${lowStockMedicines.length} medicine(s) low on stock`
+                                : `${activeMedsList.length} active prescription(s)`}
+                            </span>
+                            <span className="text-2xs text-content-subtle">
+                              {lowStockMedicines.length > 0
+                                ? 'Refill required within 5 days'
+                                : 'Supplies adequately stocked'}
+                            </span>
+                          </div>
+                          {lowStockMedicines.length > 0 ? (
+                            <Badge tone="warn" size="sm">
+                              Refill Due
+                            </Badge>
+                          ) : (
+                            <Badge tone="ok" size="sm">
+                              Stocked
+                            </Badge>
+                          )}
                         </div>
                       </div>
 
-                      <Link
-                        to="/medicines"
-                        className="mt-5 pt-3 border-t border-line inline-flex items-center justify-between text-xs font-bold text-accent hover:text-accent-hover transition-colors"
-                      >
-                        <span>Open full timetable</span>
-                        <ArrowRightIcon size={14} />
-                      </Link>
+                      <div className="mt-4 pt-3 border-t border-line flex items-center justify-between gap-2">
+                        <Link
+                          to="/finances"
+                          className="text-xs font-bold text-accent hover:text-accent-hover flex items-center gap-1"
+                        >
+                          <span>Manage Expenses</span>
+                          <ArrowRightIcon size={13} />
+                        </Link>
+                        <Link to="/medicines/cabinet">
+                          <Button size="sm" variant="secondary" leftIcon={<MedicineIcon size={14} />}>
+                            Reorder Refill
+                          </Button>
+                        </Link>
+                      </div>
                     </Card>
                   </div>
                 </div>
@@ -485,7 +622,7 @@ export function DashboardPage() {
             </motion.section>
 
             {/* ═════════════════════════════════════════════════════════════════════
-                BENTO ROW 2: INTERACTIVE VITALS & BIOMETRICS BENTO
+                BENTO ROW 2: BIOMETRICS & CHRONIC VITALS BENTO (6 + 6 COLS)
                 ═════════════════════════════════════════════════════════════════════ */}
             <motion.section variants={staggerItem} aria-labelledby="vitals-bento-heading">
               <div className="flex items-center justify-between mb-3">
@@ -679,102 +816,77 @@ export function DashboardPage() {
             </motion.section>
 
             {/* ═════════════════════════════════════════════════════════════════════
-                BENTO ROW 3: CLINICAL GUIDANCE & LAB DIAGNOSTICS OVERVIEW
+                BENTO ROW 3: BIOMARKER RADAR & SYMPTOM TRIAGE (7 + 5 COLS)
                 ═════════════════════════════════════════════════════════════════════ */}
-            <motion.section variants={staggerItem} aria-labelledby="clinical-guidance-bento-heading">
-              <h2 id="clinical-guidance-bento-heading" className="sr-only">
-                Clinical Guidance and Lab Diagnostics
+            <motion.section variants={staggerItem} aria-labelledby="biomarkers-symptoms-heading">
+              <h2 id="biomarkers-symptoms-heading" className="sr-only">
+                Biomarkers Radar and Symptom Checker
               </h2>
 
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-                {/* Clinical Guidance Assistant Launchpad (7 Columns) */}
-                <Card className="lg:col-span-7 p-5 bg-gradient-to-br from-surface-raised to-accent-subtle/30 border border-line shadow-card flex flex-col justify-between">
+                {/* 1. Biomarker Radar & Lab Trajectory (7 Columns) */}
+                <Card className="lg:col-span-7 p-5 bg-surface-raised border border-line shadow-card flex flex-col justify-between">
                   <div>
-                    <div className="flex items-center justify-between gap-2 mb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="w-8 h-8 rounded-xl bg-accent text-content-onaccent flex items-center justify-center shadow-xs">
-                          <SparklesIcon size={16} />
-                        </span>
-                        <div>
-                          <h3 className="text-sm font-bold text-content">
-                            Clinical Assistant & Guidance
-                          </h3>
-                          <p className="text-2xs text-content-muted">
-                            Insights grounded directly in your prescriptions and records
-                          </p>
-                        </div>
-                      </div>
-                      <Badge tone="info" size="sm">
-                        24/7 Support
-                      </Badge>
-                    </div>
-
-                    <p className="text-xs text-content-muted mt-2">
-                      Review medication interactions, understand dosage instructions, or prepare
-                      for upcoming consultations.
-                    </p>
-
-                    {/* Quick Query Launchpad Pills */}
-                    <div className="mt-3.5 flex flex-wrap gap-2">
-                      {[
-                        { label: '💊 Check Drug Interactions', path: '/assistant' },
-                        { label: '🩺 Prepare Doctor Brief', path: '/doctor/brief' },
-                        { label: '❓ Consultation Questions', path: '/doctor/questions' },
-                        { label: '⚡ Symptom Triage', path: '/symptoms' },
-                      ].map((item) => (
-                        <button
-                          key={item.label}
-                          type="button"
-                          onClick={() => navigate(item.path)}
-                          className="px-3 py-1.5 rounded-xl bg-surface text-xs font-semibold text-content border border-line hover:border-accent hover:text-accent shadow-2xs transition-all cursor-pointer text-left"
-                        >
-                          {item.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="mt-5 pt-3 border-t border-line flex items-center justify-between">
-                    <span className="text-2xs text-content-subtle">
-                      Private & encrypted medical dossier
-                    </span>
-                    <Link
-                      to="/assistant"
-                      className="text-xs font-bold text-accent hover:text-accent-hover flex items-center gap-1"
-                    >
-                      <span>Open Assistant</span>
-                      <ArrowRightIcon size={13} />
-                    </Link>
-                  </div>
-                </Card>
-
-                {/* Diagnostic Labs & Records (5 Columns) */}
-                <Card className="lg:col-span-5 p-5 bg-surface-raised border border-line shadow-card flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-center justify-between gap-2 mb-2 pb-2 border-b border-line">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-xl bg-surface-sunken text-content-muted border border-line flex items-center justify-center">
-                          <LabFlaskIcon size={16} />
+                    <div className="flex items-center justify-between gap-2 mb-3 pb-2.5 border-b border-line">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 rounded-xl bg-teal-500/10 text-teal-600 border border-teal-500/20 flex items-center justify-center">
+                          <BarChartIcon size={18} />
                         </div>
                         <div>
-                          <h3 className="text-sm font-bold text-content">Labs & Reports</h3>
+                          <h3 className="text-sm font-bold text-content">Biomarker Radar & Labs</h3>
                           <p className="text-2xs text-content-subtle">
-                            Diagnostic orders & tests
+                            Diagnostic test results & flagged markers
                           </p>
                         </div>
                       </div>
 
-                      {pendingOrders.length > 0 && (
+                      {pendingOrders.length > 0 ? (
                         <Badge tone="warn" size="sm">
-                          {pendingOrders.length} Due
+                          {pendingOrders.length} Order(s) Due
+                        </Badge>
+                      ) : (
+                        <Badge tone="ok" size="sm">
+                          {recentReports.length} Reports
                         </Badge>
                       )}
                     </div>
 
-                    {pendingOrders.length > 0 ? (
-                      <div className="mt-2.5 space-y-2">
-                        <span className="text-2xs font-bold uppercase tracking-wider text-content-subtle">
-                          Outstanding Test Orders
+                    {/* Out of range flagged lab results */}
+                    {outOfRangeBiomarkers.length > 0 ? (
+                      <div className="space-y-2">
+                        <span className="text-2xs uppercase tracking-wider font-bold text-content-subtle">
+                          Attention: Flagged Lab Values
+                        </span>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {outOfRangeBiomarkers.slice(0, 4).map((res) => (
+                            <div
+                              key={res.id}
+                              className="p-2.5 rounded-xl bg-warn-bg/30 border border-warn-border/60 flex items-center justify-between gap-2"
+                            >
+                              <div className="min-w-0">
+                                <span className="text-xs font-bold text-content block truncate">
+                                  {res.test_name}
+                                </span>
+                                <span className="text-2xs text-content-subtle">
+                                  Ref: {res.reference_range || 'N/A'}
+                                </span>
+                              </div>
+                              <div className="text-right shrink-0">
+                                <span className="text-xs font-black text-warn-text font-mono block">
+                                  {res.value_text} {res.unit || ''}
+                                </span>
+                                <Badge tone="warn" size="sm">
+                                  {res.range_status === 'above' ? 'High' : 'Low'}
+                                </Badge>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : pendingOrders.length > 0 ? (
+                      <div className="space-y-2">
+                        <span className="text-2xs uppercase tracking-wider font-bold text-content-subtle">
+                          Pending Diagnostic Orders
                         </span>
                         {pendingOrders.slice(0, 2).map((order) => (
                           <div
@@ -782,9 +894,7 @@ export function DashboardPage() {
                             className="p-2.5 rounded-xl bg-surface-sunken/80 border border-line flex items-center justify-between gap-2"
                           >
                             <div className="min-w-0">
-                              <p className="text-xs font-bold text-content truncate">
-                                {order.test_name}
-                              </p>
+                              <p className="text-xs font-bold text-content truncate">{order.test_name}</p>
                               <p className="text-2xs text-content-subtle truncate">
                                 {order.notes || `Ordered on ${order.ordered_date}`}
                               </p>
@@ -796,21 +906,13 @@ export function DashboardPage() {
                         ))}
                       </div>
                     ) : (
-                      <div className="mt-3 space-y-2">
-                        <div className="grid grid-cols-2 gap-2 text-center">
-                          <div className="p-3 rounded-xl bg-surface-sunken/60 border border-line">
-                            <span className="text-lg font-black text-content font-mono block">
-                              {recordCounts.reports}
-                            </span>
-                            <span className="text-2xs text-content-muted">Lab Reports</span>
-                          </div>
-                          <div className="p-3 rounded-xl bg-surface-sunken/60 border border-line">
-                            <span className="text-lg font-black text-content font-mono block">
-                              {recordCounts.visits}
-                            </span>
-                            <span className="text-2xs text-content-muted">Doctor Visits</span>
-                          </div>
-                        </div>
+                      <div className="py-4 text-center rounded-xl bg-surface-sunken/40 border border-line/60">
+                        <p className="text-xs font-semibold text-content-muted">
+                          All recorded biomarkers within expected targets
+                        </p>
+                        <p className="text-2xs text-content-subtle mt-0.5">
+                          Upload new lab reports to track longitudinal trajectories
+                        </p>
                       </div>
                     )}
                   </div>
@@ -825,7 +927,90 @@ export function DashboardPage() {
                       to="/reports"
                       className="text-xs font-bold text-accent hover:underline flex items-center gap-1"
                     >
-                      View All <ArrowRightIcon size={12} />
+                      <span>View All Reports</span>
+                      <ArrowRightIcon size={12} />
+                    </Link>
+                  </div>
+                </Card>
+
+                {/* 2. Interactive Symptom Checker & Triage (5 Columns) */}
+                <Card className="lg:col-span-5 p-5 bg-surface-raised border border-line shadow-card flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-2 pb-2.5 border-b border-line">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-500 border border-indigo-500/20 flex items-center justify-center">
+                          <ActivityIcon size={16} />
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-bold text-content">Quick Symptom Check</h3>
+                          <p className="text-2xs text-content-subtle">1-tap safety triage</p>
+                        </div>
+                      </div>
+                      <Link to="/symptoms" className="text-2xs font-bold text-accent hover:underline">
+                        Full Triage &rarr;
+                      </Link>
+                    </div>
+
+                    <p className="text-2xs text-content-muted mb-2.5">
+                      Select any active symptom for immediate red-flag safety grading:
+                    </p>
+
+                    {/* 1-Tap Symptom Chips */}
+                    <div className="flex flex-wrap gap-1.5">
+                      {QUICK_SYMPTOM_TAGS.map((sym) => (
+                        <button
+                          key={sym}
+                          type="button"
+                          onClick={() =>
+                            setSelectedSymptom(selectedSymptom === sym ? null : sym)
+                          }
+                          className={`px-2.5 py-1 rounded-xl text-2xs font-bold border transition-all cursor-pointer ${
+                            selectedSymptom === sym
+                              ? 'bg-accent text-content-onaccent border-accent shadow-2xs'
+                              : 'bg-surface-sunken text-content-muted border-line hover:border-line-strong'
+                          }`}
+                        >
+                          {sym}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Live Triage Assessment Preview */}
+                    {symptomTriageResult ? (
+                      <div
+                        className={`mt-3 p-2.5 rounded-xl border text-xs ${
+                          symptomTriageResult.isEmergency
+                            ? 'bg-risk-bg text-risk-text border-risk-border'
+                            : 'bg-info-bg text-info-text border-info-border'
+                        }`}
+                      >
+                        <div className="flex items-center gap-1.5 font-bold mb-1">
+                          {symptomTriageResult.isEmergency ? (
+                            <>
+                              <AlertCircleIcon size={14} /> Red-Flag Warning
+                            </>
+                          ) : (
+                            <>
+                              <CheckIcon size={14} /> Triage Assessment
+                            </>
+                          )}
+                        </div>
+                        <p className="text-2xs leading-relaxed">{symptomTriageResult.advice}</p>
+                      </div>
+                    ) : (
+                      <div className="mt-3 p-2.5 rounded-xl bg-surface-sunken/40 border border-line text-2xs text-content-subtle">
+                        Tap a symptom tag above to run instantaneous clinical safety analysis.
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mt-4 pt-3 border-t border-line flex items-center justify-between">
+                    <Link
+                      to="/symptoms"
+                      className="text-xs font-bold text-accent hover:text-accent-hover flex items-center gap-1"
+                    >
+                      <span>Log Detailed Symptom Timeline</span>
+                      <ArrowRightIcon size={12} />
                     </Link>
                   </div>
                 </Card>
@@ -833,189 +1018,206 @@ export function DashboardPage() {
             </motion.section>
 
             {/* ═════════════════════════════════════════════════════════════════════
-                BENTO ROW 4: CLINICAL CARE CONTINUUM & TOOLS
+                BENTO ROW 4: LONGITUDINAL TIMELINE & CLINICAL DOSSIER (7 + 5 COLS)
                 ═════════════════════════════════════════════════════════════════════ */}
-            <motion.section variants={staggerItem} aria-labelledby="clinical-tools-heading">
-              <SectionHeader title="Clinical Care Continuum" className="mb-3" />
-              <h2 id="clinical-tools-heading" className="sr-only">
-                Clinical Care Continuum
+            <motion.section variants={staggerItem} aria-labelledby="timeline-dossier-heading">
+              <h2 id="timeline-dossier-heading" className="sr-only">
+                Longitudinal Timeline and Clinical Dossier
               </h2>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                {/* Tool 1: Doctor Visit Prep */}
-                <Link
-                  to="/doctor/questions"
-                  className="group flex flex-col justify-between p-4 rounded-2xl border border-line bg-surface-raised hover:border-line-strong hover:shadow-raise transition-all"
-                >
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className="shrink-0 flex items-center justify-center w-10 h-10 rounded-xl bg-accent-subtle text-accent border border-accent/20">
-                      <QuestionIcon size={18} />
-                    </span>
-                    <div>
-                      <span className="block text-sm font-bold text-content">Doctor Visit Prep</span>
-                      <span className="block text-2xs text-content-subtle">Smart questions & agenda</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between pt-2 border-t border-line/60 text-2xs font-bold text-accent">
-                    <span>Prepare dossier</span>
-                    <ArrowRightIcon size={13} className="group-hover:translate-x-0.5 transition-transform" />
-                  </div>
-                </Link>
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                {/* 1. Longitudinal Medical Timeline Feed (7 Columns) */}
+                <Card className="lg:col-span-7 p-5 bg-surface-raised border border-line shadow-card flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-3 pb-2.5 border-b border-line">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 rounded-xl bg-surface-sunken text-content border border-line flex items-center justify-center">
+                          <CalendarIcon size={18} />
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-bold text-content">Longitudinal Health Timeline</h3>
+                          <p className="text-2xs text-content-subtle">
+                            Recent consultations, prescriptions & lab records
+                          </p>
+                        </div>
+                      </div>
 
-                {/* Tool 2: Second Opinion Pack */}
-                <Link
-                  to="/doctor/second-opinion"
-                  className="group flex flex-col justify-between p-4 rounded-2xl border border-line bg-surface-raised hover:border-line-strong hover:shadow-raise transition-all"
-                >
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className="shrink-0 flex items-center justify-center w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">
-                      <FileTextIcon size={18} />
-                    </span>
-                    <div>
-                      <span className="block text-sm font-bold text-content">Second Opinion</span>
-                      <span className="block text-2xs text-content-subtle">Anonymised clinical export</span>
+                      <Link to="/timeline" className="text-xs font-bold text-accent hover:underline flex items-center gap-1">
+                        Full Stream <ArrowRightIcon size={12} />
+                      </Link>
                     </div>
-                  </div>
-                  <div className="flex items-center justify-between pt-2 border-t border-line/60 text-2xs font-bold text-accent">
-                    <span>Export pack</span>
-                    <ArrowRightIcon size={13} className="group-hover:translate-x-0.5 transition-transform" />
-                  </div>
-                </Link>
 
-                {/* Tool 3: Longitudinal Health Timeline */}
-                <Link
-                  to="/timeline"
-                  className="group flex flex-col justify-between p-4 rounded-2xl border border-line bg-surface-raised hover:border-line-strong hover:shadow-raise transition-all"
-                >
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className="shrink-0 flex items-center justify-center w-10 h-10 rounded-xl bg-teal-500/10 text-teal-500 border border-teal-500/20">
-                      <CalendarIcon size={18} />
-                    </span>
-                    <div>
-                      <span className="block text-sm font-bold text-content">Health Timeline</span>
-                      <span className="block text-2xs text-content-subtle">Longitudinal health journey</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between pt-2 border-t border-line/60 text-2xs font-bold text-accent">
-                    <span>View timeline</span>
-                    <ArrowRightIcon size={13} className="group-hover:translate-x-0.5 transition-transform" />
-                  </div>
-                </Link>
+                    {/* Chronological Event Stream */}
+                    {recentTimelineEvents.length > 0 ? (
+                      <div className="space-y-2.5">
+                        {recentTimelineEvents.map((ev) => (
+                          <Link
+                            key={ev.id}
+                            to={ev.link}
+                            className="group flex items-center justify-between gap-3 p-2.5 rounded-xl bg-surface-sunken/60 hover:bg-surface-sunken border border-line transition-all"
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <span className="w-7 h-7 rounded-lg bg-surface border border-line text-content flex items-center justify-center shrink-0">
+                                {ev.type === 'visit' ? (
+                                  <DoctorIcon size={14} />
+                                ) : ev.type === 'report' ? (
+                                  <LabFlaskIcon size={14} />
+                                ) : (
+                                  <MedicineIcon size={14} />
+                                )}
+                              </span>
+                              <div className="min-w-0">
+                                <span className="text-xs font-bold text-content block truncate group-hover:text-accent transition-colors">
+                                  {ev.title}
+                                </span>
+                                <span className="text-2xs text-content-subtle truncate block">
+                                  {ev.subtitle}
+                                </span>
+                              </div>
+                            </div>
 
-                {/* Tool 4: Medicine Cabinet & Low Stock Alerts */}
-                <Link
-                  to="/medicines/cabinet"
-                  className="group flex flex-col justify-between p-4 rounded-2xl border border-line bg-surface-raised hover:border-line-strong hover:shadow-raise transition-all"
-                >
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className="shrink-0 flex items-center justify-center w-10 h-10 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/20">
-                      <CabinetIcon size={18} />
-                    </span>
-                    <div className="min-w-0">
-                      <span className="block text-sm font-bold text-content">Medicine Cabinet</span>
-                      <span className="block text-2xs text-content-subtle truncate">
-                        {lowStockMedicines.length > 0
-                          ? `${lowStockMedicines.length} low stock refill`
-                          : `${activeMedsList.length} active courses`}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between pt-2 border-t border-line/60 text-2xs font-bold text-accent">
-                    {lowStockMedicines.length > 0 ? (
-                      <span className="text-warn font-bold flex items-center gap-1">
-                        <AlertTriangleIcon size={11} /> Refills Needed
-                      </span>
+                            <span className="text-2xs font-mono font-medium text-content-muted shrink-0">
+                              {formatDateShort(ev.dateStr)}
+                            </span>
+                          </Link>
+                        ))}
+                      </div>
                     ) : (
-                      <span>Manage Cabinet</span>
+                      <div className="py-5 text-center rounded-xl bg-surface-sunken/40 border border-line/60">
+                        <p className="text-xs font-semibold text-content-muted">
+                          No clinical events recorded yet
+                        </p>
+                        <p className="text-2xs text-content-subtle mt-0.5">
+                          Doctor visits and prescriptions will populate this longitudinal feed
+                        </p>
+                      </div>
                     )}
-                    <ArrowRightIcon size={13} className="group-hover:translate-x-0.5 transition-transform" />
                   </div>
-                </Link>
+
+                  <div className="mt-4 pt-3 border-t border-line flex items-center justify-between">
+                    <span className="text-2xs text-content-subtle">
+                      Continuity of care across all treatments
+                    </span>
+                    <Link
+                      to="/timeline"
+                      className="text-xs font-bold text-accent hover:text-accent-hover flex items-center gap-1"
+                    >
+                      <span>Explore Timeline</span>
+                      <ArrowRightIcon size={13} />
+                    </Link>
+                  </div>
+                </Card>
+
+                {/* 2. Clinical Care Dossier & Assistant Launchpad (5 Columns) */}
+                <Card className="lg:col-span-5 p-5 bg-gradient-to-br from-surface-raised to-accent-subtle/20 border border-line shadow-card flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-2 pb-2.5 border-b border-line">
+                      <div className="flex items-center gap-2">
+                        <span className="w-8 h-8 rounded-xl bg-accent text-content-onaccent flex items-center justify-center shadow-xs">
+                          <SparklesIcon size={16} />
+                        </span>
+                        <div>
+                          <h3 className="text-sm font-bold text-content">Clinical Care Dossier</h3>
+                          <p className="text-2xs text-content-muted">Consultation & guidance tools</p>
+                        </div>
+                      </div>
+                      <Badge tone="info" size="sm">
+                        24/7
+                      </Badge>
+                    </div>
+
+                    <div className="space-y-2 mt-3">
+                      <Link
+                        to="/doctor/questions"
+                        className="p-2.5 rounded-xl bg-surface border border-line hover:border-accent flex items-center justify-between transition-all group"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <QuestionIcon size={15} className="text-accent shrink-0" />
+                          <span className="text-xs font-bold text-content truncate group-hover:text-accent">
+                            Doctor Consultation Questions
+                          </span>
+                        </div>
+                        <ArrowRightIcon size={13} className="text-content-subtle group-hover:translate-x-0.5 transition-transform" />
+                      </Link>
+
+                      <Link
+                        to="/doctor/second-opinion"
+                        className="p-2.5 rounded-xl bg-surface border border-line hover:border-accent flex items-center justify-between transition-all group"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <FileTextIcon size={15} className="text-indigo-500 shrink-0" />
+                          <span className="text-xs font-bold text-content truncate group-hover:text-accent">
+                            Second Opinion Export Pack
+                          </span>
+                        </div>
+                        <ArrowRightIcon size={13} className="text-content-subtle group-hover:translate-x-0.5 transition-transform" />
+                      </Link>
+
+                      <Link
+                        to="/assistant"
+                        className="p-2.5 rounded-xl bg-surface border border-line hover:border-accent flex items-center justify-between transition-all group"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <MedicineIcon size={15} className="text-teal-600 shrink-0" />
+                          <span className="text-xs font-bold text-content truncate group-hover:text-accent">
+                            Drug Interaction Radar
+                          </span>
+                        </div>
+                        <ArrowRightIcon size={13} className="text-content-subtle group-hover:translate-x-0.5 transition-transform" />
+                      </Link>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 pt-3 border-t border-line flex items-center justify-between">
+                    <span className="text-2xs text-content-subtle">
+                      Encrypted & patient-controlled
+                    </span>
+                    <Link
+                      to="/assistant"
+                      className="text-xs font-bold text-accent hover:text-accent-hover flex items-center gap-1"
+                    >
+                      <span>Open Assistant</span>
+                      <ArrowRightIcon size={13} />
+                    </Link>
+                  </div>
+                </Card>
               </div>
             </motion.section>
 
             {/* ═════════════════════════════════════════════════════════════════════
-                BENTO ROW 5: MILESTONES & EMERGENCY HOTLINES
+                BENTO ROW 5: EMERGENCY QUICK DIAL STRIP (12 COLS)
                 ═════════════════════════════════════════════════════════════════════ */}
-            <motion.section variants={staggerItem} aria-labelledby="milestones-heading">
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-                {/* Milestones Card (8 Columns) */}
-                <div className="lg:col-span-8">
-                  <div className="flex items-center justify-between mb-3">
-                    <SectionHeader
-                      title="Adherence Milestones"
-                      icon={<MedalIcon size={16} />}
-                      meta={`${unlockedCount} of ${achievements.length} earned`}
-                    />
+            <motion.section variants={staggerItem} aria-labelledby="emergency-heading">
+              <Card accent="risk" className="p-4 sm:p-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <span className="shrink-0 flex items-center justify-center w-10 h-10 rounded-xl bg-risk-bg text-risk-text border border-risk-border">
+                      <EmergencyAmbulanceIcon size={20} />
+                    </span>
+                    <div>
+                      <h2 id="emergency-heading" className="text-sm font-bold text-content">
+                        Emergency Hotlines (Pakistan)
+                      </h2>
+                      <p className="text-xs text-content-muted">Tap to call directly. Works offline without internet.</p>
+                    </div>
                   </div>
 
-                  {isLoading ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {[0, 1].map((i) => (
-                        <Skeleton key={i} className="h-24 w-full rounded-[var(--radius-xl)]" />
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {achievements.slice(0, 4).map((a) => (
-                        <button
-                          key={a.id}
-                          type="button"
-                          disabled={!a.unlocked}
-                          onClick={() => a.unlocked && setSelectedMilestone(a)}
-                          className={
-                            a.unlocked
-                              ? 'cursor-pointer text-left w-full transition-transform hover:-translate-y-0.5'
-                              : 'text-left w-full cursor-default'
-                          }
-                        >
-                          <MilestoneBadgeCard achievement={a} />
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Emergency Hotlines Card (4 Columns) */}
-                <div className="lg:col-span-4 flex flex-col">
-                  <span className="text-2xs uppercase tracking-wider font-bold text-content-subtle mb-3 block">
-                    Emergency Response (Pakistan)
-                  </span>
-
-                  <Card accent="risk" className="p-4 flex-1 flex flex-col justify-between">
-                    <div>
-                      <div className="flex items-center gap-2.5 mb-2">
-                        <span className="shrink-0 flex items-center justify-center w-8 h-8 rounded-xl bg-risk-bg text-risk-text border border-risk-border">
-                          <EmergencyAmbulanceIcon size={18} />
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {EMERGENCY_NUMBERS.map((line) => (
+                      <a
+                        key={line.tel}
+                        href={`tel:${line.tel}`}
+                        className="flex-1 sm:flex-initial min-w-24 px-3.5 py-2 rounded-xl border border-risk-border bg-risk-bg text-center hover:brightness-[0.96] transition-all"
+                      >
+                        <span className="block text-xs font-bold text-risk-text font-mono" data-numeric>
+                          {line.tel}
                         </span>
-                        <div>
-                          <h3 className="text-sm font-bold text-content">Emergency Quick Dial</h3>
-                          <p className="text-2xs text-content-muted">Tap to call directly</p>
-                        </div>
-                      </div>
-
-                      <div className="mt-3 space-y-1.5">
-                        {EMERGENCY_NUMBERS.map((line) => (
-                          <a
-                            key={line.tel}
-                            href={`tel:${line.tel}`}
-                            className="flex items-center justify-between px-3 py-2 rounded-xl border border-risk-border/60 bg-risk-bg/60 hover:bg-risk-bg text-risk-text transition-all"
-                          >
-                            <span className="text-xs font-bold">{line.label}</span>
-                            <span className="text-xs font-black font-mono" data-numeric>
-                              {line.tel}
-                            </span>
-                          </a>
-                        ))}
-                      </div>
-                    </div>
-
-                    <p className="text-3xs text-content-subtle mt-3 text-center">
-                      Works offline without active internet connection
-                    </p>
-                  </Card>
+                        <span className="block text-2xs text-content-muted">{line.label}</span>
+                      </a>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              </Card>
             </motion.section>
           </>
         )}
@@ -1028,17 +1230,6 @@ export function DashboardPage() {
         onClose={() => setQuickVitalsModal({ open: false, type: 'glucose' })}
         onSaved={loadDashboard}
       />
-
-      {/* Milestone Celebration Modal */}
-      {selectedMilestone && (
-        <MilestoneCelebrationModal
-          isOpen={!!selectedMilestone}
-          onClose={() => setSelectedMilestone(null)}
-          title={selectedMilestone.title}
-          description={selectedMilestone.description}
-          streakCount={selectedMilestone.id.includes('streak') ? streakDays : undefined}
-        />
-      )}
     </AppShell>
   );
 }

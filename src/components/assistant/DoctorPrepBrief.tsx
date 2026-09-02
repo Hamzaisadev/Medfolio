@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 import { Toast } from '../ui/Toast';
-import { CopyIcon, PrinterIcon, SparklesIcon } from '../ui/icons';
+import { CopyIcon, PrinterIcon, DownloadIcon, SparklesIcon } from '../ui/icons';
+import { exportElementToPdf } from '../../lib/export/pdfExport';
 import type { MedicineRecord } from '../../domain/activeMedicines';
 import type { Tables } from '../../lib/supabase/types';
 
@@ -25,6 +26,8 @@ export function DoctorPrepBrief({
   onAskAssistant,
 }: DoctorPrepBriefProps) {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
+  const briefRef = useRef<HTMLDivElement>(null);
 
   const lastVisit = visits[0];
   const lastReport = reports[0];
@@ -33,40 +36,56 @@ export function DoctorPrepBrief({
     lastVisit?.diagnosis
       ? `Review progress on my treatment for "${lastVisit.diagnosis}" and determine if dose adjustments are needed.`
       : 'Review my current medication schedule and check if all active drugs remain necessary.',
-    medicines.length > 2
-      ? `Check if my ${medicines.length} active prescriptions have any long-term kidney or liver considerations.`
-      : 'Confirm if any over-the-counter painkiller or antacid is safe with my current medications.',
+    lastReport?.title
+      ? `Discuss recent findings from my "${lastReport.title}" (${lastReport.report_date}).`
+      : 'Check if any routine preventive diagnostic panels or blood screenings are due.',
     sideEffects.length > 0
-      ? `Discuss recent symptoms I logged: "${sideEffects[0]?.note}".`
-      : 'Are there any lifestyle or dietary adjustments to complement my medications?',
-    lastReport
-      ? `Review my recent lab report "${lastReport.title}" and see if repeat testing is required in 3 to 6 months.`
-      : 'Should I schedule routine blood work (e.g. CBC, Fasting Glucose, Lipid Profile) for my next checkup?',
+      ? `Evaluate documented symptom: "${sideEffects[0]?.note || 'Unusual discomfort'}" to rule out medication adverse reactions.`
+      : 'Ask if any of my current medications interact with common over-the-counter drugs or supplements.',
+    'Confirm what specific symptoms should prompt me to seek immediate emergency care before the next visit.',
   ];
 
-  const handleCopySummary = () => {
-    const text = `MEDFOLIO DOCTOR PRE-CONSULTATION SUMMARY
-Patient: ${profile?.full_name || 'Patient'}
-Known Allergies: ${profile?.allergies || 'None'}
-Chronic Conditions: ${profile?.chronic_conditions || 'None'}
+  const handleCopySummary = async () => {
+    const summaryText = [
+      `DOCTOR PRE-VISIT CLINICAL SUMMARY - ${profile?.full_name || 'Patient'}`,
+      `Date: ${new Date().toLocaleDateString()}`,
+      `Blood Group: ${profile?.blood_group || 'Unspecified'} | Allergies: ${profile?.allergies || 'NKDA'}`,
+      `Conditions: ${profile?.chronic_conditions || 'None'}`,
+      '\nTOP QUESTIONS FOR DOCTOR:',
+      ...suggestedQuestions.map((q, i) => `${i + 1}. ${q}`),
+      '\nACTIVE MEDICATIONS:',
+      ...medicines.map(
+        (m) =>
+          `- ${m.medicine_name} ${m.strength || ''} (${m.frequency_code || m.frequency_raw || 'OD'})`
+      ),
+    ].join('\n');
 
-ACTIVE MEDICATIONS (${medicines.length}):
-${medicines.map((m) => `- ${m.medicine_name} ${m.strength || ''} (${m.frequency_code || 'Daily'})`).join('\n')}
+    try {
+      await navigator.clipboard.writeText(summaryText);
+      setToastMessage('Clinical brief copied to clipboard.');
+    } catch {
+      setToastMessage('Failed to copy summary.');
+    }
+  };
 
-RECENT SYMPTOMS / NOTES:
-${sideEffects.slice(0, 3).map((s) => `- ${s.occurred_at?.slice(0, 10)}: ${s.note}`).join('\n') || 'None'}
-
-TARGETED QUESTIONS FOR PHYSICIAN:
-${suggestedQuestions.map((q, idx) => `${idx + 1}. ${q}`).join('\n')}
-`;
-
-    navigator.clipboard.writeText(text).then(() => {
-      setToastMessage('Consultation summary copied to clipboard.');
-    });
+  const handleExportPdf = async () => {
+    if (!briefRef.current || isExporting) return;
+    setIsExporting(true);
+    try {
+      const slug = (profile?.full_name || 'Patient').replace(/[^a-zA-Z0-9_-]/g, '_');
+      await exportElementToPdf(briefRef.current, {
+        filename: `${slug}_Doctor_Prep_Brief.pdf`,
+      });
+    } catch (err) {
+      console.error('Failed to export brief PDF:', err);
+      window.print();
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   return (
-    <div className="space-y-6">
+    <div ref={briefRef} className="space-y-4">
       <Toast
         open={Boolean(toastMessage)}
         onClose={() => setToastMessage(null)}
@@ -85,12 +104,21 @@ ${suggestedQuestions.map((q, idx) => `${idx + 1}. ${q}`).join('\n')}
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 print:hidden flex-wrap">
           <Button variant="secondary" size="sm" onClick={handleCopySummary} leftIcon={<CopyIcon size={14} />}>
             Copy Summary
           </Button>
           <Button variant="secondary" size="sm" onClick={() => window.print()} leftIcon={<PrinterIcon size={14} />}>
             Print
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={handleExportPdf}
+            disabled={isExporting}
+            leftIcon={<DownloadIcon size={14} />}
+          >
+            {isExporting ? 'Generating PDF...' : 'Download PDF'}
           </Button>
         </div>
       </div>

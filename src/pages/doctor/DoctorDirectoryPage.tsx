@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { AppShell } from '../../components/layout/AppShell';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
@@ -17,6 +17,7 @@ import {
 import { visitsRepo, medicinesRepo } from '../../lib/db';
 import { todayInAppTz } from '../../lib/time';
 import type { Tables } from '../../lib/supabase/types';
+import { useAuth } from '../../lib/auth/AuthContext';
 
 interface DoctorSummary {
   name: string;
@@ -30,10 +31,11 @@ interface DoctorSummary {
   tests: Tables<'test_orders'>[];
 }
 
-import { useAuth } from '../../lib/auth/AuthContext';
-
 export function DoctorDirectoryPage() {
   const { user, profile } = useAuth();
+  const [searchParams] = useSearchParams();
+  const doctorParam = searchParams.get('doctor');
+
   const [visits, setVisits] = useState<Tables<'visits'>[]>([]);
   const [medicines, setMedicines] = useState<Tables<'medicines'>[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -110,6 +112,20 @@ export function DoctorDirectoryPage() {
 
     return Object.values(map).sort((a, b) => b.lastVisitDate.localeCompare(a.lastVisitDate));
   }, [visits, medicines]);
+
+  // Sync ?doctor= URL param to selectedDoctor
+  useEffect(() => {
+    if (doctorParam && doctorSummaries.length > 0) {
+      const clean = doctorParam.replace(/^dr\.?\s*/i, '').toLowerCase().trim();
+      const matched = doctorSummaries.find((d) =>
+        d.name.toLowerCase().replace(/^dr\.?\s*/i, '').trim() === clean ||
+        d.name.toLowerCase().includes(clean)
+      );
+      if (matched) {
+        setSelectedDoctor(matched);
+      }
+    }
+  }, [doctorParam, doctorSummaries]);
 
   const filteredDoctors = useMemo(() => {
     if (!searchQuery.trim()) return doctorSummaries;
@@ -364,6 +380,16 @@ export function DoctorDirectoryPage() {
                             <span>Follow-up scheduled for: <strong>{v.follow_up_date}</strong></span>
                           </p>
                         )}
+
+                        <div className="pt-2 border-t border-ink-100 flex items-center justify-end">
+                          <Link
+                            to={`/visits/${v.id}`}
+                            className="text-xs font-bold text-teal-800 hover:text-teal-950 flex items-center gap-1 hover:underline"
+                          >
+                            <span>View Full Visit Details & Prescriptions</span>
+                            <span>&rarr;</span>
+                          </Link>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -389,7 +415,11 @@ export function DoctorDirectoryPage() {
                         <tbody className="divide-y divide-ink-100">
                           {selectedDoctor.medicines.map((m) => (
                             <tr key={m.id}>
-                              <td className="p-2 font-bold text-ink-900">{m.medicine_name} {m.strength || ''}</td>
+                              <td className="p-2 font-bold text-ink-900">
+                                <Link to={`/medicines/${m.id}`} className="hover:text-teal-700 hover:underline">
+                                  {m.medicine_name} {m.strength || ''}
+                                </Link>
+                              </td>
                               <td className="p-2 text-ink-700">{m.frequency_code || 'Daily'}</td>
                               <td className="p-2 text-ink-500">{m.start_date}</td>
                               <td className="p-2">
@@ -408,9 +438,8 @@ export function DoctorDirectoryPage() {
 
               {/* Modal Footer */}
               <div className="pt-3 border-t border-ink-200 flex items-center justify-between shrink-0">
-                {/* Client-side navigation: a raw anchor forced a full reload. */}
                 <Link
-                  to="/doctor-brief"
+                  to="/doctor/brief"
                   className="text-xs font-bold text-teal-800 hover:underline flex items-center gap-1.5"
                 >
                   <PrinterIcon size={14} />

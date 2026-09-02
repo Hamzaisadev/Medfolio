@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { clsx } from 'clsx';
 import { AppShell } from '../../components/layout/AppShell';
 import { Button } from '../../components/ui/Button';
@@ -8,12 +8,10 @@ import { ErrorState } from '../../components/ui/ErrorState';
 import { Dialog } from '../../components/ui/Dialog';
 import { Toast } from '../../components/ui/Toast';
 import { Skeleton } from '../../components/ui/Skeleton';
-import { DoseCard } from '../../components/ui/DoseCard';
 import { MedicineOrderModal } from '../../components/medicines/MedicineOrderModal';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { SLOT_META } from '../../components/ui/slotMeta';
 import {
-  PlusIcon,
   CalendarIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -22,7 +20,17 @@ import {
 import {
   Archive,
   Check,
+  RotateCcw,
   ShieldCheck,
+  Clock,
+  Flame,
+  Package,
+  ArrowUpRight,
+  Utensils,
+  Droplets,
+  AlertCircle,
+  Plus,
+  ShoppingBag,
 } from 'lucide-react';
 import {
   todayInAppTz,
@@ -30,6 +38,8 @@ import {
   addDaysAppTz,
   formatRelativeDay,
   formatDateShort,
+  formatDoseTime,
+  minutesInAppTz,
 } from '../../lib/time';
 import { bucketOf, Bucket, BUCKET_ORDER } from '../../domain/timeBuckets';
 import { deriveStatusOnRead } from '../../domain/adherence';
@@ -124,7 +134,6 @@ async function topUpScheduleFor(
 }
 
 export function TodaySchedulePage() {
-  const navigate = useNavigate();
   const { user, profile } = useAuth();
   const [selectedDate, setSelectedDate] = useState<string>(todayInAppTz());
   const [doses, setDoses] = useState<Dose[]>([]);
@@ -210,7 +219,7 @@ export function TodaySchedulePage() {
         message:
           remaining === null
             ? 'Dose marked as taken.'
-            : `Dose marked as taken — ${remaining} left in your cabinet.`,
+            : `Dose marked as taken — ${remaining} left in cabinet.`,
       });
     } catch (err: unknown) {
       console.error(err);
@@ -314,7 +323,7 @@ export function TodaySchedulePage() {
     }));
     setToast({
       tone: 'ok',
-      message: `Cabinet updated: ${newStock} tablets of ${selectedMedicineForOrder.medicine_name} now in stock.`,
+      message: `Cabinet updated: ${newStock} units of ${selectedMedicineForOrder.medicine_name} in stock.`,
     });
   };
 
@@ -352,6 +361,37 @@ export function TodaySchedulePage() {
   const missedCount = doses.filter((d) => deriveStatusOnRead(d, new Date()) === 'missed').length;
   const pendingCount = doses.filter((d) => deriveStatusOnRead(d, new Date()) === 'pending').length;
   const actionableCount = pendingCount + missedCount;
+  const totalCount = doses.length;
+  const adherencePercent = totalCount === 0 ? 100 : Math.round((takenCount / totalCount) * 100);
+
+  // Bento Hero: Next Actionable Dose Calculation
+  const nowMinutes = minutesInAppTz();
+  const outstandingDoses = useMemo(() => {
+    return doses.filter((d) => {
+      const s = deriveStatusOnRead(d, new Date());
+      return s === 'pending' || s === 'missed';
+    });
+  }, [doses]);
+
+  const nextDose = useMemo(() => {
+    if (outstandingDoses.length === 0) return null;
+    const upcoming = outstandingDoses.find((d) => d.scheduled_minutes >= nowMinutes);
+    return upcoming || outstandingDoses[0];
+  }, [outstandingDoses, nowMinutes]);
+
+  const nextMedicine = nextDose ? medicinesMap[nextDose.medicine_id] : null;
+  const nextMedicineStock = nextDose ? inventory[nextDose.medicine_id] : undefined;
+
+  // Low stock medicines count across the schedule
+  const lowStockCount = useMemo(() => {
+    const uniqueMedIds = new Set(doses.map((d) => d.medicine_id));
+    let count = 0;
+    for (const id of uniqueMedIds) {
+      const stock = inventory[id];
+      if (stock !== undefined && stock <= 5) count++;
+    }
+    return count;
+  }, [doses, inventory]);
 
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const calendarRef = useRef<HTMLDivElement>(null);
@@ -466,35 +506,32 @@ export function TodaySchedulePage() {
         />
       )}
 
-      {/* Compact & Focused Master Header Deck */}
-      <div
-        className="p-3 sm:p-4 px-4 sm:px-6 rounded-3xl bg-[#023b36] border border-[#0a544e]/70 shadow-[0_12px_32px_-8px_rgba(1,53,49,0.6)] mb-6 overflow-visible relative z-30"
-      >
-        <div className="flex items-center justify-between gap-4 lg:gap-6 w-full overflow-visible py-0.5 flex-wrap sm:flex-nowrap">
-          {/* Left: App Icon + Title + Subtitle */}
+      {/* Bento Health OS Top Control Strip */}
+      <div className="p-3 sm:p-4 px-4 sm:px-6 rounded-3xl bg-surface-raised border border-line shadow-2xs mb-6 overflow-visible relative z-30">
+        <div className="flex items-center justify-between gap-4 w-full overflow-visible py-0.5 flex-wrap sm:flex-nowrap">
+          {/* Left: App Title & Status */}
           <div className="flex items-center gap-3 sm:gap-3.5 shrink-0">
-            <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-[#00b59f] text-white flex items-center justify-center shrink-0 shadow-md">
-              <CalendarIcon size={20} className="text-white" />
+            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-accent text-white flex items-center justify-center shrink-0 shadow-xs">
+              <CalendarIcon size={18} className="text-white" />
             </div>
             <div className="min-w-0">
-              <h1 className="text-base sm:text-lg font-bold text-white tracking-tight leading-tight whitespace-nowrap">
+              <h1 className="text-base sm:text-lg font-black text-content tracking-tight leading-tight whitespace-nowrap">
                 Medication Schedule
               </h1>
-              <p className="text-xs text-[#a0d7d2] font-normal hidden sm:block whitespace-nowrap mt-0.5">
-                Stay on track with your meds.
+              <p className="text-xs text-content-muted font-medium hidden sm:block whitespace-nowrap">
+                Bento Health OS · Chronotherapy regimen
               </p>
             </div>
           </div>
 
-          {/* Right Group: Date Steppers & Cabinet + Divider + KPI Stats (Total, Remaining, Pending) + Progress Gauge */}
-          <div className="flex items-center gap-3 sm:gap-4 lg:gap-5 shrink-0 ml-auto">
-            {/* Date Stepper & Calendar Trigger */}
-            <div className="flex items-center gap-1.5 shrink-0" ref={calendarRef}>
+          {/* Right: Date Stepper, Calendar Popover & Cabinet Link */}
+          <div className="flex items-center gap-2.5 sm:gap-3 shrink-0 ml-auto">
+            <div className="flex items-center gap-1 shrink-0" ref={calendarRef}>
               <button
                 type="button"
                 aria-label="Previous day"
                 onClick={() => setSelectedDate(addDaysAppTz(selectedDate, -1))}
-                className="w-8 h-8 rounded-full bg-[#012f2c] hover:bg-[#012522] border border-[#09524c] text-[#78c2ba] hover:text-white flex items-center justify-center tap-spring transition-all shadow-inner shrink-0"
+                className="w-8 h-8 rounded-xl bg-surface-sunken hover:bg-surface-hover border border-line text-content-muted hover:text-content flex items-center justify-center tap-spring transition-all shrink-0"
               >
                 <ChevronLeftIcon size={13} />
               </button>
@@ -506,26 +543,25 @@ export function TodaySchedulePage() {
                     e.stopPropagation();
                     setIsCalendarOpen((prev) => !prev);
                   }}
-                  className="flex items-center gap-2 px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-full bg-[#012f2c] hover:bg-[#012522] border border-[#09524c] text-white text-xs font-semibold shadow-inner tap-spring whitespace-nowrap transition-all"
+                  className="flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-xl bg-surface-sunken hover:bg-surface-hover border border-line text-content text-xs font-bold shadow-2xs tap-spring whitespace-nowrap transition-all"
                   aria-expanded={isCalendarOpen}
                   aria-label="Select date"
                 >
-                  <CalendarIcon size={14} className="text-[#00e5c9]" />
+                  <CalendarIcon size={13} className="text-accent" />
                   <span>{displayDateLabel}</span>
                   <ChevronDownIcon
-                    size={12}
-                    className={clsx('text-[#78c2ba] transition-transform duration-200', isCalendarOpen && 'rotate-180')}
+                    size={11}
+                    className={clsx('text-content-subtle transition-transform duration-200', isCalendarOpen && 'rotate-180')}
                   />
                 </button>
 
-                {/* Interactive Calendar Popover */}
+                {/* Calendar Dropdown */}
                 {isCalendarOpen && (
                   <div
                     className="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-72 p-3.5 rounded-2xl bg-surface-raised border border-line-strong shadow-raise z-50 text-content animate-in fade-in zoom-in-95 duration-150"
                     role="dialog"
                     aria-label="Select date from calendar"
                   >
-                    {/* Calendar Month Header */}
                     <div className="flex items-center justify-between pb-2 mb-2 border-b border-line">
                       <button
                         type="button"
@@ -550,7 +586,6 @@ export function TodaySchedulePage() {
                       </button>
                     </div>
 
-                    {/* Weekday Labels */}
                     <div className="grid grid-cols-7 gap-1 text-center mb-1">
                       {WEEKDAYS.map((wd) => (
                         <span key={wd} className="text-[10px] font-bold text-content-subtle uppercase">
@@ -559,7 +594,6 @@ export function TodaySchedulePage() {
                       ))}
                     </div>
 
-                    {/* Day Cells Grid */}
                     <div className="grid grid-cols-7 gap-1">
                       {calendarMonthDays.map((cell) => {
                         const isSelected = cell.dateStr === selectedDate;
@@ -592,7 +626,6 @@ export function TodaySchedulePage() {
                       })}
                     </div>
 
-                    {/* Quick Jump Shortcuts */}
                     <div className="flex items-center justify-between pt-2.5 mt-2 border-t border-line text-2xs">
                       <button
                         type="button"
@@ -633,248 +666,463 @@ export function TodaySchedulePage() {
                 type="button"
                 aria-label="Next day"
                 onClick={() => setSelectedDate(addDaysAppTz(selectedDate, 1))}
-                className="w-8 h-8 rounded-full bg-[#012f2c] hover:bg-[#012522] border border-[#09524c] text-[#78c2ba] hover:text-white flex items-center justify-center tap-spring transition-all shadow-inner shrink-0"
+                className="w-8 h-8 rounded-xl bg-surface-sunken hover:bg-surface-hover border border-line text-content-muted hover:text-content flex items-center justify-center tap-spring transition-all shrink-0"
               >
                 <ChevronRightIcon size={13} />
               </button>
             </div>
 
-            {/* Cabinet Icon-Only Button */}
             <Link
               to="/medicines/cabinet"
               aria-label="Medicine Cabinet"
               title="Medicine Cabinet"
-              className="w-8 h-8 rounded-full bg-[#012f2c] hover:bg-[#012522] border border-[#09524c] text-[#78c2ba] hover:text-white flex items-center justify-center tap-spring transition-all shadow-inner shrink-0"
+              className="w-8 h-8 rounded-xl bg-surface-sunken hover:bg-surface-hover border border-line text-content-muted hover:text-content flex items-center justify-center tap-spring transition-all shrink-0"
             >
               <Archive size={14} />
             </Link>
 
-            {/* Vertical Divider between Date Controls & KPI Stats */}
-            <div className="h-7 w-[1px] bg-teal-500/25 mx-1 hidden md:block" />
-
-            {/* 3 KPI Metrics (Total, Remaining, Pending) */}
-            <div className="flex items-center gap-3 sm:gap-4 lg:gap-5 shrink-0">
-              <div className="flex flex-col items-center min-w-[34px] sm:min-w-[40px]">
-                <div className="h-7 sm:h-7.5 flex items-center justify-center">
-                  <span className="text-sm sm:text-base font-bold text-white leading-none" data-numeric>
-                    {doses.length}
-                  </span>
-                </div>
-                <span className="text-[10px] sm:text-xs font-medium text-[#78c2ba] block mt-1 leading-tight text-center">
-                  Total
-                </span>
-              </div>
-
-              <div className="h-6 w-[1px] bg-teal-500/25" />
-
-              <div className="flex flex-col items-center min-w-[34px] sm:min-w-[40px]">
-                <div className="h-7 sm:h-7.5 flex items-center justify-center">
-                  <span className="text-sm sm:text-base font-bold text-white leading-none" data-numeric>
-                    {doses.length - takenCount}
-                  </span>
-                </div>
-                <span className="text-[10px] sm:text-xs font-medium text-[#78c2ba] block mt-1 leading-tight text-center">
-                  Remaining
-                </span>
-              </div>
-
-              <div className="h-6 w-[1px] bg-teal-500/25" />
-
-              <div className="flex flex-col items-center min-w-[34px] sm:min-w-[40px]">
-                <div className="h-7 sm:h-7.5 flex items-center justify-center">
-                  <span className="text-sm sm:text-base font-bold text-white leading-none" data-numeric>
-                    {pendingCount}
-                  </span>
-                </div>
-                <span className="text-[10px] sm:text-xs font-medium text-[#78c2ba] block mt-1 leading-tight text-center">
-                  Pending
-                </span>
-              </div>
-            </div>
+            <Link to="/prescriptions/new">
+              <Button
+                variant="secondary"
+                size="sm"
+                leftIcon={<Plus size={13} />}
+                className="h-8 px-3 text-xs font-bold rounded-xl tap-spring shadow-2xs"
+              >
+                Scan Rx
+              </Button>
+            </Link>
           </div>
         </div>
       </div>
 
-      {/* Routine Filter Toolbar */}
-      <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
-        <div className="w-full sm:w-64">
-          <SegmentedControl<ScheduleFilter>
-            value={activeFilter}
-            onChange={setActiveFilter}
-            size="sm"
-            fullWidth
-            options={[
-              { value: 'all', label: `All (${doses.length})` },
-              { value: 'actionable', label: `Due (${actionableCount})` },
-              { value: 'taken', label: `Done (${takenCount})` },
-            ]}
-          />
-        </div>
-
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 text-xs text-content-subtle">
-            <ShieldCheck size={13} className="text-teal-600" />
-            <span>Chronotherapy Active</span>
-          </div>
-
-          <Link to="/prescriptions/new">
-            <Button
-              variant="secondary"
-              size="sm"
-              leftIcon={<PlusIcon size={13} />}
-              className="h-8 px-3 text-xs font-bold rounded-xl tap-spring shadow-2xs"
-            >
-              Scan Prescription
-            </Button>
-          </Link>
-        </div>
-      </div>
-
-      {/* Main Chronotherapy Medication Stream (Vertically Stacked Expandable Accordion List) */}
-      <main className="space-y-7">
-        {/* Loading Skeleton */}
+      {/* Main Content Stream */}
+      <main className="space-y-6">
         {isLoading ? (
-          <div className="space-y-3">
-            {[0, 1, 2, 3].map((i) => (
-              <Skeleton key={i} className="h-16 w-full rounded-2xl" />
-            ))}
+          <div className="space-y-4">
+            <Skeleton className="h-56 w-full rounded-3xl" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {[0, 1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-64 w-full rounded-3xl" />
+              ))}
+            </div>
           </div>
         ) : loadError ? (
           <ErrorState
-            title="Could not load this day"
+            title="Could not load schedule"
             message={loadError}
             onRetry={() => loadData(selectedDate)}
           />
         ) : doses.length === 0 ? (
           <EmptyState
-            heading={isPast ? 'No records for this day' : 'No doses scheduled'}
+            heading={isPast ? 'No records for this day' : 'No medications scheduled'}
             description={
               isPast
                 ? 'There are no medication records recorded for this date.'
-                : 'Scan a prescription or add your active medicines to automatically generate your chronotherapy schedule.'
+                : 'Scan a prescription or add active medicines to automatically generate your Bento Health OS schedule.'
             }
             action={
               !isPast ? (
                 <Link to="/prescriptions/new">
-                  <Button leftIcon={<PlusIcon size={17} />} className="tap-spring">
-                    Scan a prescription
+                  <Button leftIcon={<Plus size={15} />} className="tap-spring">
+                    Scan prescription
                   </Button>
                 </Link>
               ) : undefined
             }
           />
-        ) : filteredDoses.length === 0 ? (
-          <div className="p-8 rounded-2xl border border-line bg-surface-raised text-center space-y-3">
-            <div className="w-12 h-12 rounded-2xl bg-surface-sunken mx-auto flex items-center justify-center text-content-subtle">
-              <Archive size={22} />
-            </div>
-            <h3 className="text-base font-bold text-content">No doses match this filter</h3>
-            <p className="text-xs text-content-muted max-w-sm mx-auto">
-              {activeFilter === 'actionable'
-                ? 'Great work! You have no pending or overdue doses for this day.'
-                : 'No completed or skipped doses recorded under this filter.'}
-            </p>
-            <Button variant="secondary" size="sm" onClick={() => setActiveFilter('all')}>
-              Show all doses
-            </Button>
-          </div>
         ) : (
-          /* Chronotherapy Timed Sections (Vertically Stacked Accordion List) */
-          <div className="space-y-7">
-            {BUCKET_ORDER.map((key) => {
-              const bucketDoses = buckets[key];
-              if (bucketDoses.length === 0) return null;
-              const slot = SLOT_META[key];
-              const bucketPending = bucketDoses.filter(
-                (d) => deriveStatusOnRead(d, new Date()) === 'pending' || deriveStatusOnRead(d, new Date()) === 'missed'
-              ).length;
+          <>
+            {/* Bento Grid Top Tier: Hero Next Due Widget + Adherence/Streak Hub */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+              {/* Bento 1: Hero Next Due Medication Card (7 Cols) */}
+              <div className="lg:col-span-7 p-6 rounded-3xl bg-linear-to-br from-teal-900 to-emerald-950 text-white shadow-md relative overflow-hidden flex flex-col justify-between">
+                <div className="relative z-10">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-white/15 backdrop-blur-md text-xs font-black uppercase tracking-wider text-emerald-200 border border-white/10">
+                      <ShieldCheck size={13} className="text-amber-300" />
+                      {nextDose ? (
+                        deriveStatusOnRead(nextDose, new Date()) === 'missed'
+                          ? 'Overdue Administration'
+                          : 'Next Due Administration'
+                      ) : (
+                        'All Doses Completed'
+                      )}
+                    </span>
 
-              return (
-                <section key={key} aria-labelledby={`slot-${key}`} className="space-y-3.5">
-                  {/* Routine Header Bar with Executive Styling */}
-                  <div className="flex items-center justify-between gap-3 px-1 py-1.5 border-b border-line/60 pb-2.5">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <span
-                        className={clsx(
-                          'w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border shadow-2xs',
-                          slot.surface,
-                          slot.text,
-                          slot.border
-                        )}
-                      >
-                        {slot.icon(16)}
+                    {nextDose && (
+                      <span className="text-xs font-bold text-emerald-200 flex items-center gap-1.5 bg-black/20 px-2.5 py-1 rounded-lg border border-white/10">
+                        <Clock size={12} /> {formatDoseTime(nextDose.scheduled_minutes)}
                       </span>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h2 id={`slot-${key}`} className="text-sm font-bold text-content tracking-tight uppercase">
-                          {slot.label} Routine
-                        </h2>
-                        <span className="text-[11px] text-content-subtle font-semibold px-2 py-0.5 rounded-md bg-surface-sunken border border-line">
-                          {slot.timeRange}
+                    )}
+                  </div>
+
+                  {nextDose && nextMedicine ? (
+                    <div className="mt-5 space-y-2">
+                      <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
+                        {nextMedicine.medicine_name}
+                      </h2>
+                      <div className="flex items-center gap-2 text-xs sm:text-sm font-semibold text-emerald-100/90 flex-wrap">
+                        {nextMedicine.strength && <span>{nextMedicine.strength}</span>}
+                        {nextMedicine.strength && <span>·</span>}
+                        <span>{nextMedicine.dose_amount || (nextMedicine.form ? `1 ${nextMedicine.form}` : '1 dose')}</span>
+                        <span>·</span>
+                        {nextMedicine.with_food === true ? (
+                          <span className="inline-flex items-center gap-1 text-amber-200 font-bold">
+                            <Utensils size={12} /> With food
+                          </span>
+                        ) : nextMedicine.with_food === false ? (
+                          <span className="inline-flex items-center gap-1 text-sky-200 font-bold">
+                            <Droplets size={12} /> Empty stomach
+                          </span>
+                        ) : (
+                          <span>As directed</span>
+                        )}
+                      </div>
+
+                      {nextMedicine.instructions && (
+                        <p className="text-xs text-emerald-100/80 bg-white/10 p-2.5 rounded-2xl backdrop-blur-xs max-w-lg mt-3 leading-relaxed">
+                          {nextMedicine.instructions}
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="mt-6 py-4 space-y-1">
+                      <h3 className="text-xl sm:text-2xl font-black text-emerald-100">
+                        All Caught Up For Today! 🎉
+                      </h3>
+                      <p className="text-xs text-emerald-200/80">
+                        All scheduled medications for {displayDateLabel} have been completed.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {nextDose && (
+                  <div className="mt-6 pt-4 border-t border-white/15 flex items-center justify-between gap-4 relative z-10 flex-wrap">
+                    <span className="text-xs text-emerald-200 font-semibold flex items-center gap-1.5">
+                      <Package size={13} />
+                      {nextMedicineStock !== undefined
+                        ? nextMedicineStock === 0
+                          ? 'Out of stock in cabinet'
+                          : `${nextMedicineStock} left in cabinet`
+                        : 'Stock tracked'}
+                    </span>
+
+                    {!isPast && (
+                      <button
+                        type="button"
+                        onClick={() => handleMarkTaken(nextDose)}
+                        className="px-6 py-2.5 rounded-2xl bg-white text-teal-950 font-black text-xs hover:bg-emerald-50 shadow-lg tap-spring cursor-pointer flex items-center gap-2"
+                      >
+                        <Check size={16} className="stroke-[3] text-teal-700" />
+                        Log Taken Now
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Bento 2: Adherence Score & Inventory Hub (5 Cols) */}
+              <div className="lg:col-span-5 grid grid-cols-2 gap-4">
+                {/* Adherence Score Box */}
+                <div className="p-5 rounded-3xl bg-surface-raised border border-line shadow-2xs flex flex-col justify-between">
+                  <div>
+                    <span className="text-[11px] font-bold text-content-subtle uppercase tracking-wider">
+                      Adherence Score
+                    </span>
+                    <div className="text-3xl font-black text-content mt-1">
+                      {adherencePercent}%
+                    </div>
+                    <p className="text-xs text-teal-700 dark:text-teal-400 font-bold mt-0.5">
+                      {takenCount} of {totalCount} logged
+                    </p>
+                  </div>
+                  <div className="w-full bg-surface-sunken h-2.5 rounded-full overflow-hidden border border-line mt-4">
+                    <div
+                      style={{ width: `${adherencePercent}%` }}
+                      className="h-full bg-teal-600 rounded-full transition-all duration-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Streak Box */}
+                <div className="p-5 rounded-3xl bg-amber-500/10 border border-amber-500/20 shadow-2xs flex flex-col justify-between">
+                  <div>
+                    <span className="text-[11px] font-bold text-amber-900 dark:text-amber-200 uppercase flex items-center gap-1">
+                      <Flame size={13} className="text-amber-600 fill-amber-600" />
+                      Active Streak
+                    </span>
+                    <div className="text-3xl font-black text-amber-950 dark:text-amber-100 mt-1">
+                      {takenCount > 0 ? `${takenCount} Doses` : 'Today'}
+                    </div>
+                    <p className="text-xs text-amber-800 dark:text-amber-300 font-semibold mt-0.5">
+                      {adherencePercent >= 80 ? 'Optimal Adherence' : 'Active Plan'}
+                    </p>
+                  </div>
+                  <span className="text-[10px] font-bold text-amber-900 dark:text-amber-300 bg-amber-500/20 px-2.5 py-1 rounded-lg self-start">
+                    {adherencePercent === 100 ? 'Gold Tier ⭐' : 'In Progress'}
+                  </span>
+                </div>
+
+                {/* Cabinet Stock Health Widget (Full Width below stats) */}
+                <div className="col-span-2 p-4 rounded-3xl bg-surface-raised border border-line shadow-2xs flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-surface-sunken border border-line flex items-center justify-center text-accent">
+                      <Package size={16} />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-content">Cabinet Inventory</h4>
+                      <p className="text-[11px] text-content-subtle">
+                        {lowStockCount > 0
+                          ? `${lowStockCount} items low in cabinet`
+                          : 'All scheduled medicines stocked'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <Link
+                    to="/medicines/cabinet"
+                    className="px-3 py-1.5 rounded-xl bg-surface-sunken hover:bg-surface-hover border border-line font-bold text-content text-xs flex items-center gap-1 transition-colors tap-spring"
+                  >
+                    Cabinet <ArrowUpRight size={12} />
+                  </Link>
+                </div>
+              </div>
+            </div>
+
+            {/* Filter Toolbar */}
+            <div className="flex items-center justify-between gap-4 pt-2 flex-wrap">
+              <div className="w-full sm:w-64">
+                <SegmentedControl<ScheduleFilter>
+                  value={activeFilter}
+                  onChange={setActiveFilter}
+                  size="sm"
+                  fullWidth
+                  options={[
+                    { value: 'all', label: `All (${doses.length})` },
+                    { value: 'actionable', label: `Due (${actionableCount})` },
+                    { value: 'taken', label: `Done (${takenCount})` },
+                  ]}
+                />
+              </div>
+
+              <div className="flex items-center gap-2 text-xs font-bold text-content-subtle">
+                <span>{actionableCount === 0 ? '✓ Daily regimen complete' : `${actionableCount} administrations remaining`}</span>
+              </div>
+            </div>
+
+            {/* Bento Grid Bottom Tier: 4 Daypart Bento Blocks */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
+              {BUCKET_ORDER.map((key) => {
+                const slot = SLOT_META[key];
+                const bucketDoses = buckets[key];
+                const completed = bucketDoses.filter((d) => d.status === 'taken').length;
+                const pending = bucketDoses.filter(
+                  (d) => deriveStatusOnRead(d, new Date()) === 'pending' || deriveStatusOnRead(d, new Date()) === 'missed'
+                ).length;
+                const allDone = bucketDoses.length > 0 && completed === bucketDoses.length;
+
+                return (
+                  <div
+                    key={key}
+                    className={clsx(
+                      'p-4 sm:p-5 rounded-3xl border bg-surface-raised transition-all duration-200 flex flex-col justify-between min-h-[320px] space-y-4',
+                      allDone
+                        ? 'border-teal-500/30 bg-teal-500/5'
+                        : pending > 0
+                          ? 'border-line shadow-2xs'
+                          : 'border-line/60 opacity-80'
+                    )}
+                  >
+                    <div>
+                      {/* Daypart Bento Block Header */}
+                      <div className="flex items-center justify-between pb-3 border-b border-line/60">
+                        <div className="flex items-center gap-2.5">
+                          <span
+                            className={clsx(
+                              'w-7 h-7 rounded-xl flex items-center justify-center font-bold text-xs shadow-2xs',
+                              slot.surface,
+                              slot.text
+                            )}
+                          >
+                            {slot.icon(14)}
+                          </span>
+                          <div>
+                            <h3 className="text-xs font-black text-content uppercase tracking-tight">
+                              {slot.label}
+                            </h3>
+                            <span className="text-[10px] text-content-subtle font-semibold">
+                              {slot.timeRange}
+                            </span>
+                          </div>
+                        </div>
+
+                        <span
+                          className={clsx(
+                            'px-2 py-0.5 rounded-lg text-[10px] font-black',
+                            allDone
+                              ? 'bg-teal-500/20 text-teal-700 dark:text-teal-300'
+                              : 'bg-surface-sunken text-content-subtle border border-line'
+                          )}
+                        >
+                          {completed}/{bucketDoses.length}
                         </span>
                       </div>
-                    </div>
 
-                    <div className="flex items-center gap-2 shrink-0">
-                      {bucketPending > 1 && !isPast && (
+                      {/* Batch Take Button if multiple pending */}
+                      {pending > 1 && !isPast && (
                         <button
                           type="button"
                           onClick={() => handleMarkRoutineTaken(bucketDoses, slot.label)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-teal-500/10 hover:bg-teal-500/20 text-teal-700 dark:text-teal-300 text-xs font-bold border border-teal-500/20 transition-all cursor-pointer tap-spring shadow-2xs"
+                          className="w-full mt-3 py-1.5 rounded-xl bg-teal-500/10 hover:bg-teal-500/20 text-teal-700 dark:text-teal-300 text-xs font-bold border border-teal-500/20 transition-all cursor-pointer tap-spring"
                         >
-                          <Check size={13} className="stroke-[2.5]" />
-                          Take all due ({bucketPending})
+                          Take all {pending} due ✓
                         </button>
                       )}
 
-                      <span
-                        className={clsx(
-                          'px-2.5 py-1 rounded-xl border text-xs font-bold shadow-2xs',
-                          bucketPending > 0
-                            ? 'bg-amber-500/10 border-amber-500/20 text-amber-800 dark:text-amber-300'
-                            : 'bg-teal-500/10 border-teal-500/20 text-teal-700 dark:text-teal-400'
+                      {/* Daypart Medicine List */}
+                      <div className="space-y-2.5 mt-3">
+                        {bucketDoses.length === 0 ? (
+                          <div className="h-28 flex items-center justify-center text-xs text-content-subtle italic">
+                            No doses in {slot.label.toLowerCase()}
+                          </div>
+                        ) : (
+                          bucketDoses.map((dose) => {
+                            const medicine = medicinesMap[dose.medicine_id];
+                            const isTaken = dose.status === 'taken';
+                            const isSkipped = dose.status === 'skipped';
+                            const isMissed = deriveStatusOnRead(dose, new Date()) === 'missed';
+                            const stock = inventory[dose.medicine_id];
+
+                            return (
+                              <div
+                                key={dose.id}
+                                className={clsx(
+                                  'p-3.5 rounded-2xl border transition-all space-y-2.5',
+                                  isTaken
+                                    ? 'bg-surface-sunken/40 border-line/40 opacity-75'
+                                    : isMissed
+                                      ? 'bg-amber-500/5 border-amber-400/80 shadow-2xs'
+                                      : 'bg-surface-sunken/70 border-line hover:border-line-strong shadow-2xs'
+                                )}
+                              >
+                                {/* Top info row */}
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-black text-content bg-surface px-2 py-0.5 rounded-lg border border-line">
+                                    <Clock size={10} /> {formatDoseTime(dose.scheduled_minutes)}
+                                  </span>
+
+                                  {stock !== undefined && stock <= 5 && (
+                                    <span className="text-[10px] font-bold text-amber-700 dark:text-amber-300 flex items-center gap-0.5">
+                                      <AlertCircle size={10} /> {stock === 0 ? 'Out' : `${stock} left`}
+                                    </span>
+                                  )}
+                                </div>
+
+                                {/* Medicine name & strength */}
+                                <div>
+                                  <h4
+                                    className={clsx(
+                                      'text-xs sm:text-sm font-bold text-content tracking-tight leading-tight',
+                                      isTaken && 'line-through text-content-muted'
+                                    )}
+                                  >
+                                    {medicine?.medicine_name || 'Prescribed medicine'}
+                                  </h4>
+                                  <p className="text-[11px] text-content-muted font-medium mt-0.5">
+                                    {medicine?.strength ? `${medicine.strength} · ` : ''}
+                                    {medicine?.dose_amount || (medicine?.form ? `1 ${medicine.form}` : '1 dose')}
+                                  </p>
+                                </div>
+
+                                {/* Bottom action bar */}
+                                <div className="pt-2 border-t border-line/60 flex items-center justify-between gap-2">
+                                  <div className="text-[10px] font-bold text-content-subtle">
+                                    {medicine?.with_food === true ? (
+                                      <span className="text-amber-800 dark:text-amber-300 flex items-center gap-0.5">
+                                        <Utensils size={10} /> Food
+                                      </span>
+                                    ) : medicine?.with_food === false ? (
+                                      <span className="text-blue-800 dark:text-blue-300 flex items-center gap-0.5">
+                                        <Droplets size={10} /> Empty
+                                      </span>
+                                    ) : (
+                                      'Direct'
+                                    )}
+                                  </div>
+
+                                  <div className="flex items-center gap-1.5">
+                                    {!isTaken && !isSkipped ? (
+                                      <>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleOpenSkip(dose)}
+                                          className="p-1 rounded-lg text-[10px] text-content-subtle hover:text-content"
+                                          title="Skip dose"
+                                        >
+                                          Skip
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleMarkTaken(dose)}
+                                          className={clsx(
+                                            'px-3 py-1 rounded-xl text-xs font-bold text-white shadow-2xs tap-spring cursor-pointer flex items-center gap-1',
+                                            isMissed
+                                              ? 'bg-amber-600 hover:bg-amber-700'
+                                              : 'bg-teal-600 hover:bg-teal-700'
+                                          )}
+                                        >
+                                          <Check size={12} className="stroke-[3]" />
+                                          {isMissed ? 'Overdue' : 'Take'}
+                                        </button>
+                                      </>
+                                    ) : (
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="text-[10px] font-bold text-teal-700 dark:text-teal-400">
+                                          {isTaken ? '✓ Taken' : 'Skipped'}
+                                        </span>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleUndo(dose)}
+                                          className="p-1 rounded-lg text-content-subtle hover:text-content"
+                                          title="Undo dose"
+                                        >
+                                          <RotateCcw size={11} />
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })
                         )}
+                      </div>
+                    </div>
+
+                    {/* Bento Block Footer Action */}
+                    <div className="pt-2 border-t border-line/60 flex items-center justify-between text-[11px] text-content-subtle">
+                      <span>{slot.label} Regimen</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const firstMed = bucketDoses[0] ? medicinesMap[bucketDoses[0].medicine_id] : null;
+                          if (firstMed) handleOpenOrderModal(firstMed);
+                        }}
+                        className="text-accent hover:underline font-bold flex items-center gap-0.5"
                       >
-                        {bucketPending > 0 ? `${bucketPending} of ${bucketDoses.length} due` : 'All taken ✓'}
-                      </span>
+                        <ShoppingBag size={11} /> Refill
+                      </button>
                     </div>
                   </div>
-
-                  {/* Vertically Stacked Accordion Medication List */}
-                  <div className="flex flex-col gap-2.5">
-                    {bucketDoses.map((dose) => {
-                      const medicine = medicinesMap[dose.medicine_id];
-                      return (
-                        <DoseCard
-                          key={dose.id}
-                          medicineId={dose.medicine_id}
-                          medicineName={medicine?.medicine_name || 'Prescribed medicine'}
-                          strength={medicine?.strength}
-                          doseAmount={medicine?.dose_amount || (medicine?.form ? `1 ${medicine.form}` : undefined)}
-                          scheduledMinutes={dose.scheduled_minutes}
-                          status={deriveStatusOnRead(dose, new Date())}
-                          withFood={medicine?.with_food}
-                          instructions={medicine?.instructions}
-                          skippedReason={dose.skipped_reason}
-                          remaining={inventory[dose.medicine_id]}
-                          onTake={() => handleMarkTaken(dose)}
-                          onSkip={() => handleOpenSkip(dose)}
-                          onUndo={() => handleUndo(dose)}
-                          onOrderRefill={() => handleOpenOrderModal(medicine)}
-                          onViewDetails={() => navigate(`/medicines/${dose.medicine_id}`)}
-                          onSelect={() => handleOpenOrderModal(medicine)}
-                          readOnly={isPast}
-                        />
-                      );
-                    })}
-                  </div>
-                </section>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          </>
         )}
       </main>
 
-      {/* Medication Order, WhatsApp Refill & Procurement Modal */}
+      {/* Medication Order & WhatsApp Procurement Modal */}
       <MedicineOrderModal
         isOpen={orderModalOpen}
         onClose={() => setOrderModalOpen(false)}

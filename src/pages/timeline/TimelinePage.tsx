@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { clsx } from 'clsx';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { AppShell } from '../../components/layout/AppShell';
 import { Button } from '../../components/ui/Button';
+import { Badge } from '../../components/ui/Badge';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
@@ -25,6 +26,8 @@ import {
   Tag,
   MoreHorizontal,
   FileText,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { visitsRepo, reportsRepo, medicinesRepo, sideEffectsRepo } from '../../lib/db';
 import { todayInAppTz, formatMonthYear, fromAppDate } from '../../lib/time';
@@ -47,7 +50,10 @@ interface TimelineItem {
   cost?: number | null;
   linkUrl: string;
   linkLabel: string;
-  raw: Tables<'visits'> | Tables<'reports'> | Tables<'medicines'> | Tables<'side_effects'>;
+  raw: Tables<'visits'> | Tables<'reports'> | Tables<'medicines'> | Tables<'side_effects'> | Tables<'medicines'>[];
+  medicinesList?: Tables<'medicines'>[];
+  doctorName?: string | null;
+  clinicName?: string | null;
 }
 
 function formatFullDateHeader(dateStr: string): string {
@@ -95,9 +101,22 @@ export function TimelinePage() {
   const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
   const [deleteTarget, setDeleteTarget] = useState<TimelineItem | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [expandedCardIds, setExpandedCardIds] = useState<Set<string>>(new Set());
 
   const effectiveUserId = user?.id || profile?.user_id || '';
   const effectiveProfileId = profile?.id || effectiveUserId;
+
+  const togglePrescriptionExpanded = (id: string) => {
+    setExpandedCardIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
 
   const loadData = useCallback(async () => {
     if (!effectiveProfileId) return;
@@ -112,7 +131,7 @@ export function TimelinePage() {
 
       const timelineList: TimelineItem[] = [];
 
-      // Add Visits
+      // Add Visits (Consultations)
       for (const v of visits) {
         timelineList.push({
           id: `visit-${v.id}`,
@@ -124,13 +143,13 @@ export function TimelinePage() {
           tags: v.diagnosis ? [v.diagnosis] : ['Consultation'],
           notes: v.doctor_advice || v.notes,
           cost: v.visit_cost,
-          linkUrl: `/doctor/brief`,
-          linkLabel: 'View Details',
+          linkUrl: `/visits/${v.id}`,
+          linkLabel: 'View Visit Details',
           raw: v,
         });
       }
 
-      // Add Reports
+      // Add Diagnostic Reports
       for (const r of reports) {
         timelineList.push({
           id: `report-${r.id}`,
@@ -148,21 +167,70 @@ export function TimelinePage() {
         });
       }
 
-      // Add Medicines
+      // Group Medicines into Unified Prescriptions / Medication Regimens
+      // Prevents bloating the timeline with 10-15 cards for a single prescription event
+      const medGroups = new Map<string, Tables<'medicines'>[]>();
+
       for (const m of medicines) {
+        const key = m.visit_id ? `visit-${m.visit_id}` : `date-${m.start_date}`;
+        const existing = medGroups.get(key) || [];
+        existing.push(m);
+        medGroups.set(key, existing);
+      }
+
+      for (const [key, medList] of medGroups.entries()) {
+        const firstMed = medList[0];
+        if (!firstMed) continue;
+
+        const relatedVisit = firstMed.visit_id
+          ? visits.find((v) => v.id === firstMed.visit_id)
+          : null;
+        const eventDate = relatedVisit?.visit_date || firstMed.start_date || todayInAppTz();
+        const doctorName = relatedVisit?.doctor_name
+          ? `Dr. ${relatedVisit.doctor_name.replace(/^dr\.?\s*/i, '')}`
+          : null;
+        const clinicName = relatedVisit?.clinic_name || null;
+
+        const medCount = medList.length;
+        const medNamesList = medList.map((m) => `${m.medicine_name}${m.strength ? ` ${m.strength}` : ''}`);
+        const previewSummary =
+          medNamesList.slice(0, 3).join(', ') + (medCount > 3 ? ` + ${medCount - 3} more` : '');
+
+        const ongoingCount = medList.filter((m) => m.is_ongoing).length;
+        const courseCount = medList.filter((m) => !m.is_ongoing && m.duration_days).length;
+
+        const tags: string[] = [
+          `${medCount} ${medCount === 1 ? 'medicine' : 'medicines'}`,
+        ];
+        if (ongoingCount > 0) tags.push(`${ongoingCount} ongoing`);
+        if (courseCount > 0) tags.push(`${courseCount} short course`);
+
+        const notesText =
+          relatedVisit?.doctor_advice ||
+          medList.map((m) => m.instructions).filter(Boolean).slice(0, 2).join(' • ') ||
+          null;
+
         timelineList.push({
-          id: `med-${m.id}`,
+          id: `prescription-${key}`,
           type: 'medicine',
-          date: m.start_date,
+          date: eventDate,
           timeDisplay: '10:30 AM',
-          title: m.medicine_name,
-          subtitle: `${m.strength || 'Standard Dose'}${m.frequency_code || m.frequency_raw ? ` • ${m.frequency_code || m.frequency_raw}` : ' • As Prescribed'}`,
-          tags: m.is_ongoing ? ['Ongoing'] : m.duration_days ? [`${m.duration_days} days course`] : ['Prescription'],
-          notes: m.instructions,
+          title:
+            medCount === 1
+              ? `${firstMed.medicine_name} ${firstMed.strength || ''}`
+              : `Prescription • ${medCount} Medications`,
+          subtitle: doctorName
+            ? `Prescribed by ${doctorName}${clinicName ? ` (${clinicName})` : ''} • ${previewSummary}`
+            : `Medication Regimen • ${previewSummary}`,
+          tags,
+          notes: notesText,
           cost: null,
-          linkUrl: `/medicines/cabinet`,
-          linkLabel: 'View in Cabinet',
-          raw: m,
+          linkUrl: relatedVisit ? `/visits/${relatedVisit.id}` : `/medicines/cabinet`,
+          linkLabel: relatedVisit ? 'View Consultation' : 'View in Cabinet',
+          raw: medList.length === 1 ? firstMed : medList,
+          medicinesList: medList,
+          doctorName,
+          clinicName,
         });
       }
 
@@ -222,7 +290,15 @@ export function TimelinePage() {
         const matchesSub = item.subtitle.toLowerCase().includes(q);
         const matchesNotes = item.notes ? item.notes.toLowerCase().includes(q) : false;
         const matchesTags = item.tags.some((t) => t.toLowerCase().includes(q));
-        return matchesTitle || matchesSub || matchesNotes || matchesTags;
+        const matchesMeds = item.medicinesList
+          ? item.medicinesList.some(
+              (m) =>
+                m.medicine_name.toLowerCase().includes(q) ||
+                (m.strength && m.strength.toLowerCase().includes(q)) ||
+                (m.instructions && m.instructions.toLowerCase().includes(q))
+            )
+          : false;
+        return matchesTitle || matchesSub || matchesNotes || matchesTags || matchesMeds;
       }
       return true;
     });
@@ -262,14 +338,22 @@ export function TimelinePage() {
         const r = deleteTarget.raw as Tables<'reports'>;
         await reportsRepo.deleteReport(r.id);
       } else if (deleteTarget.type === 'medicine') {
-        const m = deleteTarget.raw as Tables<'medicines'>;
-        await medicinesRepo.deleteMedicine(m.id);
+        if (Array.isArray(deleteTarget.raw)) {
+          await Promise.all(
+            (deleteTarget.raw as Tables<'medicines'>[]).map((m) =>
+              medicinesRepo.deleteMedicine(m.id)
+            )
+          );
+        } else {
+          const m = deleteTarget.raw as Tables<'medicines'>;
+          await medicinesRepo.deleteMedicine(m.id);
+        }
       } else if (deleteTarget.type === 'side_effect') {
         const s = deleteTarget.raw as Tables<'side_effects'>;
         await sideEffectsRepo.deleteSideEffect(s.id);
       }
 
-      setToastMessage('Record deleted successfully.');
+      setToastMessage('Record removed successfully.');
       setDeleteTarget(null);
       await loadData();
     } catch (err: unknown) {
@@ -322,7 +406,7 @@ export function TimelinePage() {
         />
       )}
 
-      {/* Executive Master Header Deck (Generous right padding and compact KPI alignment) */}
+      {/* Executive Master Header Deck (Compact KPI alignment) */}
       <div className="p-3.5 sm:p-4 px-4 sm:px-6 pr-6 sm:pr-8 rounded-3xl bg-[#023b36] border border-[#0a544e]/70 shadow-[0_12px_32px_-8px_rgba(1,53,49,0.6)] mb-6 overflow-hidden relative z-30">
         <div className="flex items-center justify-between gap-3 sm:gap-4 w-full">
           {/* Left: App Icon + Title + Subtitle */}
@@ -335,7 +419,7 @@ export function TimelinePage() {
                 Medical Timeline
               </h1>
               <p className="text-xs text-[#a0d7d2] font-normal hidden md:block whitespace-nowrap mt-0.5">
-                Longitudinal record of consultations, labs, medicines & symptoms.
+                Longitudinal record of consultations, diagnostic labs, prescriptions & symptoms.
               </p>
             </div>
           </div>
@@ -366,7 +450,7 @@ export function TimelinePage() {
             {/* Vertical Divider */}
             <div className="h-7 w-[1px] bg-teal-500/25 hidden md:block shrink-0 mx-0.5" />
 
-            {/* KPI Stats (Label on top, Number below - comfortably spaced) */}
+            {/* KPI Stats */}
             <div className="flex items-center gap-3 sm:gap-3.5 shrink-0">
               <div className="flex flex-col items-center min-w-[26px] sm:min-w-[30px]">
                 <span className="text-[10px] sm:text-[11px] font-medium text-[#78c2ba] leading-tight">Visits</span>
@@ -383,7 +467,7 @@ export function TimelinePage() {
               </div>
 
               <div className="flex flex-col items-center min-w-[26px] sm:min-w-[30px]">
-                <span className="text-[10px] sm:text-[11px] font-medium text-[#78c2ba] leading-tight">Meds</span>
+                <span className="text-[10px] sm:text-[11px] font-medium text-[#78c2ba] leading-tight">Rx</span>
                 <span className="text-sm sm:text-base font-bold text-white leading-none mt-1" data-numeric>
                   {counts.medicine}
                 </span>
@@ -412,7 +496,7 @@ export function TimelinePage() {
               { value: 'all', label: `All (${counts.all})` },
               { value: 'visit', label: `Visits (${counts.visit})` },
               { value: 'report', label: `Labs (${counts.report})` },
-              { value: 'medicine', label: `Meds (${counts.medicine})` },
+              { value: 'medicine', label: `Prescriptions (${counts.medicine})` },
               { value: 'side_effect', label: `Symptoms (${counts.side_effect})` },
             ]}
           />
@@ -540,6 +624,14 @@ export function TimelinePage() {
                     const fullDateHeader = formatFullDateHeader(item.date);
                     const isLast = itemIdx === groupItems.length - 1;
 
+                    const hasMedsList = Boolean(item.medicinesList && item.medicinesList.length > 0);
+                    const isExpanded =
+                      expandedCardIds.has(item.id) ||
+                      (Boolean(searchQuery.trim()) &&
+                        item.medicinesList?.some((m) =>
+                          m.medicine_name.toLowerCase().includes(searchQuery.toLowerCase())
+                        ));
+
                     return (
                       <div key={item.id} className="relative flex items-start gap-3 sm:gap-4 group">
                         {/* Column 1: Date Spine Node */}
@@ -623,7 +715,9 @@ export function TimelinePage() {
                                 className="text-base sm:text-lg font-bold text-content leading-snug tracking-tight"
                                 title={item.title}
                               >
-                                {item.title}
+                                <Link to={item.linkUrl} className="hover:text-teal-700 dark:hover:text-teal-400 hover:underline">
+                                  {item.title}
+                                </Link>
                               </h3>
 
                               <p className="text-xs sm:text-sm text-content-muted font-normal">
@@ -657,6 +751,99 @@ export function TimelinePage() {
                               <div className="mt-3 text-xs text-content bg-surface-sunken/60 border border-line/60 rounded-xl p-3 flex items-start gap-2 leading-relaxed">
                                 <FileText size={14} className="text-teal-700 dark:text-teal-400 shrink-0 mt-0.5" />
                                 <span className="line-clamp-2">{item.notes}</span>
+                              </div>
+                            )}
+
+                            {/* Expandable Grouped Prescription List (Consolidated View) */}
+                            {hasMedsList && item.medicinesList && (
+                              <div className="mt-3.5 pt-3 border-t border-line/70 space-y-2">
+                                <button
+                                  type="button"
+                                  onClick={() => togglePrescriptionExpanded(item.id)}
+                                  className="w-full flex items-center justify-between text-xs font-bold text-teal-800 dark:text-teal-300 hover:text-teal-900 px-2 py-1.5 rounded-lg bg-teal-500/5 hover:bg-teal-500/10 transition-colors cursor-pointer"
+                                >
+                                  <span className="flex items-center gap-1.5">
+                                    <Pill size={14} className="text-teal-600 dark:text-teal-400" />
+                                    <span>
+                                      {isExpanded
+                                        ? `Hide medications list (${item.medicinesList.length})`
+                                        : `Show all ${item.medicinesList.length} prescribed medications`}
+                                    </span>
+                                  </span>
+                                  {isExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                                </button>
+
+                                <AnimatePresence initial={false}>
+                                  {isExpanded && (
+                                    <motion.div
+                                      initial={{ opacity: 0, height: 0 }}
+                                      animate={{ opacity: 1, height: 'auto' }}
+                                      exit={{ opacity: 0, height: 0 }}
+                                      transition={{ duration: 0.2 }}
+                                      className="overflow-hidden"
+                                    >
+                                      <div className="divide-y divide-line/60 rounded-xl border border-line bg-surface-sunken/50 overflow-hidden mt-2">
+                                        {item.medicinesList.map((med) => (
+                                          <div
+                                            key={med.id}
+                                            className="p-3 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 hover:bg-surface-hover/50 transition-colors"
+                                          >
+                                            <div className="min-w-0 space-y-0.5">
+                                              <div className="flex items-center gap-1.5 flex-wrap">
+                                                <span className="font-bold text-content text-xs sm:text-sm">
+                                                  {med.medicine_name}
+                                                </span>
+                                                {med.strength && (
+                                                  <span className="text-content-muted font-normal text-xs">
+                                                    ({med.strength})
+                                                  </span>
+                                                )}
+                                                {med.form && (
+                                                  <span className="text-2xs uppercase tracking-wider px-1.5 py-0.5 rounded bg-surface-raised border border-line text-content-subtle font-medium">
+                                                    {med.form}
+                                                  </span>
+                                                )}
+                                              </div>
+                                              <div className="flex items-center gap-2 text-[11px] text-content-muted flex-wrap">
+                                                <span>
+                                                  Dose: <strong className="text-content">{med.dose_amount || '1'}</strong>
+                                                </span>
+                                                <span>•</span>
+                                                <span className="text-teal-700 dark:text-teal-400 font-semibold">
+                                                  {med.frequency_code || med.frequency_raw || 'Standard'}
+                                                </span>
+                                                <span>•</span>
+                                                <span>{med.with_food ? 'With food' : 'Empty stomach'}</span>
+                                                {med.instructions && (
+                                                  <>
+                                                    <span>•</span>
+                                                    <span className="italic text-content-subtle truncate max-w-xs">
+                                                      {med.instructions}
+                                                    </span>
+                                                  </>
+                                                )}
+                                              </div>
+                                            </div>
+
+                                            <div className="flex items-center gap-2 shrink-0 sm:self-center">
+                                              {med.is_ongoing ? (
+                                                <Badge tone="info" size="sm">Ongoing</Badge>
+                                              ) : med.duration_days ? (
+                                                <Badge tone="neutral" size="sm">{med.duration_days} days</Badge>
+                                              ) : null}
+                                              <Link
+                                                to={`/medicines/${med.id}`}
+                                                className="text-2xs font-semibold text-teal-700 dark:text-teal-400 hover:underline px-2.5 py-1 rounded-md bg-surface-raised border border-line"
+                                              >
+                                                Details
+                                              </Link>
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </motion.div>
+                                  )}
+                                </AnimatePresence>
                               </div>
                             )}
 
