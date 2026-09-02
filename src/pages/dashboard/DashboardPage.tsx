@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { AppShell } from '../../components/layout/AppShell';
 import { Button } from '../../components/ui/Button';
@@ -8,18 +8,20 @@ import { Badge } from '../../components/ui/Badge';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { ProgressRing } from '../../components/ui/ProgressRing';
 import { ErrorState } from '../../components/ui/ErrorState';
-import { MetricCard } from '../../components/ui/MetricCard';
 import { SectionHeader } from '../../components/ui/SectionHeader';
 import { Toast } from '../../components/ui/Toast';
 import { MilestoneBadgeCard } from '../../components/ui/MilestoneBadgeCard';
 import { MilestoneCelebrationModal } from '../../components/ui/MilestoneCelebrationModal';
-import { SLOT_META, mealRelationIcon } from '../../components/ui/slotMeta';
+import { QuickVitalsModal } from '../../components/vitals/QuickVitalsModal';
+import { mealRelationIcon } from '../../components/ui/slotMeta';
+import { VITAL_TONE } from '../../components/ui/vitalTone';
 import {
   PrescriptionIcon,
   LabFlaskIcon,
   MedicineIcon,
   MedalIcon,
   DropletIcon,
+  HeartPulseIcon,
   QuestionIcon,
   FileTextIcon,
   EmergencyAmbulanceIcon,
@@ -29,16 +31,25 @@ import {
   CheckIcon,
   FlameIcon,
   ActivityIcon,
+  PlusIcon,
+  CabinetIcon,
+  CalendarIcon,
+  AlertTriangleIcon,
 } from '../../components/ui/icons';
 import { useAuth } from '../../lib/auth/AuthContext';
 import { medicinesRepo, dosesRepo, testOrdersRepo, reportsRepo, visitsRepo } from '../../lib/db';
 import { listGlucoseReadings, listBloodPressureReadings } from '../../lib/db/vitals';
-import { decrementPill, incrementPill } from '../../lib/inventory';
+import { decrementPill, readInventory } from '../../lib/inventory';
 import { activeMedicines } from '../../domain/activeMedicines';
 import { evaluateAchievements, type Achievement } from '../../domain/achievements';
 import { calculateAdherence, calculateAdherenceStreak, deriveStatusOnRead } from '../../domain/adherence';
-import { evaluateGlucose, evaluateBloodPressure } from '../../domain/vitals';
-import { bucketOf } from '../../domain/timeBuckets';
+import {
+  evaluateGlucose,
+  evaluateBloodPressure,
+  calculateMap,
+  type GlucoseReading,
+  type BloodPressureReading,
+} from '../../domain/vitals';
 import { mealRelationOf, mealRelationInstruction } from '../../domain/mealRelation';
 import { todayInAppTz, addDaysAppTz, formatDoseTime, minutesInAppTz, formatDayHeading } from '../../lib/time';
 import { staggerContainer, staggerItem } from '../../lib/motion';
@@ -49,13 +60,23 @@ function isPrnMedicine(medicine: Tables<'medicines'> | undefined): boolean {
   return medicine?.frequency_code === 'PRN' || medicine?.frequency_code === 'SOS';
 }
 
+function formatReadingTime(isoStr: string): string {
+  try {
+    const d = new Date(isoStr);
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  } catch {
+    return '';
+  }
+}
+
 const EMERGENCY_NUMBERS = [
-  { tel: '1122', label: 'Rescue' },
-  { tel: '115', label: 'Edhi' },
-  { tel: '1020', label: 'Chhipa' },
+  { tel: '1122', label: 'Rescue Ambulance' },
+  { tel: '115', label: 'Edhi Foundation' },
+  { tel: '1020', label: 'Chhipa Welfare' },
 ];
 
 export function DashboardPage() {
+  const navigate = useNavigate();
   const { user, profile } = useAuth();
   const [activeMedsList, setActiveMedsList] = useState<Tables<'medicines'>[]>([]);
   const [medsMap, setMedsMap] = useState<Record<string, Tables<'medicines'>>>({});
@@ -63,18 +84,23 @@ export function DashboardPage() {
   const [streakDoses, setStreakDoses] = useState<Tables<'doses'>[]>([]);
   const [pendingOrders, setPendingOrders] = useState<Tables<'test_orders'>[]>([]);
   const [recordCounts, setRecordCounts] = useState({ reports: 0, visits: 0 });
-  const [vitalStats, setVitalStats] = useState({
-    glucoseLogs: 0,
-    inRangeGlucose: 0,
-    bpLogs: 0,
-    normalBp: 0,
-    recentBpStatus: 'No logs yet',
-    recentGlucoseStatus: 'No logs yet',
-  });
+
+  const [glucoseLogs, setGlucoseLogs] = useState<GlucoseReading[]>([]);
+  const [bpLogs, setBpLogs] = useState<BloodPressureReading[]>([]);
+
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedMilestone, setSelectedMilestone] = useState<Achievement | null>(null);
   const [toast, setToast] = useState<{ message: string; tone: 'ok' | 'risk' } | null>(null);
+
+  // Quick Vitals Logger Modal
+  const [quickVitalsModal, setQuickVitalsModal] = useState<{
+    open: boolean;
+    type: 'glucose' | 'bp';
+  }>({
+    open: false,
+    type: 'glucose',
+  });
 
   const today = todayInAppTz();
   const userId = user?.id || profile?.user_id || '';
@@ -106,26 +132,8 @@ export function DashboardPage() {
       setTodayDoses(doses.filter((d) => d.scheduled_date === today));
       setPendingOrders(orders);
       setRecordCounts({ reports: reports.length, visits: visits.length });
-
-      const lastBp = bp[0];
-      const lastGlucose = glucose[0];
-
-      setVitalStats({
-        glucoseLogs: glucose.length,
-        inRangeGlucose: glucose.filter(
-          (g) => evaluateGlucose(g.value_mg_dl, g.type).status === 'normal'
-        ).length,
-        bpLogs: bp.length,
-        normalBp: bp.filter(
-          (b) => evaluateBloodPressure(b.systolic, b.diastolic).stage === 'normal'
-        ).length,
-        recentBpStatus: lastBp
-          ? `${lastBp.systolic}/${lastBp.diastolic} mmHg (${evaluateBloodPressure(lastBp.systolic, lastBp.diastolic).label})`
-          : 'No logs yet',
-        recentGlucoseStatus: lastGlucose
-          ? `${lastGlucose.value_mg_dl} mg/dL (${lastGlucose.type})`
-          : 'No logs yet',
-      });
+      setGlucoseLogs(glucose);
+      setBpLogs(bp);
     } catch (err) {
       console.error('Failed to load dashboard data:', err);
       setLoadError('Your dashboard could not be loaded. Check your connection and try again.');
@@ -152,30 +160,6 @@ export function DashboardPage() {
     } catch {
       setTodayDoses(prev);
       setToast({ message: 'Could not log dose. Check connection.', tone: 'risk' });
-    }
-  };
-
-  const handleUndo = async (dose: Tables<'doses'>) => {
-    const prev = todayDoses;
-    const previousStatus = dose.status;
-
-    setTodayDoses((curr) =>
-      curr.map((d) =>
-        d.id === dose.id
-          ? { ...d, status: 'pending', taken_at: null, skipped_reason: null }
-          : d
-      )
-    );
-
-    try {
-      await dosesRepo.updateDoseStatus(dose.id, 'pending', null, null);
-      if (previousStatus === 'taken') {
-        incrementPill(profileId, dose.medicine_id);
-      }
-      setToast({ message: 'Dose reset to pending', tone: 'ok' });
-    } catch {
-      setTodayDoses(prev);
-      setToast({ message: 'Could not undo dose status.', tone: 'risk' });
     }
   };
 
@@ -212,15 +196,49 @@ export function DashboardPage() {
   const remainingToday = outstanding.length;
   const takenToday = todayDoses.filter((d) => d.status === 'taken').length;
 
+  // Latest Vitals Computation
+  const latestGlucose = glucoseLogs[0];
+  const latestBp = bpLogs[0];
+
+  const glucoseEval = useMemo(() => {
+    if (!latestGlucose) return null;
+    return evaluateGlucose(latestGlucose.value_mg_dl, latestGlucose.type);
+  }, [latestGlucose]);
+
+  const bpEval = useMemo(() => {
+    if (!latestBp) return null;
+    return evaluateBloodPressure(latestBp.systolic, latestBp.diastolic);
+  }, [latestBp]);
+
+  const bpMapValue = useMemo(() => {
+    if (!latestBp) return null;
+    return calculateMap(latestBp.systolic, latestBp.diastolic);
+  }, [latestBp]);
+
+  // Low stock inventory pills check from local inventory store
+  const lowStockMedicines = useMemo(() => {
+    if (!profileId) return [];
+    const inventory = readInventory(profileId);
+    return activeMedsList.filter((m) => {
+      const count = inventory[m.id];
+      return typeof count === 'number' && count <= 5;
+    });
+  }, [activeMedsList, profileId]);
+
+  // Adherence achievements
   const achievements = evaluateAchievements({
     adherenceStreakDays: streakDays,
     totalPrescriptions: activeMedsList.length,
     totalReports: recordCounts.reports,
     totalVisits: recordCounts.visits,
-    glucoseLogsCount: vitalStats.glucoseLogs,
-    inRangeGlucoseCount: vitalStats.inRangeGlucose,
-    bpLogsCount: vitalStats.bpLogs,
-    normalBpCount: vitalStats.normalBp,
+    glucoseLogsCount: glucoseLogs.length,
+    inRangeGlucoseCount: glucoseLogs.filter(
+      (g) => evaluateGlucose(g.value_mg_dl, g.type).status === 'normal'
+    ).length,
+    bpLogsCount: bpLogs.length,
+    normalBpCount: bpLogs.filter(
+      (b) => evaluateBloodPressure(b.systolic, b.diastolic).stage === 'normal'
+    ).length,
   });
   const unlockedCount = achievements.filter((a) => a.unlocked).length;
 
@@ -245,12 +263,15 @@ export function DashboardPage() {
         variants={staggerContainer}
         initial="hidden"
         animate="visible"
-        className="space-y-8"
+        className="space-y-6"
       >
         {/* Top Greeting & Action Header */}
-        <motion.div variants={staggerItem} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <motion.div
+          variants={staggerItem}
+          className="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+        >
           <div>
-            <div className="flex items-center gap-2 mb-1.5">
+            <div className="flex items-center gap-2 mb-1">
               <h1 className="text-2xl sm:text-3xl font-black text-content tracking-tight">
                 {timeGreeting}, {firstName}
               </h1>
@@ -294,433 +315,719 @@ export function DashboardPage() {
           />
         ) : (
           <>
-            {/* ── Medication Command Center (Hero Section) ─────────────────────── */}
+            {/* ═════════════════════════════════════════════════════════════════════
+                BENTO ROW 1: MEDICATION & ADHERENCE COMMAND CENTER (HERO)
+                ═════════════════════════════════════════════════════════════════════ */}
             <motion.section variants={staggerItem} aria-labelledby="medication-hub-heading">
               <h2 id="medication-hub-heading" className="sr-only">
-                Medication Command Center
+                Medication & Adherence Command Center
               </h2>
 
               {isLoading ? (
-                <Skeleton className="h-48 w-full rounded-[var(--radius-xl)]" />
-              ) : nextDose ? (
-                <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4 items-stretch">
-                  {/* Active Next Dose Card with Direct 1-Tap Logging */}
-                  <Card className="p-5 sm:p-6 bg-surface-raised border border-line shadow-card hover:shadow-raise transition-all relative overflow-hidden flex flex-col justify-between">
-                    <span
-                      className="absolute inset-y-0 left-0 w-1.5 bg-accent"
-                      aria-hidden="true"
-                    />
-
-                    <div>
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-11 h-11 rounded-2xl bg-accent-subtle text-accent border border-accent/20 flex items-center justify-center shrink-0">
-                            <MedicineIcon size={22} />
-                          </div>
-                          <div>
-                            <span className="text-2xs uppercase tracking-wider font-bold text-accent">
-                              Next Scheduled Dose
-                            </span>
-                            <h3 className="text-lg sm:text-xl font-black text-content tracking-tight">
-                              {nextMedicine?.medicine_name || 'Prescribed medicine'}
-                            </h3>
-                            <p className="text-xs text-content-muted mt-0.5">
-                              {[nextMedicine?.strength, nextMedicine?.dose_amount].filter(Boolean).join(' · ') || 'Dose as prescribed'}
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Due Time Badge */}
-                        <div className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-accent text-content-onaccent font-bold text-xs font-mono shadow-xs">
-                          <ClockIcon size={14} />
-                          <span>{formatDoseTime(nextDose.scheduled_minutes)}</span>
-                        </div>
-                      </div>
-
-                      {/* Meal & Instructions */}
-                      <div className="mt-4 flex flex-wrap items-center gap-2">
-                        <span className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg bg-surface-sunken text-content-muted border border-line font-medium">
-                          <span className="text-accent">{mealRelationIcon(mealRelationOf(nextMedicine?.with_food), 13)}</span>
-                          <span>{mealRelationInstruction(nextMedicine?.with_food)}</span>
-                        </span>
-                      </div>
-
-                      {nextMedicine?.instructions && (
-                        <p className="mt-2.5 text-xs text-content-muted bg-surface-sunken/80 border border-line rounded-lg px-3 py-2 leading-relaxed">
-                          <span className="font-semibold text-content">Instructions: </span>
-                          {nextMedicine.instructions}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Quick 1-Tap Take Action on Dashboard */}
-                    <div className="mt-5 pt-3 border-t border-line flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-                      <p className="text-xs text-content-muted">
-                        {remainingToday} dose{remainingToday === 1 ? '' : 's'} remaining today
-                      </p>
-                      <Button
-                        size="md"
-                        variant="primary"
-                        onClick={() => handleMarkTaken(nextDose)}
-                        leftIcon={<CheckIcon size={16} className="stroke-[2.5]" />}
-                        className="font-bold shadow-xs hover:shadow-md"
-                      >
-                        Take Dose Now
-                      </Button>
-                    </div>
-                  </Card>
-
-                  {/* Adherence Ring & Quick Link */}
-                  <Card className="lg:w-72 p-5 sm:p-6 bg-surface-raised border border-line shadow-card flex flex-col justify-between">
-                    <div>
-                      <span className="text-2xs uppercase tracking-wider font-bold text-content-subtle block mb-3">
-                        Today's Progress
-                      </span>
-                      <div className="flex items-center gap-4">
-                        <ProgressRing
-                          percentage={hasScheduledToday ? adherence.percentage : 0}
-                          size={64}
-                          strokeWidth={6.5}
-                          tone={adherence.percentage === 100 ? 'ok' : adherence.percentage >= 50 ? 'ok' : 'warn'}
-                        />
-                        <div>
-                          <p className="text-base font-bold text-content leading-snug">
-                            {takenToday} of {takenToday + remainingToday} taken
-                          </p>
-                          <p className="mt-0.5 text-xs text-content-muted">
-                            {hasScheduledToday ? `${adherence.percentage}% complete` : 'No scheduled doses'}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <Link
-                      to="/medicines"
-                      className="mt-5 pt-3 border-t border-line inline-flex items-center justify-between text-xs font-bold text-accent hover:text-accent-hover transition-colors"
-                    >
-                      <span>Open full timetable</span>
-                      <ArrowRightIcon size={14} />
-                    </Link>
-                  </Card>
-                </div>
+                <Skeleton className="h-44 w-full rounded-[var(--radius-xl)]" />
               ) : (
-                <Card className="p-6 bg-surface-raised border border-line shadow-card">
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                    <span className="shrink-0 flex items-center justify-center w-12 h-12 rounded-2xl bg-ok-bg text-ok-text border border-ok-border">
-                      <CheckIcon size={24} className="stroke-[2.5]" />
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-base font-bold text-content">
-                        {hasScheduledToday
-                          ? 'All doses completed for today!'
-                          : activeMedsList.length > 0
-                            ? 'Nothing due right now'
-                            : 'No active medicine courses scheduled'}
-                      </p>
-                      <p className="mt-1 text-xs text-content-muted">
-                        {hasScheduledToday
-                          ? `You completed all ${takenToday} scheduled doses today. Keep up the great consistency!`
-                          : activeMedsList.length > 0
-                            ? 'Your next scheduled doses will show up here automatically.'
-                            : 'Scan or enter a prescription to generate your automated medication schedule.'}
-                      </p>
-                    </div>
-                    {activeMedsList.length === 0 && (
-                      <Link to="/prescriptions/new" className="shrink-0">
-                        <Button leftIcon={<PrescriptionIcon size={16} />}>Scan Prescription</Button>
-                      </Link>
-                    )}
-                  </div>
-                </Card>
-              )}
-            </motion.section>
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
+                  {/* Next Scheduled Dose Hero (8 Columns) */}
+                  <div className="lg:col-span-8 flex">
+                    {nextDose ? (
+                      <Card className="p-5 sm:p-6 bg-surface-raised border border-line shadow-card hover:shadow-raise transition-all relative overflow-hidden flex flex-col justify-between w-full">
+                        <span
+                          className="absolute inset-y-0 left-0 w-1.5 bg-accent"
+                          aria-hidden="true"
+                        />
 
-            {/* ── At a glance Metric Cards ───────────────────────────────────── */}
-            <motion.section variants={staggerItem} aria-labelledby="glance-heading">
-              <SectionHeader
-                title="Health at a glance"
-                icon={<ActivityIcon size={16} />}
-                className="mb-4"
-              />
-              <h2 id="glance-heading" className="sr-only">
-                Health at a glance
-              </h2>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <MetricCard
-                  label="Active medicines"
-                  value={isLoading ? '—' : activeMedsList.length}
-                  detail={`${activeMedsList.length} active course${activeMedsList.length === 1 ? '' : 's'}`}
-                  icon={<MedicineIcon size={18} />}
-                  to="/medicines/cabinet"
-                />
-                <MetricCard
-                  label="Adherence streak"
-                  value={isLoading ? '—' : `${streakDays} ${streakDays === 1 ? 'day' : 'days'}`}
-                  detail={streakDays > 0 ? 'Consecutive complete days' : 'Take all daily doses to start'}
-                  tone={streakDays > 0 ? 'ok' : 'neutral'}
-                  icon={<FlameIcon size={18} />}
-                />
-                <MetricCard
-                  label="Blood pressure & sugar"
-                  value={isLoading ? '—' : vitalStats.bpLogs + vitalStats.glucoseLogs > 0 ? `${vitalStats.bpLogs + vitalStats.glucoseLogs} logs` : 'Log now'}
-                  detail={vitalStats.recentBpStatus}
-                  icon={<DropletIcon size={18} />}
-                  to="/vitals"
-                />
-                <MetricCard
-                  label="Pending labs & orders"
-                  value={isLoading ? '—' : pendingOrders.length}
-                  detail={pendingOrders[0]?.test_name || 'No outstanding tests'}
-                  tone={pendingOrders.length > 0 ? 'warn' : 'neutral'}
-                  icon={<LabFlaskIcon size={18} />}
-                  to="/reports"
-                  trailing={
-                    pendingOrders.length > 0 ? (
-                      <Badge tone="warn" size="sm">
-                        Due
-                      </Badge>
-                    ) : undefined
-                  }
-                />
-              </div>
-            </motion.section>
-
-            {/* ── Today's Routine Checklist ──────────────────────────────────── */}
-            {!isLoading && todayDoses.length > 0 && (
-              <motion.section variants={staggerItem} aria-labelledby="rest-of-day-heading">
-                <div className="flex items-center justify-between mb-4">
-                  <SectionHeader
-                    title="Today's Schedule Routine"
-                    meta={`${takenToday}/${todayDoses.length} completed`}
-                    icon={<ClockIcon size={16} />}
-                  />
-                  <Link
-                    to="/medicines"
-                    className="text-xs font-bold text-accent hover:underline flex items-center gap-1"
-                  >
-                    Manage Timetable <ArrowRightIcon size={13} />
-                  </Link>
-                </div>
-                <h2 id="rest-of-day-heading" className="sr-only">
-                  Today's Schedule Routine
-                </h2>
-
-                <div className="rounded-[var(--radius-xl)] border border-line bg-surface-raised overflow-hidden divide-y divide-line shadow-card">
-                  {todayDoses
-                    .slice()
-                    .sort((a, b) => a.scheduled_minutes - b.scheduled_minutes)
-                    .map((dose) => {
-                      const med = medsMap[dose.medicine_id];
-                      const status = deriveStatusOnRead(dose, new Date());
-                      const slot = SLOT_META[bucketOf(dose.scheduled_minutes)];
-                      const isTaken = status === 'taken';
-
-                      return (
-                        <div
-                          key={dose.id}
-                          className="flex items-center justify-between gap-3 px-4 py-3.5 hover:bg-surface-hover/50 transition-colors"
-                        >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <span
-                              className={`shrink-0 flex items-center justify-center w-8 h-8 rounded-xl border ${slot.surface} ${slot.text} ${slot.border}`}
-                            >
-                              {slot.icon(15)}
-                            </span>
-                            <div className="min-w-0">
-                              <p className={`text-sm font-bold truncate ${isTaken ? 'text-content-muted line-through' : 'text-content'}`}>
-                                {med?.medicine_name || 'Prescribed medicine'}
-                                {med?.strength ? ` · ${med.strength}` : ''}
-                              </p>
-                              <div className="flex items-center gap-2 text-2xs text-content-subtle mt-0.5">
-                                <span data-numeric className="font-mono font-medium">
-                                  {formatDoseTime(dose.scheduled_minutes)}
-                                </span>
-                                <span>•</span>
-                                <span>{slot.label}</span>
+                        <div>
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                              <div className="w-12 h-12 rounded-2xl bg-accent-subtle text-accent border border-accent/20 flex items-center justify-center shrink-0">
+                                <MedicineIcon size={24} />
                               </div>
+                              <div>
+                                <span className="text-2xs uppercase tracking-wider font-bold text-accent">
+                                  Next Scheduled Dose
+                                </span>
+                                <h3 className="text-xl font-black text-content tracking-tight">
+                                  {nextMedicine?.medicine_name || 'Prescribed medicine'}
+                                </h3>
+                                <p className="text-xs text-content-muted mt-0.5">
+                                  {[nextMedicine?.strength, nextMedicine?.dose_amount]
+                                    .filter(Boolean)
+                                    .join(' · ') || 'Take as prescribed'}
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Due Time Badge */}
+                            <div className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-accent text-content-onaccent font-bold text-xs font-mono shadow-xs">
+                              <ClockIcon size={14} />
+                              <span>{formatDoseTime(nextDose.scheduled_minutes)}</span>
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-2">
-                            {isTaken ? (
-                              <div className="flex items-center gap-2">
-                                <Badge tone="ok" size="sm" withIcon>
-                                  <CheckIcon size={11} className="inline mr-0.5" /> Taken
-                                </Badge>
-                                <button
-                                  type="button"
-                                  onClick={() => handleUndo(dose)}
-                                  className="text-2xs text-content-subtle hover:text-content font-medium px-2 py-1 rounded transition-colors cursor-pointer"
-                                >
-                                  Undo
-                                </button>
-                              </div>
-                            ) : status === 'missed' ? (
-                              <div className="flex items-center gap-2">
-                                <Badge tone="warn" size="sm">
-                                  Overdue
-                                </Badge>
-                                <Button
-                                  size="sm"
-                                  variant="primary"
-                                  onClick={() => handleMarkTaken(dose)}
-                                >
-                                  Take
-                                </Button>
-                              </div>
-                            ) : (
-                              <Button
-                                size="sm"
-                                variant="secondary"
-                                onClick={() => handleMarkTaken(dose)}
-                              >
-                                Take
-                              </Button>
-                            )}
+                          {/* Meal & Clinical Instructions */}
+                          <div className="mt-4 flex flex-wrap items-center gap-2">
+                            <span className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg bg-surface-sunken text-content-muted border border-line font-medium">
+                              <span className="text-accent">
+                                {mealRelationIcon(mealRelationOf(nextMedicine?.with_food), 13)}
+                              </span>
+                              <span>{mealRelationInstruction(nextMedicine?.with_food)}</span>
+                            </span>
+                          </div>
+
+                          {nextMedicine?.instructions && (
+                            <p className="mt-2.5 text-xs text-content-muted bg-surface-sunken/80 border border-line rounded-lg px-3 py-2 leading-relaxed">
+                              <span className="font-semibold text-content">Instructions: </span>
+                              {nextMedicine.instructions}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Quick 1-Tap Take Action */}
+                        <div className="mt-5 pt-3 border-t border-line flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                          <p className="text-xs text-content-muted">
+                            {remainingToday} dose{remainingToday === 1 ? '' : 's'} remaining today
+                          </p>
+                          <Button
+                            size="md"
+                            variant="primary"
+                            onClick={() => handleMarkTaken(nextDose)}
+                            leftIcon={<CheckIcon size={16} className="stroke-[2.5]" />}
+                            className="font-bold shadow-xs hover:shadow-md"
+                          >
+                            Take Dose Now
+                          </Button>
+                        </div>
+                      </Card>
+                    ) : (
+                      <Card className="p-6 bg-surface-raised border border-line shadow-card flex flex-col justify-center w-full">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                          <span className="shrink-0 flex items-center justify-center w-12 h-12 rounded-2xl bg-ok-bg text-ok-text border border-ok-border">
+                            <CheckIcon size={24} className="stroke-[2.5]" />
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-base font-bold text-content">
+                              {hasScheduledToday
+                                ? 'All doses completed for today!'
+                                : activeMedsList.length > 0
+                                  ? 'Nothing due right now'
+                                  : 'No active medicine courses scheduled'}
+                            </p>
+                            <p className="mt-1 text-xs text-content-muted">
+                              {hasScheduledToday
+                                ? `You completed all ${takenToday} scheduled doses today. Outstanding consistency!`
+                                : activeMedsList.length > 0
+                                  ? 'Your next scheduled dose will show up here automatically.'
+                                  : 'Scan or enter a prescription to generate your automated timetable.'}
+                            </p>
+                          </div>
+                          {activeMedsList.length === 0 && (
+                            <Link to="/prescriptions/new" className="shrink-0">
+                              <Button leftIcon={<PrescriptionIcon size={16} />}>Scan Prescription</Button>
+                            </Link>
+                          )}
+                        </div>
+                      </Card>
+                    )}
+                  </div>
+
+                  {/* Today's Adherence Ring (4 Columns) */}
+                  <div className="lg:col-span-4 flex">
+                    <Card className="p-5 sm:p-6 bg-surface-raised border border-line shadow-card flex flex-col justify-between w-full">
+                      <div>
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-2xs uppercase tracking-wider font-bold text-content-subtle">
+                            Today's Adherence
+                          </span>
+                          {streakDays > 0 && (
+                            <span className="text-2xs font-bold text-accent flex items-center gap-1">
+                              <FlameIcon size={12} /> {streakDays}d streak
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-4">
+                          <ProgressRing
+                            percentage={hasScheduledToday ? adherence.percentage : 0}
+                            size={64}
+                            strokeWidth={6.5}
+                            tone={
+                              adherence.percentage === 100
+                                ? 'ok'
+                                : adherence.percentage >= 50
+                                  ? 'ok'
+                                  : 'warn'
+                            }
+                          />
+                          <div>
+                            <p className="text-lg font-black text-content leading-snug">
+                              {takenToday} of {takenToday + remainingToday} taken
+                            </p>
+                            <p className="mt-0.5 text-xs text-content-muted">
+                              {hasScheduledToday
+                                ? `${adherence.percentage}% daily adherence`
+                                : 'No doses scheduled'}
+                            </p>
                           </div>
                         </div>
-                      );
-                    })}
-                </div>
-              </motion.section>
-            )}
+                      </div>
 
-            {/* ── Quick Tools ────────────────────────────────────────────────── */}
-            <motion.section variants={staggerItem} aria-labelledby="tools-heading">
-              <SectionHeader title="Clinical Quick Tools" className="mb-4" />
-              <h2 id="tools-heading" className="sr-only">
-                Clinical Quick Tools
-              </h2>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {[
-                  {
-                    to: '/vitals',
-                    icon: <DropletIcon size={19} />,
-                    title: 'Sugar & Blood Pressure',
-                    detail: 'Log and monitor vital signs',
-                  },
-                  {
-                    to: '/doctor/questions',
-                    icon: <QuestionIcon size={19} />,
-                    title: 'Doctor Visit Prep',
-                    detail: 'Questions & symptom dossier',
-                  },
-                  {
-                    to: '/doctor/second-opinion',
-                    icon: <FileTextIcon size={19} />,
-                    title: 'Second Opinion Pack',
-                    detail: 'Anonymised clinical export',
-                  },
-                ].map((tool) => (
-                  <Link
-                    key={tool.to}
-                    to={tool.to}
-                    className="group flex items-center gap-3.5 p-4 rounded-[var(--radius-xl)] border border-line bg-surface-raised hover:border-line-strong hover:shadow-raise transition-all"
-                  >
-                    <span className="shrink-0 flex items-center justify-center w-10 h-10 rounded-xl bg-accent-subtle text-accent border border-accent/20">
-                      {tool.icon}
-                    </span>
-                    <span className="min-w-0">
-                      <span className="block text-sm font-bold text-content truncate">
-                        {tool.title}
-                      </span>
-                      <span className="block text-xs text-content-subtle mt-0.5">{tool.detail}</span>
-                    </span>
-                    <ArrowRightIcon
-                      size={15}
-                      className="ml-auto shrink-0 text-content-subtle transition-transform group-hover:translate-x-0.5"
-                    />
-                  </Link>
-                ))}
-              </div>
-            </motion.section>
-
-            {/* ── Milestones & Achievements ───────────────────────────────────── */}
-            <motion.section variants={staggerItem} aria-labelledby="milestones-heading">
-              <SectionHeader
-                title="Adherence Milestones"
-                icon={<MedalIcon size={16} />}
-                meta={`${unlockedCount} of ${achievements.length} earned`}
-                className="mb-4"
-              />
-              <h2 id="milestones-heading" className="sr-only">
-                Adherence Milestones
-              </h2>
-
-              {isLoading ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {[0, 1, 2].map((i) => (
-                    <Skeleton key={i} className="h-24 w-full rounded-[var(--radius-xl)]" />
-                  ))}
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {achievements.map((a) => (
-                    <button
-                      key={a.id}
-                      type="button"
-                      disabled={!a.unlocked}
-                      onClick={() => a.unlocked && setSelectedMilestone(a)}
-                      className={a.unlocked ? 'cursor-pointer text-left w-full' : 'text-left w-full cursor-default'}
-                    >
-                      <MilestoneBadgeCard achievement={a} />
-                    </button>
-                  ))}
+                      <Link
+                        to="/medicines"
+                        className="mt-5 pt-3 border-t border-line inline-flex items-center justify-between text-xs font-bold text-accent hover:text-accent-hover transition-colors"
+                      >
+                        <span>Open full timetable</span>
+                        <ArrowRightIcon size={14} />
+                      </Link>
+                    </Card>
+                  </div>
                 </div>
               )}
             </motion.section>
-          </>
-        )}
 
-        {/* ── Emergency Quick Dial ─────────────────────────────────────────── */}
-        <motion.section variants={staggerItem} aria-labelledby="emergency-heading">
-          <Card accent="risk" className="p-4 sm:p-5">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <span className="shrink-0 flex items-center justify-center w-10 h-10 rounded-xl bg-risk-bg text-risk-text border border-risk-border">
-                  <EmergencyAmbulanceIcon size={20} />
-                </span>
-                <div>
-                  <h2 id="emergency-heading" className="text-sm font-bold text-content">
-                    Emergency Hotlines
-                  </h2>
-                  <p className="text-xs text-content-muted">Tap to call directly. Works offline.</p>
+            {/* ═════════════════════════════════════════════════════════════════════
+                BENTO ROW 2: INTERACTIVE VITALS & BIOMETRICS BENTO
+                ═════════════════════════════════════════════════════════════════════ */}
+            <motion.section variants={staggerItem} aria-labelledby="vitals-bento-heading">
+              <div className="flex items-center justify-between mb-3">
+                <SectionHeader
+                  title="Biometrics & Chronic Vitals"
+                  icon={<ActivityIcon size={16} />}
+                />
+                <Link
+                  to="/vitals"
+                  className="text-xs font-bold text-accent hover:underline flex items-center gap-1"
+                >
+                  Vitals Radar <ArrowRightIcon size={13} />
+                </Link>
+              </div>
+              <h2 id="vitals-bento-heading" className="sr-only">
+                Biometrics & Chronic Vitals Bento
+              </h2>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* 1. Blood Glucose Card (6 Columns) */}
+                <Card className="p-5 bg-surface-raised border border-line shadow-card hover:border-line-strong transition-all flex flex-col justify-between">
+                  <div>
+                    {/* Header */}
+                    <div className="flex items-center justify-between gap-2 pb-3 border-b border-line">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/20 flex items-center justify-center">
+                          <DropletIcon size={18} />
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-bold text-content">Blood Glucose</h3>
+                          <p className="text-2xs text-content-subtle">
+                            {latestGlucose
+                              ? `Last checked: ${formatReadingTime(latestGlucose.measured_at)}`
+                              : 'No readings logged'}
+                          </p>
+                        </div>
+                      </div>
+
+                      {glucoseEval && (
+                        <Badge tone={VITAL_TONE[glucoseEval.tone].badge} size="sm" withIcon>
+                          {glucoseEval.label}
+                        </Badge>
+                      )}
+                    </div>
+
+                    {/* Value Preview */}
+                    {latestGlucose ? (
+                      <div className="mt-4 space-y-2">
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-3xl font-black text-content tracking-tight font-mono">
+                            {latestGlucose.value_mg_dl}
+                          </span>
+                          <span className="text-xs font-bold text-content-muted">mg/dL</span>
+                          <span className="ml-auto text-xs px-2 py-0.5 rounded-md bg-surface-sunken border border-line text-content-muted font-medium capitalize">
+                            {latestGlucose.type.replace('_', ' ')}
+                          </span>
+                        </div>
+
+                        {glucoseEval && (
+                          <p className="text-xs text-content-muted bg-surface-sunken/60 border border-line rounded-lg px-3 py-2 leading-relaxed">
+                            {glucoseEval.advice}
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="mt-4 py-4 text-center rounded-xl bg-surface-sunken/40 border border-line/60">
+                        <p className="text-xs font-semibold text-content-muted">
+                          No glucose readings logged yet
+                        </p>
+                        <p className="text-2xs text-content-subtle mt-0.5">
+                          Track fasting and post-meal targets regularly
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Actions Footer */}
+                  <div className="mt-5 pt-3 border-t border-line flex items-center justify-between gap-2">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      leftIcon={<PlusIcon size={14} />}
+                      onClick={() =>
+                        setQuickVitalsModal({ open: true, type: 'glucose' })
+                      }
+                      className="font-bold"
+                    >
+                      Log Blood Sugar
+                    </Button>
+                    <Link
+                      to="/vitals"
+                      className="text-2xs font-bold text-content-muted hover:text-accent transition-colors flex items-center gap-1"
+                    >
+                      <span>Full Trends</span>
+                      <ArrowRightIcon size={12} />
+                    </Link>
+                  </div>
+                </Card>
+
+                {/* 2. Blood Pressure Card (6 Columns) */}
+                <Card className="p-5 bg-surface-raised border border-line shadow-card hover:border-line-strong transition-all flex flex-col justify-between">
+                  <div>
+                    {/* Header */}
+                    <div className="flex items-center justify-between gap-2 pb-3 border-b border-line">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 rounded-xl bg-rose-500/10 text-rose-500 border border-rose-500/20 flex items-center justify-center">
+                          <HeartPulseIcon size={18} />
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-bold text-content">Blood Pressure</h3>
+                          <p className="text-2xs text-content-subtle">
+                            {latestBp
+                              ? `Last checked: ${formatReadingTime(latestBp.measured_at)}`
+                              : 'No readings logged'}
+                          </p>
+                        </div>
+                      </div>
+
+                      {bpEval && (
+                        <Badge tone={VITAL_TONE[bpEval.tone].badge} size="sm" withIcon>
+                          {bpEval.label}
+                        </Badge>
+                      )}
+                    </div>
+
+                    {/* Value Preview */}
+                    {latestBp ? (
+                      <div className="mt-4 space-y-2">
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-3xl font-black text-content tracking-tight font-mono">
+                            {latestBp.systolic}/{latestBp.diastolic}
+                          </span>
+                          <span className="text-xs font-bold text-content-muted">mmHg</span>
+
+                          <div className="ml-auto flex items-center gap-2">
+                            {latestBp.pulse_bpm && (
+                              <span className="text-xs px-2 py-0.5 rounded-md bg-rose-500/10 text-rose-600 border border-rose-500/20 font-bold font-mono flex items-center gap-1">
+                                <HeartPulseIcon size={11} />
+                                {latestBp.pulse_bpm} bpm
+                              </span>
+                            )}
+                            {bpMapValue && (
+                              <span className="text-2xs px-2 py-0.5 rounded-md bg-surface-sunken border border-line text-content-muted font-medium">
+                                MAP {bpMapValue}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {bpEval && (
+                          <p className="text-xs text-content-muted bg-surface-sunken/60 border border-line rounded-lg px-3 py-2 leading-relaxed">
+                            {bpEval.advice}
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="mt-4 py-4 text-center rounded-xl bg-surface-sunken/40 border border-line/60">
+                        <p className="text-xs font-semibold text-content-muted">
+                          No blood pressure readings logged yet
+                        </p>
+                        <p className="text-2xs text-content-subtle mt-0.5">
+                          Track systolic, diastolic & pulse regularly
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Actions Footer */}
+                  <div className="mt-5 pt-3 border-t border-line flex items-center justify-between gap-2">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      leftIcon={<PlusIcon size={14} />}
+                      onClick={() =>
+                        setQuickVitalsModal({ open: true, type: 'bp' })
+                      }
+                      className="font-bold"
+                    >
+                      Log Blood Pressure
+                    </Button>
+                    <Link
+                      to="/vitals"
+                      className="text-2xs font-bold text-content-muted hover:text-accent transition-colors flex items-center gap-1"
+                    >
+                      <span>Full Trends</span>
+                      <ArrowRightIcon size={12} />
+                    </Link>
+                  </div>
+                </Card>
+              </div>
+            </motion.section>
+
+            {/* ═════════════════════════════════════════════════════════════════════
+                BENTO ROW 3: CLINICAL GUIDANCE & LAB DIAGNOSTICS OVERVIEW
+                ═════════════════════════════════════════════════════════════════════ */}
+            <motion.section variants={staggerItem} aria-labelledby="clinical-guidance-bento-heading">
+              <h2 id="clinical-guidance-bento-heading" className="sr-only">
+                Clinical Guidance and Lab Diagnostics
+              </h2>
+
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                {/* Clinical Guidance Assistant Launchpad (7 Columns) */}
+                <Card className="lg:col-span-7 p-5 bg-gradient-to-br from-surface-raised to-accent-subtle/30 border border-line shadow-card flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="w-8 h-8 rounded-xl bg-accent text-content-onaccent flex items-center justify-center shadow-xs">
+                          <SparklesIcon size={16} />
+                        </span>
+                        <div>
+                          <h3 className="text-sm font-bold text-content">
+                            Clinical Assistant & Guidance
+                          </h3>
+                          <p className="text-2xs text-content-muted">
+                            Insights grounded directly in your prescriptions and records
+                          </p>
+                        </div>
+                      </div>
+                      <Badge tone="info" size="sm">
+                        24/7 Support
+                      </Badge>
+                    </div>
+
+                    <p className="text-xs text-content-muted mt-2">
+                      Review medication interactions, understand dosage instructions, or prepare
+                      for upcoming consultations.
+                    </p>
+
+                    {/* Quick Query Launchpad Pills */}
+                    <div className="mt-3.5 flex flex-wrap gap-2">
+                      {[
+                        { label: '💊 Check Drug Interactions', path: '/assistant' },
+                        { label: '🩺 Prepare Doctor Brief', path: '/doctor/brief' },
+                        { label: '❓ Consultation Questions', path: '/doctor/questions' },
+                        { label: '⚡ Symptom Triage', path: '/symptoms' },
+                      ].map((item) => (
+                        <button
+                          key={item.label}
+                          type="button"
+                          onClick={() => navigate(item.path)}
+                          className="px-3 py-1.5 rounded-xl bg-surface text-xs font-semibold text-content border border-line hover:border-accent hover:text-accent shadow-2xs transition-all cursor-pointer text-left"
+                        >
+                          {item.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="mt-5 pt-3 border-t border-line flex items-center justify-between">
+                    <span className="text-2xs text-content-subtle">
+                      Private & encrypted medical dossier
+                    </span>
+                    <Link
+                      to="/assistant"
+                      className="text-xs font-bold text-accent hover:text-accent-hover flex items-center gap-1"
+                    >
+                      <span>Open Assistant</span>
+                      <ArrowRightIcon size={13} />
+                    </Link>
+                  </div>
+                </Card>
+
+                {/* Diagnostic Labs & Records (5 Columns) */}
+                <Card className="lg:col-span-5 p-5 bg-surface-raised border border-line shadow-card flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-2 pb-2 border-b border-line">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-xl bg-surface-sunken text-content-muted border border-line flex items-center justify-center">
+                          <LabFlaskIcon size={16} />
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-bold text-content">Labs & Reports</h3>
+                          <p className="text-2xs text-content-subtle">
+                            Diagnostic orders & tests
+                          </p>
+                        </div>
+                      </div>
+
+                      {pendingOrders.length > 0 && (
+                        <Badge tone="warn" size="sm">
+                          {pendingOrders.length} Due
+                        </Badge>
+                      )}
+                    </div>
+
+                    {pendingOrders.length > 0 ? (
+                      <div className="mt-2.5 space-y-2">
+                        <span className="text-2xs font-bold uppercase tracking-wider text-content-subtle">
+                          Outstanding Test Orders
+                        </span>
+                        {pendingOrders.slice(0, 2).map((order) => (
+                          <div
+                            key={order.id}
+                            className="p-2.5 rounded-xl bg-surface-sunken/80 border border-line flex items-center justify-between gap-2"
+                          >
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold text-content truncate">
+                                {order.test_name}
+                              </p>
+                              <p className="text-2xs text-content-subtle truncate">
+                                {order.notes || `Ordered on ${order.ordered_date}`}
+                              </p>
+                            </div>
+                            <Badge tone="warn" size="sm">
+                              Pending
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="mt-3 space-y-2">
+                        <div className="grid grid-cols-2 gap-2 text-center">
+                          <div className="p-3 rounded-xl bg-surface-sunken/60 border border-line">
+                            <span className="text-lg font-black text-content font-mono block">
+                              {recordCounts.reports}
+                            </span>
+                            <span className="text-2xs text-content-muted">Lab Reports</span>
+                          </div>
+                          <div className="p-3 rounded-xl bg-surface-sunken/60 border border-line">
+                            <span className="text-lg font-black text-content font-mono block">
+                              {recordCounts.visits}
+                            </span>
+                            <span className="text-2xs text-content-muted">Doctor Visits</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mt-4 pt-3 border-t border-line flex items-center justify-between gap-2">
+                    <Link to="/reports/new">
+                      <Button size="sm" variant="secondary" leftIcon={<PlusIcon size={14} />}>
+                        Upload Lab Report
+                      </Button>
+                    </Link>
+                    <Link
+                      to="/reports"
+                      className="text-xs font-bold text-accent hover:underline flex items-center gap-1"
+                    >
+                      View All <ArrowRightIcon size={12} />
+                    </Link>
+                  </div>
+                </Card>
+              </div>
+            </motion.section>
+
+            {/* ═════════════════════════════════════════════════════════════════════
+                BENTO ROW 4: CLINICAL CARE CONTINUUM & TOOLS
+                ═════════════════════════════════════════════════════════════════════ */}
+            <motion.section variants={staggerItem} aria-labelledby="clinical-tools-heading">
+              <SectionHeader title="Clinical Care Continuum" className="mb-3" />
+              <h2 id="clinical-tools-heading" className="sr-only">
+                Clinical Care Continuum
+              </h2>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                {/* Tool 1: Doctor Visit Prep */}
+                <Link
+                  to="/doctor/questions"
+                  className="group flex flex-col justify-between p-4 rounded-2xl border border-line bg-surface-raised hover:border-line-strong hover:shadow-raise transition-all"
+                >
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className="shrink-0 flex items-center justify-center w-10 h-10 rounded-xl bg-accent-subtle text-accent border border-accent/20">
+                      <QuestionIcon size={18} />
+                    </span>
+                    <div>
+                      <span className="block text-sm font-bold text-content">Doctor Visit Prep</span>
+                      <span className="block text-2xs text-content-subtle">Smart questions & agenda</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between pt-2 border-t border-line/60 text-2xs font-bold text-accent">
+                    <span>Prepare dossier</span>
+                    <ArrowRightIcon size={13} className="group-hover:translate-x-0.5 transition-transform" />
+                  </div>
+                </Link>
+
+                {/* Tool 2: Second Opinion Pack */}
+                <Link
+                  to="/doctor/second-opinion"
+                  className="group flex flex-col justify-between p-4 rounded-2xl border border-line bg-surface-raised hover:border-line-strong hover:shadow-raise transition-all"
+                >
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className="shrink-0 flex items-center justify-center w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">
+                      <FileTextIcon size={18} />
+                    </span>
+                    <div>
+                      <span className="block text-sm font-bold text-content">Second Opinion</span>
+                      <span className="block text-2xs text-content-subtle">Anonymised clinical export</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between pt-2 border-t border-line/60 text-2xs font-bold text-accent">
+                    <span>Export pack</span>
+                    <ArrowRightIcon size={13} className="group-hover:translate-x-0.5 transition-transform" />
+                  </div>
+                </Link>
+
+                {/* Tool 3: Longitudinal Health Timeline */}
+                <Link
+                  to="/timeline"
+                  className="group flex flex-col justify-between p-4 rounded-2xl border border-line bg-surface-raised hover:border-line-strong hover:shadow-raise transition-all"
+                >
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className="shrink-0 flex items-center justify-center w-10 h-10 rounded-xl bg-teal-500/10 text-teal-500 border border-teal-500/20">
+                      <CalendarIcon size={18} />
+                    </span>
+                    <div>
+                      <span className="block text-sm font-bold text-content">Health Timeline</span>
+                      <span className="block text-2xs text-content-subtle">Longitudinal health journey</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between pt-2 border-t border-line/60 text-2xs font-bold text-accent">
+                    <span>View timeline</span>
+                    <ArrowRightIcon size={13} className="group-hover:translate-x-0.5 transition-transform" />
+                  </div>
+                </Link>
+
+                {/* Tool 4: Medicine Cabinet & Low Stock Alerts */}
+                <Link
+                  to="/medicines/cabinet"
+                  className="group flex flex-col justify-between p-4 rounded-2xl border border-line bg-surface-raised hover:border-line-strong hover:shadow-raise transition-all"
+                >
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className="shrink-0 flex items-center justify-center w-10 h-10 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                      <CabinetIcon size={18} />
+                    </span>
+                    <div className="min-w-0">
+                      <span className="block text-sm font-bold text-content">Medicine Cabinet</span>
+                      <span className="block text-2xs text-content-subtle truncate">
+                        {lowStockMedicines.length > 0
+                          ? `${lowStockMedicines.length} low stock refill`
+                          : `${activeMedsList.length} active courses`}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between pt-2 border-t border-line/60 text-2xs font-bold text-accent">
+                    {lowStockMedicines.length > 0 ? (
+                      <span className="text-warn font-bold flex items-center gap-1">
+                        <AlertTriangleIcon size={11} /> Refills Needed
+                      </span>
+                    ) : (
+                      <span>Manage Cabinet</span>
+                    )}
+                    <ArrowRightIcon size={13} className="group-hover:translate-x-0.5 transition-transform" />
+                  </div>
+                </Link>
+              </div>
+            </motion.section>
+
+            {/* ═════════════════════════════════════════════════════════════════════
+                BENTO ROW 5: MILESTONES & EMERGENCY HOTLINES
+                ═════════════════════════════════════════════════════════════════════ */}
+            <motion.section variants={staggerItem} aria-labelledby="milestones-heading">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                {/* Milestones Card (8 Columns) */}
+                <div className="lg:col-span-8">
+                  <div className="flex items-center justify-between mb-3">
+                    <SectionHeader
+                      title="Adherence Milestones"
+                      icon={<MedalIcon size={16} />}
+                      meta={`${unlockedCount} of ${achievements.length} earned`}
+                    />
+                  </div>
+
+                  {isLoading ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {[0, 1].map((i) => (
+                        <Skeleton key={i} className="h-24 w-full rounded-[var(--radius-xl)]" />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {achievements.slice(0, 4).map((a) => (
+                        <button
+                          key={a.id}
+                          type="button"
+                          disabled={!a.unlocked}
+                          onClick={() => a.unlocked && setSelectedMilestone(a)}
+                          className={
+                            a.unlocked
+                              ? 'cursor-pointer text-left w-full transition-transform hover:-translate-y-0.5'
+                              : 'text-left w-full cursor-default'
+                          }
+                        >
+                          <MilestoneBadgeCard achievement={a} />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Emergency Hotlines Card (4 Columns) */}
+                <div className="lg:col-span-4 flex flex-col">
+                  <span className="text-2xs uppercase tracking-wider font-bold text-content-subtle mb-3 block">
+                    Emergency Response (Pakistan)
+                  </span>
+
+                  <Card accent="risk" className="p-4 flex-1 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center gap-2.5 mb-2">
+                        <span className="shrink-0 flex items-center justify-center w-8 h-8 rounded-xl bg-risk-bg text-risk-text border border-risk-border">
+                          <EmergencyAmbulanceIcon size={18} />
+                        </span>
+                        <div>
+                          <h3 className="text-sm font-bold text-content">Emergency Quick Dial</h3>
+                          <p className="text-2xs text-content-muted">Tap to call directly</p>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 space-y-1.5">
+                        {EMERGENCY_NUMBERS.map((line) => (
+                          <a
+                            key={line.tel}
+                            href={`tel:${line.tel}`}
+                            className="flex items-center justify-between px-3 py-2 rounded-xl border border-risk-border/60 bg-risk-bg/60 hover:bg-risk-bg text-risk-text transition-all"
+                          >
+                            <span className="text-xs font-bold">{line.label}</span>
+                            <span className="text-xs font-black font-mono" data-numeric>
+                              {line.tel}
+                            </span>
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+
+                    <p className="text-3xs text-content-subtle mt-3 text-center">
+                      Works offline without active internet connection
+                    </p>
+                  </Card>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                {EMERGENCY_NUMBERS.map((line) => (
-                  <a
-                    key={line.tel}
-                    href={`tel:${line.tel}`}
-                    className="flex-1 sm:flex-initial min-w-20 px-3.5 py-2 rounded-xl border border-risk-border bg-risk-bg text-center hover:brightness-[0.96] transition-all"
-                  >
-                    <span className="block text-xs font-bold text-risk-text font-mono" data-numeric>
-                      {line.tel}
-                    </span>
-                    <span className="block text-2xs text-content-muted">{line.label}</span>
-                  </a>
-                ))}
-              </div>
-            </div>
-          </Card>
-        </motion.section>
-
-        {/* Mobile action bar */}
-        <div className="sm:hidden grid grid-cols-2 gap-2.5">
-          <Link to="/prescriptions/new">
-            <Button fullWidth leftIcon={<PrescriptionIcon size={16} />}>
-              Prescription
-            </Button>
-          </Link>
-          <Link to="/reports/new">
-            <Button fullWidth variant="secondary" leftIcon={<LabFlaskIcon size={16} />}>
-              Lab Report
-            </Button>
-          </Link>
-        </div>
+            </motion.section>
+          </>
+        )}
       </motion.div>
+
+      {/* Quick Vitals Logger Modal */}
+      <QuickVitalsModal
+        open={quickVitalsModal.open}
+        initialType={quickVitalsModal.type}
+        onClose={() => setQuickVitalsModal({ open: false, type: 'glucose' })}
+        onSaved={loadDashboard}
+      />
 
       {/* Milestone Celebration Modal */}
       {selectedMilestone && (

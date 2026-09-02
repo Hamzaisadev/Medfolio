@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { clsx } from 'clsx';
 import { AppShell } from '../../components/layout/AppShell';
 import { Button } from '../../components/ui/Button';
@@ -124,6 +124,7 @@ async function topUpScheduleFor(
 }
 
 export function TodaySchedulePage() {
+  const navigate = useNavigate();
   const { user, profile } = useAuth();
   const [selectedDate, setSelectedDate] = useState<string>(todayInAppTz());
   const [doses, setDoses] = useState<Dose[]>([]);
@@ -729,13 +730,13 @@ export function TodaySchedulePage() {
         </div>
       </div>
 
-      {/* Main Chronotherapy Medication Stream (Full-Width with 3-Column Dose Tiles) */}
+      {/* Main Chronotherapy Medication Stream (Vertically Stacked Expandable Accordion List) */}
       <main className="space-y-7">
         {/* Loading Skeleton */}
         {isLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[0, 1, 2].map((i) => (
-              <Skeleton key={i} className="h-44 w-full rounded-2xl" />
+          <div className="space-y-3">
+            {[0, 1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-16 w-full rounded-2xl" />
             ))}
           </div>
         ) : loadError ? (
@@ -778,7 +779,7 @@ export function TodaySchedulePage() {
             </Button>
           </div>
         ) : (
-          /* Chronotherapy Timed Sections (3 Columns) */
+          /* Chronotherapy Timed Sections (Vertically Stacked Accordion List) */
           <div className="space-y-7">
             {BUCKET_ORDER.map((key) => {
               const bucketDoses = buckets[key];
@@ -838,13 +839,14 @@ export function TodaySchedulePage() {
                     </div>
                   </div>
 
-                  {/* 3-Column Medication Tiles Grid */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {/* Vertically Stacked Accordion Medication List */}
+                  <div className="flex flex-col gap-2.5">
                     {bucketDoses.map((dose) => {
                       const medicine = medicinesMap[dose.medicine_id];
                       return (
                         <DoseCard
                           key={dose.id}
+                          medicineId={dose.medicine_id}
                           medicineName={medicine?.medicine_name || 'Prescribed medicine'}
                           strength={medicine?.strength}
                           doseAmount={medicine?.dose_amount || (medicine?.form ? `1 ${medicine.form}` : undefined)}
@@ -857,7 +859,10 @@ export function TodaySchedulePage() {
                           onTake={() => handleMarkTaken(dose)}
                           onSkip={() => handleOpenSkip(dose)}
                           onUndo={() => handleUndo(dose)}
+                          onOrderRefill={() => handleOpenOrderModal(medicine)}
+                          onViewDetails={() => navigate(`/medicines/${dose.medicine_id}`)}
                           onSelect={() => handleOpenOrderModal(medicine)}
+                          readOnly={isPast}
                         />
                       );
                     })}

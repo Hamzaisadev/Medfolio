@@ -99,6 +99,41 @@ const UiCatalogueScreen = lazy(() =>
   import('./pages/dev/UiCataloguePage').then((m) => ({ default: m.UiCataloguePage }))
 );
 
+// Medication Schedule Design Lab Test Routes
+const ScheduleTestGalleryPage = lazy(() =>
+  import('./pages/test/ScheduleTestGalleryPage').then((m) => ({ default: m.ScheduleTestGalleryPage }))
+);
+const ScheduleTest1Page = lazy(() =>
+  import('./pages/test/ScheduleTest1Page').then((m) => ({ default: m.ScheduleTest1Page }))
+);
+const ScheduleTest2Page = lazy(() =>
+  import('./pages/test/ScheduleTest2Page').then((m) => ({ default: m.ScheduleTest2Page }))
+);
+const ScheduleTest3Page = lazy(() =>
+  import('./pages/test/ScheduleTest3Page').then((m) => ({ default: m.ScheduleTest3Page }))
+);
+const ScheduleTest4Page = lazy(() =>
+  import('./pages/test/ScheduleTest4Page').then((m) => ({ default: m.ScheduleTest4Page }))
+);
+const ScheduleTest5Page = lazy(() =>
+  import('./pages/test/ScheduleTest5Page').then((m) => ({ default: m.ScheduleTest5Page }))
+);
+const ScheduleTest6Page = lazy(() =>
+  import('./pages/test/ScheduleTest6Page').then((m) => ({ default: m.ScheduleTest6Page }))
+);
+const ScheduleTest7Page = lazy(() =>
+  import('./pages/test/ScheduleTest7Page').then((m) => ({ default: m.ScheduleTest7Page }))
+);
+const ScheduleTest8Page = lazy(() =>
+  import('./pages/test/ScheduleTest8Page').then((m) => ({ default: m.ScheduleTest8Page }))
+);
+const ScheduleTest9Page = lazy(() =>
+  import('./pages/test/ScheduleTest9Page').then((m) => ({ default: m.ScheduleTest9Page }))
+);
+const ScheduleTest10Page = lazy(() =>
+  import('./pages/test/ScheduleTest10Page').then((m) => ({ default: m.ScheduleTest10Page }))
+);
+
 function RouteLoadingFallback() {
   return (
     <AppShell>
@@ -377,6 +412,30 @@ export function AppRoutes() {
             </ProtectedRoute>
           }
         />
+
+        {/* Experimental Medication Schedule Design Lab Routes */}
+        <Route path="/test/schedules" element={<ScheduleTestGalleryPage />} />
+        <Route path="/schedule-tests" element={<Navigate to="/test/schedules" replace />} />
+        <Route path="/test/schedule-1" element={<ScheduleTest1Page />} />
+        <Route path="/schedule-test-1" element={<Navigate to="/test/schedule-1" replace />} />
+        <Route path="/test/schedule-2" element={<ScheduleTest2Page />} />
+        <Route path="/schedule-test-2" element={<Navigate to="/test/schedule-2" replace />} />
+        <Route path="/test/schedule-3" element={<ScheduleTest3Page />} />
+        <Route path="/schedule-test-3" element={<Navigate to="/test/schedule-3" replace />} />
+        <Route path="/test/schedule-4" element={<ScheduleTest4Page />} />
+        <Route path="/schedule-test-4" element={<Navigate to="/test/schedule-4" replace />} />
+        <Route path="/test/schedule-5" element={<ScheduleTest5Page />} />
+        <Route path="/schedule-test-5" element={<Navigate to="/test/schedule-5" replace />} />
+        <Route path="/test/schedule-6" element={<ScheduleTest6Page />} />
+        <Route path="/schedule-test-6" element={<Navigate to="/test/schedule-6" replace />} />
+        <Route path="/test/schedule-7" element={<ScheduleTest7Page />} />
+        <Route path="/schedule-test-7" element={<Navigate to="/test/schedule-7" replace />} />
+        <Route path="/test/schedule-8" element={<ScheduleTest8Page />} />
+        <Route path="/schedule-test-8" element={<Navigate to="/test/schedule-8" replace />} />
+        <Route path="/test/schedule-9" element={<ScheduleTest9Page />} />
+        <Route path="/schedule-test-9" element={<Navigate to="/test/schedule-9" replace />} />
+        <Route path="/test/schedule-10" element={<ScheduleTest10Page />} />
+        <Route path="/schedule-test-10" element={<Navigate to="/test/schedule-10" replace />} />
 
         {/* Redirects for the retired aliases, so existing links and bookmarks
             keep working instead of hitting the 404 page. */}

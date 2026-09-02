@@ -144,8 +144,8 @@ export function UiCataloguePage() {
         </section>
 
         <section className="space-y-4">
-          <SectionHeader title="Dose card" meta="Slot-accented" />
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <SectionHeader title="Dose accordion list" meta="Expandable & scannable" />
+          <div className="flex flex-col gap-2.5 max-w-3xl">
             <DoseCard
               medicineName="Metformin"
               strength="500 mg"
@@ -154,13 +154,22 @@ export function UiCataloguePage() {
               status="pending"
               withFood
               remaining={18}
+              instructions="Take immediately after breakfast"
+              onTake={() => {}}
+              onOrderRefill={() => {}}
+              onViewDetails={() => {}}
             />
             <DoseCard
               medicineName="Atorvastatin"
               strength="20 mg"
+              doseAmount="1 tablet"
               scheduledMinutes={1290}
               status="taken"
               withFood={null}
+              remaining={3}
+              onUndo={() => {}}
+              onOrderRefill={() => {}}
+              onViewDetails={() => {}}
             />
           </div>
         </section>

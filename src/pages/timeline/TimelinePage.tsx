@@ -22,7 +22,6 @@ import {
   ArrowRight,
   ArrowUpDown,
   Plus,
-  Link2,
   Tag,
   MoreHorizontal,
   FileText,
@@ -66,16 +65,15 @@ function formatFullDateHeader(dateStr: string): string {
   }
 }
 
-function formatMonthYearUpper(dateStr: string): string {
+function formatMonthShortUpper(dateStr: string): string {
   try {
     const d = fromAppDate(dateStr);
     return new Intl.DateTimeFormat('en-GB', {
       month: 'short',
-      year: 'numeric',
       timeZone: 'UTC',
     }).format(d).toUpperCase();
   } catch {
-    return dateStr;
+    return '';
   }
 }
 
@@ -469,13 +467,11 @@ export function TimelinePage() {
           /* Timeline Skeleton Loading Stream */
           <div className="space-y-6">
             {[0, 1, 2].map((i) => (
-              <div key={i} className="flex items-start gap-6">
-                <div className="w-20 pt-1 space-y-1 text-center shrink-0">
-                  <Skeleton className="h-6 w-10 mx-auto" />
-                  <Skeleton className="h-3 w-16 mx-auto" />
-                </div>
-                <div className="w-10 flex justify-center shrink-0">
-                  <Skeleton className="h-9 w-9 rounded-full" />
+              <div key={i} className="flex items-start gap-3 sm:gap-4">
+                <div className="w-12 sm:w-14 pt-0.5 flex flex-col items-center gap-1.5 shrink-0">
+                  <Skeleton className="h-3 w-8 rounded" />
+                  <Skeleton className="h-8 w-8 sm:h-9 sm:w-9 rounded-full" />
+                  <Skeleton className="w-[2.5px] h-24 rounded-full" />
                 </div>
                 <Skeleton className="h-36 flex-1 rounded-2xl" />
               </div>
@@ -513,7 +509,7 @@ export function TimelinePage() {
             }
           />
         ) : (
-          /* Authentic Vertical Timeline with Exact 3-Column Layout */
+          /* Vertical Timeline with Date Node & Connecting Spine */
           <div className="space-y-10">
             {groupedTimeline.map(([monthGroup, groupItems]) => (
               <section key={monthGroup} aria-labelledby={`month-${monthGroup}`} className="space-y-6">
@@ -535,144 +531,147 @@ export function TimelinePage() {
                   </div>
                 </div>
 
-                {/* Event Items with Continuous Spine Track */}
-                <div className="relative space-y-6">
-                  {/* Continuous Spine Rail Line */}
-                  <div
-                    className="absolute left-[100px] sm:left-[128px] -translate-x-1/2 top-4 bottom-4 w-[2px] bg-teal-500/20 dark:bg-teal-500/10"
-                    aria-hidden="true"
-                  />
-
-                  {groupItems.map((item) => {
+                {/* Event Items */}
+                <div className="relative space-y-0">
+                  {groupItems.map((item, itemIdx) => {
                     const meta = getEventMeta(item.type);
                     const dayNum = formatDayNumber(item.date);
-                    const monthYear = formatMonthYearUpper(item.date);
+                    const monthShort = formatMonthShortUpper(item.date);
                     const fullDateHeader = formatFullDateHeader(item.date);
+                    const isLast = itemIdx === groupItems.length - 1;
 
                     return (
-                      <div key={item.id} className="relative flex items-start gap-3 sm:gap-5 group">
-                        {/* Column 1: Date & Time Stack */}
-                        <div className="w-[72px] sm:w-[90px] pt-1 text-center shrink-0">
-                          <span className="block text-2xl sm:text-3xl font-black text-content leading-none" data-numeric>
-                            {dayNum}
+                      <div key={item.id} className="relative flex items-start gap-3 sm:gap-4 group">
+                        {/* Column 1: Date Spine Node */}
+                        <div className="flex flex-col items-center shrink-0 w-12 sm:w-14 self-stretch pt-0.5 relative select-none">
+                          {/* Month Short Label (e.g. APR) */}
+                          <span className="text-[11px] sm:text-xs font-bold text-teal-600 dark:text-teal-400 tracking-wider uppercase leading-none mb-1.5 text-center">
+                            {monthShort}
                           </span>
-                          <span className="block text-[10px] font-bold text-content-subtle uppercase tracking-wider mt-1">
-                            {monthYear}
-                          </span>
-                          {item.timeDisplay && (
-                            <span className="block text-[11px] text-content-subtle font-medium mt-0.5" data-numeric>
-                              {item.timeDisplay}
-                            </span>
+
+                          {/* Day Badge & Horizontal Connector */}
+                          <div className="relative flex items-center justify-center">
+                            {/* Solid Teal/Green Circle Day Badge */}
+                            <div
+                              className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-teal-600 dark:bg-teal-500 text-white font-bold text-xs sm:text-sm flex items-center justify-center shadow-xs z-10 shrink-0 group-hover:scale-105 transition-transform"
+                              data-numeric
+                            >
+                              {dayNum}
+                            </div>
+
+                            {/* Horizontal Connector Line towards card */}
+                            <div
+                              className="absolute left-full w-3 sm:w-4 h-[2px] bg-teal-500/80 dark:bg-teal-400/80"
+                              aria-hidden="true"
+                            />
+                          </div>
+
+                          {/* Vertical Spine Line extending downwards */}
+                          {!isLast && (
+                            <div
+                              className="w-[2.5px] bg-teal-500/50 dark:bg-teal-400/40 rounded-full flex-1 my-1 min-h-[32px]"
+                              aria-hidden="true"
+                            />
                           )}
                         </div>
 
-                        {/* Column 2: Spine Node Indicator */}
-                        <div className="w-8 sm:w-9 flex justify-center shrink-0 z-10 pt-1.5">
-                          <div
-                            className={clsx(
-                              'w-8 h-8 sm:w-9 sm:h-9 rounded-full border shadow-2xs flex items-center justify-center transition-transform duration-200 group-hover:scale-110',
-                              meta.nodeClass
-                            )}
-                            aria-hidden="true"
+                        {/* Column 2: Event Card */}
+                        <div className="flex-1 min-w-0 pb-6">
+                          <motion.article
+                            layout
+                            initial={{ opacity: 0, y: 4 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            whileHover={{ y: -1 }}
+                            transition={{ type: 'spring', stiffness: 450, damping: 30 }}
+                            className="w-full rounded-2xl border border-line bg-surface-raised p-4 sm:p-5 shadow-2xs hover:shadow-card transition-all relative"
                           >
-                            {meta.icon}
-                          </div>
-                        </div>
-
-                        {/* Column 3: Event Card with Speech Bubble Left Arrow Notch */}
-                        <motion.article
-                          layout
-                          initial={{ opacity: 0, y: 4 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          whileHover={{ y: -1 }}
-                          transition={{ type: 'spring', stiffness: 450, damping: 30 }}
-                          className="flex-1 rounded-2xl border border-line bg-surface-raised p-4 sm:p-5 shadow-2xs hover:shadow-card transition-all relative before:absolute before:-left-1.5 before:top-4 before:w-3 before:h-3 before:bg-surface-raised before:border-l before:border-b before:border-line before:rotate-45"
-                        >
-                          {/* Top Row: Event Category Pill + Full Formatted Date + Action Menu */}
-                          <div className="flex items-center justify-between gap-2">
-                            {/* Category Pill with Link Icon */}
-                            <span
-                              className={clsx(
-                                'inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-bold border',
-                                meta.tagClass
-                              )}
-                            >
-                              <Link2 size={12} className="shrink-0" />
-                              <span>{meta.label}</span>
-                            </span>
-
-                            <div className="flex items-center gap-3">
-                              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-content-subtle">
-                                <Calendar size={13} className="text-content-subtle shrink-0" />
-                                <span>{fullDateHeader}</span>
+                            {/* Top Row: Event Category Pill + Full Formatted Date + Action Menu */}
+                            <div className="flex items-center justify-between gap-2">
+                              {/* Category Pill with Icon */}
+                              <span
+                                className={clsx(
+                                  'inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-bold border',
+                                  meta.tagClass
+                                )}
+                              >
+                                {meta.icon}
+                                <span>{meta.label}</span>
                               </span>
 
-                              <button
-                                type="button"
-                                onClick={() => setDeleteTarget(item)}
-                                className="w-7 h-7 rounded-lg flex items-center justify-center text-content-subtle hover:text-rose-600 hover:bg-rose-500/10 transition-colors cursor-pointer"
-                                title="Delete record"
-                                aria-label={`Delete ${item.title}`}
-                              >
-                                <MoreHorizontal size={16} />
-                              </button>
-                            </div>
-                          </div>
+                              <div className="flex items-center gap-3">
+                                <span className="inline-flex items-center gap-1.5 text-xs font-medium text-content-subtle">
+                                  <Calendar size={13} className="text-content-subtle shrink-0" />
+                                  <span>{fullDateHeader}</span>
+                                  {item.timeDisplay && <span data-numeric>• {item.timeDisplay}</span>}
+                                </span>
 
-                          {/* Middle Content: Title & Subtitle */}
-                          <div className="mt-3 space-y-1">
-                            <h3
-                              className="text-base sm:text-lg font-bold text-content leading-snug tracking-tight"
-                              title={item.title}
-                            >
-                              {item.title}
-                            </h3>
-
-                            <p className="text-xs sm:text-sm text-content-muted font-normal">
-                              {item.subtitle}
-                            </p>
-                          </div>
-
-                          {/* Tags & Metadata Badges */}
-                          {(item.tags.length > 0 || item.cost) && (
-                            <div className="mt-3 flex items-center gap-2 flex-wrap">
-                              {item.tags.map((tag, idx) => (
-                                <span
-                                  key={idx}
-                                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-sunken border border-line text-xs text-content font-medium"
+                                <button
+                                  type="button"
+                                  onClick={() => setDeleteTarget(item)}
+                                  className="w-7 h-7 rounded-lg flex items-center justify-center text-content-subtle hover:text-rose-600 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                                  title="Delete record"
+                                  aria-label={`Delete ${item.title}`}
                                 >
-                                  <Tag size={11} className="text-content-subtle" />
-                                  <span>{tag}</span>
-                                </span>
-                              ))}
-
-                              {item.cost && (
-                                <span className="inline-flex items-center px-3 py-1 rounded-full bg-teal-500/10 border border-teal-500/20 text-xs font-bold text-teal-800 dark:text-teal-300" data-numeric>
-                                  PKR {item.cost.toLocaleString()}
-                                </span>
-                              )}
+                                  <MoreHorizontal size={16} />
+                                </button>
+                              </div>
                             </div>
-                          )}
 
-                          {/* Doctor Notes / Advice Box (if present) */}
-                          {item.notes && (
-                            <div className="mt-3 text-xs text-content bg-surface-sunken/60 border border-line/60 rounded-xl p-3 flex items-start gap-2 leading-relaxed">
-                              <FileText size={14} className="text-teal-700 dark:text-teal-400 shrink-0 mt-0.5" />
-                              <span className="line-clamp-2">{item.notes}</span>
+                            {/* Middle Content: Title & Subtitle */}
+                            <div className="mt-3 space-y-1">
+                              <h3
+                                className="text-base sm:text-lg font-bold text-content leading-snug tracking-tight"
+                                title={item.title}
+                              >
+                                {item.title}
+                              </h3>
+
+                              <p className="text-xs sm:text-sm text-content-muted font-normal">
+                                {item.subtitle}
+                              </p>
                             </div>
-                          )}
 
-                          {/* Bottom Action Link */}
-                          <div className="mt-4 pt-3 border-t border-line/60 flex items-center justify-end">
-                            <Link
-                              to={item.linkUrl}
-                              className="inline-flex items-center gap-1 text-xs font-bold text-teal-700 dark:text-teal-400 hover:underline tap-spring"
-                            >
-                              <span>{item.linkLabel}</span>
-                              <ArrowRight size={13} />
-                            </Link>
-                          </div>
-                        </motion.article>
+                            {/* Tags & Metadata Badges */}
+                            {(item.tags.length > 0 || item.cost) && (
+                              <div className="mt-3 flex items-center gap-2 flex-wrap">
+                                {item.tags.map((tag, idx) => (
+                                  <span
+                                    key={idx}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-sunken border border-line text-xs text-content font-medium"
+                                  >
+                                    <Tag size={11} className="text-content-subtle" />
+                                    <span>{tag}</span>
+                                  </span>
+                                ))}
+
+                                {item.cost && (
+                                  <span className="inline-flex items-center px-3 py-1 rounded-full bg-teal-500/10 border border-teal-500/20 text-xs font-bold text-teal-800 dark:text-teal-300" data-numeric>
+                                    PKR {item.cost.toLocaleString()}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Doctor Notes / Advice Box (if present) */}
+                            {item.notes && (
+                              <div className="mt-3 text-xs text-content bg-surface-sunken/60 border border-line/60 rounded-xl p-3 flex items-start gap-2 leading-relaxed">
+                                <FileText size={14} className="text-teal-700 dark:text-teal-400 shrink-0 mt-0.5" />
+                                <span className="line-clamp-2">{item.notes}</span>
+                              </div>
+                            )}
+
+                            {/* Bottom Action Link */}
+                            <div className="mt-4 pt-3 border-t border-line/60 flex items-center justify-end">
+                              <Link
+                                to={item.linkUrl}
+                                className="inline-flex items-center gap-1 text-xs font-bold text-teal-700 dark:text-teal-400 hover:underline tap-spring"
+                              >
+                                <span>{item.linkLabel}</span>
+                                <ArrowRight size={13} />
+                              </Link>
+                            </div>
+                          </motion.article>
+                        </div>
                       </div>
                     );
                   })}
