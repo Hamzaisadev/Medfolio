@@ -458,9 +458,9 @@ export function TodaySchedulePage() {
 
       {/* Compact & Focused Master Header Deck */}
       <div
-        className="p-3 sm:p-4 px-4 sm:px-6 rounded-3xl bg-gradient-to-r from-[#013531] via-[#02443f] to-[#01332f] border border-[#0a544e]/70 shadow-[0_12px_32px_-8px_rgba(1,53,49,0.6)] mb-6 overflow-visible relative z-30"
+        className="p-3 sm:p-4 px-4 sm:px-6 rounded-3xl bg-[#023b36] border border-[#0a544e]/70 shadow-[0_12px_32px_-8px_rgba(1,53,49,0.6)] mb-6 overflow-visible relative z-30"
       >
-        <div className="flex items-center justify-between gap-3 sm:gap-4 flex-nowrap w-full overflow-visible py-0.5">
+        <div className="flex items-center justify-between gap-4 lg:gap-6 w-full overflow-visible py-0.5 flex-wrap sm:flex-nowrap">
           {/* Left: App Icon + Title + Subtitle */}
           <div className="flex items-center gap-3 sm:gap-3.5 shrink-0">
             <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-[#00b59f] text-white flex items-center justify-center shrink-0 shadow-md">
@@ -476,14 +476,15 @@ export function TodaySchedulePage() {
             </div>
           </div>
 
-          {/* Center: Date Stepper & Calendar Trigger + Cabinet Button Beside It */}
-          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          {/* Right Group: Date Steppers & Cabinet + Divider + KPI Stats (Total, Remaining, Pending) + Progress Gauge */}
+          <div className="flex items-center gap-3 sm:gap-4 lg:gap-5 shrink-0 ml-auto">
+            {/* Date Stepper & Calendar Trigger */}
             <div className="flex items-center gap-1.5 shrink-0" ref={calendarRef}>
               <button
                 type="button"
                 aria-label="Previous day"
                 onClick={() => setSelectedDate(addDaysAppTz(selectedDate, -1))}
-                className="w-8 h-8 rounded-full bg-[#022e2b]/80 hover:bg-[#022320] border border-[#0d544f] text-[#78c2ba] hover:text-white flex items-center justify-center tap-spring transition-all shadow-inner shrink-0"
+                className="w-8 h-8 rounded-full bg-[#012f2c] hover:bg-[#012522] border border-[#09524c] text-[#78c2ba] hover:text-white flex items-center justify-center tap-spring transition-all shadow-inner shrink-0"
               >
                 <ChevronLeftIcon size={13} />
               </button>
@@ -495,7 +496,7 @@ export function TodaySchedulePage() {
                     e.stopPropagation();
                     setIsCalendarOpen((prev) => !prev);
                   }}
-                  className="flex items-center gap-2 px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-full bg-[#022e2b]/90 hover:bg-[#022320] border border-[#0e5953] text-white text-xs font-semibold shadow-inner tap-spring whitespace-nowrap transition-all"
+                  className="flex items-center gap-2 px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-full bg-[#012f2c] hover:bg-[#012522] border border-[#09524c] text-white text-xs font-semibold shadow-inner tap-spring whitespace-nowrap transition-all"
                   aria-expanded={isCalendarOpen}
                   aria-label="Select date"
                 >
@@ -622,102 +623,105 @@ export function TodaySchedulePage() {
                 type="button"
                 aria-label="Next day"
                 onClick={() => setSelectedDate(addDaysAppTz(selectedDate, 1))}
-                className="w-8 h-8 rounded-full bg-[#022e2b]/80 hover:bg-[#022320] border border-[#0d544f] text-[#78c2ba] hover:text-white flex items-center justify-center tap-spring transition-all shadow-inner shrink-0"
+                className="w-8 h-8 rounded-full bg-[#012f2c] hover:bg-[#012522] border border-[#09524c] text-[#78c2ba] hover:text-white flex items-center justify-center tap-spring transition-all shadow-inner shrink-0"
               >
                 <ChevronRightIcon size={13} />
               </button>
             </div>
 
-            {/* Cabinet Icon-Only Button Right Beside Date Controls */}
+            {/* Cabinet Icon-Only Button */}
             <Link
               to="/medicines/cabinet"
               aria-label="Medicine Cabinet"
               title="Medicine Cabinet"
-              className="w-8 h-8 rounded-full bg-[#022e2b]/80 hover:bg-[#022320] border border-[#0d544f] text-[#78c2ba] hover:text-white flex items-center justify-center tap-spring transition-all shadow-inner shrink-0"
+              className="w-8 h-8 rounded-full bg-[#012f2c] hover:bg-[#012522] border border-[#09524c] text-[#78c2ba] hover:text-white flex items-center justify-center tap-spring transition-all shadow-inner shrink-0"
             >
               <Archive size={14} />
             </Link>
-          </div>
 
-          {/* Right: 3 KPI Metrics (Total, Due, Taken) + Circular Progress Gauge */}
-          <div className="flex items-center gap-3 sm:gap-4 shrink-0">
-            <div className="text-center min-w-[32px] sm:min-w-[36px]" title="Total doses scheduled for today">
-              <span className="text-sm sm:text-base font-bold text-white block leading-none" data-numeric>
-                {doses.length}
-              </span>
-              <span className="text-[10px] font-medium text-[#78c2ba] block mt-1">
-                Total
-              </span>
-            </div>
+            {/* Vertical Divider between Date Controls & KPI Stats */}
+            <div className="h-7 w-[1px] bg-teal-500/25 mx-1 hidden md:block" />
 
-            <div className="h-6 w-[1px] bg-[#0d544f]" />
+            {/* 3 KPI Metrics (Total, Remaining, Pending) */}
+            <div className="flex items-center gap-3 sm:gap-4 lg:gap-5 shrink-0">
+              <div className="text-center min-w-[32px] sm:min-w-[36px]">
+                <span className="text-sm sm:text-base font-bold text-white block leading-none" data-numeric>
+                  {doses.length}
+                </span>
+                <span className="text-[10px] font-medium text-[#78c2ba] block mt-1">
+                  Total
+                </span>
+              </div>
 
-            <div className="text-center min-w-[32px] sm:min-w-[36px]" title="Actionable doses pending or overdue">
-              <span className="text-sm sm:text-base font-bold text-white block leading-none" data-numeric>
-                {actionableCount}
-              </span>
-              <span className="text-[10px] font-medium text-[#78c2ba] block mt-1">
-                Due
-              </span>
-            </div>
+              <div className="h-6 w-[1px] bg-teal-500/25" />
 
-            <div className="h-6 w-[1px] bg-[#0d544f]" />
+              <div className="text-center min-w-[32px] sm:min-w-[36px]">
+                <span className="text-sm sm:text-base font-bold text-white block leading-none" data-numeric>
+                  {doses.length - takenCount}
+                </span>
+                <span className="text-[10px] font-medium text-[#78c2ba] block mt-1">
+                  Remaining
+                </span>
+              </div>
 
-            <div className="text-center min-w-[32px] sm:min-w-[36px]" title="Doses logged as completed">
-              <span className="text-sm sm:text-base font-bold text-white block leading-none" data-numeric>
-                {takenCount}
-              </span>
-              <span className="text-[10px] font-medium text-[#78c2ba] block mt-1">
-                Taken
-              </span>
-            </div>
+              <div className="h-6 w-[1px] bg-teal-500/25" />
 
-            {/* Circular Progress Gauge */}
-            {(() => {
-              const radius = 14;
-              const strokeWidth = 3;
-              const circumference = 2 * Math.PI * radius;
-              const strokeOffset =
-                circumference -
-                (Math.min(100, Math.max(0, adherence.percentage)) / 100) * circumference;
+              <div className="text-center min-w-[32px] sm:min-w-[36px]">
+                <span className="text-sm sm:text-base font-bold text-white block leading-none" data-numeric>
+                  {pendingCount}
+                </span>
+                <span className="text-[10px] font-medium text-[#78c2ba] block mt-1">
+                  Pending
+                </span>
+              </div>
 
-              return (
-                <div className="flex flex-col items-center shrink-0 min-w-[42px] ml-1">
-                  <div className="relative w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center">
-                    <svg className="w-9 h-9 sm:w-10 sm:h-10 -rotate-90" viewBox="0 0 36 36">
-                      <circle
-                        cx="18"
-                        cy="18"
-                        r={radius}
-                        className="stroke-[#05413c]"
-                        strokeWidth={strokeWidth}
-                        fill="none"
-                      />
-                      <circle
-                        cx="18"
-                        cy="18"
-                        r={radius}
-                        className="stroke-[#00e5c9] transition-all duration-500 ease-out"
-                        strokeWidth={strokeWidth}
-                        strokeDasharray={circumference}
-                        strokeDashoffset={strokeOffset}
-                        strokeLinecap="round"
-                        fill="none"
-                      />
-                    </svg>
-                    <span
-                      className="absolute text-[10px] sm:text-[11px] font-bold text-white tracking-tight"
-                      data-numeric
-                    >
-                      {adherence.percentage}%
+              {/* Circular Progress Gauge */}
+              {(() => {
+                const radius = 14;
+                const strokeWidth = 3;
+                const circumference = 2 * Math.PI * radius;
+                const strokeOffset =
+                  circumference -
+                  (Math.min(100, Math.max(0, adherence.percentage)) / 100) * circumference;
+
+                return (
+                  <div className="flex flex-col items-center shrink-0 min-w-[42px] ml-1 sm:ml-2">
+                    <div className="relative w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center">
+                      <svg className="w-9 h-9 sm:w-10 sm:h-10 -rotate-90" viewBox="0 0 36 36">
+                        <circle
+                          cx="18"
+                          cy="18"
+                          r={radius}
+                          className="stroke-[#05413c]"
+                          strokeWidth={strokeWidth}
+                          fill="none"
+                        />
+                        <circle
+                          cx="18"
+                          cy="18"
+                          r={radius}
+                          className="stroke-[#00e5c9] transition-all duration-500 ease-out"
+                          strokeWidth={strokeWidth}
+                          strokeDasharray={circumference}
+                          strokeDashoffset={strokeOffset}
+                          strokeLinecap="round"
+                          fill="none"
+                        />
+                      </svg>
+                      <span
+                        className="absolute text-[10px] sm:text-[11px] font-bold text-white tracking-tight"
+                        data-numeric
+                      >
+                        {adherence.percentage}%
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-medium text-[#78c2ba] block -mt-0.5">
+                      Progress
                     </span>
                   </div>
-                  <span className="text-[10px] font-medium text-[#78c2ba] block -mt-0.5">
-                    Progress
-                  </span>
-                </div>
-              );
-            })()}
+                );
+              })()}
+            </div>
           </div>
         </div>
       </div>
