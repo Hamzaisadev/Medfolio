@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { clsx } from 'clsx';
 import { AppShell } from '../../components/layout/AppShell';
 import { Button } from '../../components/ui/Button';
-import { Card } from '../../components/ui/Card';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { Dialog } from '../../components/ui/Dialog';
@@ -458,34 +457,33 @@ export function TodaySchedulePage() {
       )}
 
       {/* Compact & Focused Master Header Deck */}
-      <Card
-        bare
-        className="p-3 sm:p-4 rounded-2xl sm:rounded-3xl border border-line bg-surface-raised/95 backdrop-blur-md shadow-card mb-6 overflow-visible relative z-30"
+      <div
+        className="p-3 sm:p-4 px-4 sm:px-6 rounded-3xl bg-gradient-to-r from-[#013531] via-[#02443f] to-[#01332f] border border-[#0a544e]/70 shadow-[0_12px_32px_-8px_rgba(1,53,49,0.6)] mb-6 overflow-visible relative z-30"
       >
-        <div className="flex items-center justify-between gap-2 sm:gap-3 flex-nowrap w-full overflow-visible py-0.5">
+        <div className="flex items-center justify-between gap-3 sm:gap-4 flex-nowrap w-full overflow-visible py-0.5">
           {/* Left: App Icon + Title + Subtitle */}
-          <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-teal-600 dark:bg-teal-500 text-white flex items-center justify-center shrink-0 shadow-xs">
-              <CalendarIcon size={18} />
+          <div className="flex items-center gap-3 sm:gap-3.5 shrink-0">
+            <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-[#00b59f] text-white flex items-center justify-center shrink-0 shadow-md">
+              <CalendarIcon size={20} className="text-white" />
             </div>
             <div className="min-w-0">
-              <h1 className="text-sm sm:text-base font-bold text-content leading-tight whitespace-nowrap">
+              <h1 className="text-base sm:text-lg font-bold text-white tracking-tight leading-tight whitespace-nowrap">
                 Medication Schedule
               </h1>
-              <p className="text-xs text-content-muted hidden sm:block whitespace-nowrap">
+              <p className="text-xs text-[#a0d7d2] font-normal hidden sm:block whitespace-nowrap mt-0.5">
                 Stay on track with your meds.
               </p>
             </div>
           </div>
 
           {/* Center: Date Stepper & Calendar Trigger + Cabinet Button Beside It */}
-          <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
-            <div className="flex items-center gap-1 sm:gap-1.5 shrink-0" ref={calendarRef}>
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            <div className="flex items-center gap-1.5 shrink-0" ref={calendarRef}>
               <button
                 type="button"
                 aria-label="Previous day"
                 onClick={() => setSelectedDate(addDaysAppTz(selectedDate, -1))}
-                className="w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-full border border-line bg-surface-sunken/80 hover:bg-surface-hover text-content-muted flex items-center justify-center tap-spring transition-colors shrink-0"
+                className="w-8 h-8 rounded-full bg-[#022e2b]/80 hover:bg-[#022320] border border-[#0d544f] text-[#78c2ba] hover:text-white flex items-center justify-center tap-spring transition-all shadow-inner shrink-0"
               >
                 <ChevronLeftIcon size={13} />
               </button>
@@ -497,22 +495,22 @@ export function TodaySchedulePage() {
                     e.stopPropagation();
                     setIsCalendarOpen((prev) => !prev);
                   }}
-                  className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 rounded-full border border-line bg-surface-sunken/80 hover:bg-surface-hover text-content text-xs font-bold shadow-2xs tap-spring whitespace-nowrap transition-colors"
+                  className="flex items-center gap-2 px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-full bg-[#022e2b]/90 hover:bg-[#022320] border border-[#0e5953] text-white text-xs font-semibold shadow-inner tap-spring whitespace-nowrap transition-all"
                   aria-expanded={isCalendarOpen}
                   aria-label="Select date"
                 >
-                  <CalendarIcon size={13} className="text-teal-600 dark:text-teal-400" />
+                  <CalendarIcon size={14} className="text-[#00e5c9]" />
                   <span>{displayDateLabel}</span>
                   <ChevronDownIcon
                     size={12}
-                    className={clsx('text-content-muted transition-transform duration-200', isCalendarOpen && 'rotate-180')}
+                    className={clsx('text-[#78c2ba] transition-transform duration-200', isCalendarOpen && 'rotate-180')}
                   />
                 </button>
 
                 {/* Interactive Calendar Popover */}
                 {isCalendarOpen && (
                   <div
-                    className="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-72 p-3.5 rounded-2xl bg-surface-raised border border-line-strong shadow-raise z-50 animate-in fade-in zoom-in-95 duration-150"
+                    className="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-72 p-3.5 rounded-2xl bg-surface-raised border border-line-strong shadow-raise z-50 text-content animate-in fade-in zoom-in-95 duration-150"
                     role="dialog"
                     aria-label="Select date from calendar"
                   >
@@ -624,7 +622,7 @@ export function TodaySchedulePage() {
                 type="button"
                 aria-label="Next day"
                 onClick={() => setSelectedDate(addDaysAppTz(selectedDate, 1))}
-                className="w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-full border border-line bg-surface-sunken/80 hover:bg-surface-hover text-content-muted flex items-center justify-center tap-spring transition-colors shrink-0"
+                className="w-8 h-8 rounded-full bg-[#022e2b]/80 hover:bg-[#022320] border border-[#0d544f] text-[#78c2ba] hover:text-white flex items-center justify-center tap-spring transition-all shadow-inner shrink-0"
               >
                 <ChevronRightIcon size={13} />
               </button>
@@ -635,58 +633,94 @@ export function TodaySchedulePage() {
               to="/medicines/cabinet"
               aria-label="Medicine Cabinet"
               title="Medicine Cabinet"
-              className="w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-full border border-line bg-surface-sunken/80 hover:bg-surface-hover hover:border-line-strong text-content-muted hover:text-content flex items-center justify-center shadow-2xs tap-spring transition-colors shrink-0"
+              className="w-8 h-8 rounded-full bg-[#022e2b]/80 hover:bg-[#022320] border border-[#0d544f] text-[#78c2ba] hover:text-white flex items-center justify-center tap-spring transition-all shadow-inner shrink-0"
             >
               <Archive size={14} />
             </Link>
           </div>
 
-          {/* Right: 4 KPI Metrics with Dividers */}
-          <div className="flex items-center gap-2 sm:gap-3 py-1 px-3 sm:px-3.5 rounded-full bg-surface-sunken/60 border border-line/60 shrink-0">
-            <div className="text-center px-0.5">
-              <span className="text-xs sm:text-sm font-black text-content block leading-tight" data-numeric>
+          {/* Right: 3 KPI Metrics + Circular Progress Gauge */}
+          <div className="flex items-center gap-3 sm:gap-4 shrink-0">
+            <div className="text-center min-w-[32px] sm:min-w-[36px]">
+              <span className="text-sm sm:text-base font-bold text-white block leading-none" data-numeric>
                 {doses.length}
               </span>
-              <span className="text-[9px] sm:text-[10px] font-semibold text-content-subtle uppercase tracking-wider block">
+              <span className="text-[10px] font-medium text-[#78c2ba] block mt-1">
                 Total
               </span>
             </div>
 
-            <div className="h-4.5 w-[1px] bg-line" />
+            <div className="h-6 w-[1px] bg-[#0d544f]" />
 
-            <div className="text-center px-0.5">
-              <span className="text-xs sm:text-sm font-black text-content block leading-tight" data-numeric>
+            <div className="text-center min-w-[32px] sm:min-w-[36px]">
+              <span className="text-sm sm:text-base font-bold text-white block leading-none" data-numeric>
                 {doses.length - takenCount}
               </span>
-              <span className="text-[9px] sm:text-[10px] font-semibold text-content-subtle uppercase tracking-wider block">
+              <span className="text-[10px] font-medium text-[#78c2ba] block mt-1">
                 Remaining
               </span>
             </div>
 
-            <div className="h-4.5 w-[1px] bg-line" />
+            <div className="h-6 w-[1px] bg-[#0d544f]" />
 
-            <div className="text-center px-0.5">
-              <span className="text-xs sm:text-sm font-black text-content block leading-tight" data-numeric>
+            <div className="text-center min-w-[32px] sm:min-w-[36px]">
+              <span className="text-sm sm:text-base font-bold text-white block leading-none" data-numeric>
                 {pendingCount}
               </span>
-              <span className="text-[9px] sm:text-[10px] font-semibold text-content-subtle uppercase tracking-wider block">
+              <span className="text-[10px] font-medium text-[#78c2ba] block mt-1">
                 Pending
               </span>
             </div>
 
-            <div className="h-4.5 w-[1px] bg-line" />
+            {/* Circular Progress Gauge */}
+            {(() => {
+              const radius = 14;
+              const strokeWidth = 3;
+              const circumference = 2 * Math.PI * radius;
+              const strokeOffset =
+                circumference -
+                (Math.min(100, Math.max(0, adherence.percentage)) / 100) * circumference;
 
-            <div className="text-center px-0.5">
-              <span className="text-xs sm:text-sm font-black text-content block leading-tight" data-numeric>
-                {adherence.percentage}%
-              </span>
-              <span className="text-[9px] sm:text-[10px] font-semibold text-content-subtle uppercase tracking-wider block">
-                Progress
-              </span>
-            </div>
+              return (
+                <div className="flex flex-col items-center shrink-0 min-w-[42px] ml-1">
+                  <div className="relative w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center">
+                    <svg className="w-9 h-9 sm:w-10 sm:h-10 -rotate-90" viewBox="0 0 36 36">
+                      <circle
+                        cx="18"
+                        cy="18"
+                        r={radius}
+                        className="stroke-[#05413c]"
+                        strokeWidth={strokeWidth}
+                        fill="none"
+                      />
+                      <circle
+                        cx="18"
+                        cy="18"
+                        r={radius}
+                        className="stroke-[#00e5c9] transition-all duration-500 ease-out"
+                        strokeWidth={strokeWidth}
+                        strokeDasharray={circumference}
+                        strokeDashoffset={strokeOffset}
+                        strokeLinecap="round"
+                        fill="none"
+                      />
+                    </svg>
+                    <span
+                      className="absolute text-[10px] sm:text-[11px] font-bold text-white tracking-tight"
+                      data-numeric
+                    >
+                      {adherence.percentage}%
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-medium text-[#78c2ba] block -mt-0.5">
+                    Progress
+                  </span>
+                </div>
+              );
+            })()}
           </div>
         </div>
-      </Card>
+      </div>
 
       {/* Routine Filter Toolbar */}
       <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">

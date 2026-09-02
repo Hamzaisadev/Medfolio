@@ -1469,14 +1469,15 @@ export function AssistantPage() {
                                     <AlertTriangleIcon size={15} className="shrink-0" /> Clinical Safety Alert:
                                   </span>
                                   <ul className="list-disc list-inside space-y-1 text-warn-text text-xs sm:text-sm">
-                                    {m.safetyAlerts.map((rawAlert: any, aIdx) => {
+                                    {m.safetyAlerts.map((rawAlert, aIdx) => {
                                       if (typeof rawAlert === 'string') {
                                         return <li key={aIdx} className="leading-snug">{rawAlert}</li>;
                                       }
                                       if (rawAlert && typeof rawAlert === 'object') {
-                                        const title = rawAlert.title || rawAlert.headline || '';
-                                        const desc = rawAlert.description || rawAlert.message || rawAlert.text || JSON.stringify(rawAlert);
-                                        const sev = rawAlert.severity ? `[${rawAlert.severity.toUpperCase()}] ` : '';
+                                        const alertObj = rawAlert as Record<string, unknown>;
+                                        const title = String(alertObj.title || alertObj.headline || '');
+                                        const desc = String(alertObj.description || alertObj.message || alertObj.text || JSON.stringify(rawAlert));
+                                        const sev = alertObj.severity ? `[${String(alertObj.severity).toUpperCase()}] ` : '';
                                         return (
                                           <li key={aIdx} className="leading-snug">
                                             {sev}{title ? <strong className="font-bold mr-1">{title}:</strong> : null}{desc}
@@ -1520,8 +1521,9 @@ export function AssistantPage() {
                         {/* Clickable Follow-up Suggestions (Patient's Voice) */}
                         {m.suggestions && m.suggestions.length > 0 && (
                           <div className="mt-2.5 flex flex-wrap gap-2 max-w-3xl">
-                            {m.suggestions.map((s: any, sIdx) => {
-                              const sText = typeof s === 'string' ? s : s?.text || s?.title || s?.prompt || (typeof s === 'object' && s !== null ? JSON.stringify(s) : String(s));
+                            {m.suggestions.map((s, sIdx) => {
+                              const sObj = typeof s === 'object' && s !== null ? (s as Record<string, unknown>) : null;
+                              const sText = typeof s === 'string' ? s : sObj?.text || sObj?.title || sObj?.prompt || (sObj ? JSON.stringify(s) : String(s));
                               let patientPrompt = String(sText).trim();
                               patientPrompt = patientPrompt.replace(/^would you like (me to|to)\s+/i, '');
                               patientPrompt = patientPrompt.replace(/^do you want (me to|to)\s+/i, '');
