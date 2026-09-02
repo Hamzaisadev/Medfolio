@@ -438,8 +438,9 @@ export function DoctorDirectoryPage() {
 
               <form onSubmit={handleCreateVisit} className="space-y-3 text-xs">
                 <div>
-                  <label className="block font-semibold text-ink-700 mb-1">Doctor Name</label>
+                  <label htmlFor="doc-name" className="block font-semibold text-ink-700 mb-1">Doctor Name</label>
                   <input
+                    id="doc-name"
                     type="text"
                     required
                     placeholder="e.g. Farooq / Ayesha"
@@ -451,8 +452,9 @@ export function DoctorDirectoryPage() {
 
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="block font-semibold text-ink-700 mb-1">Clinic / Hospital</label>
+                    <label htmlFor="clinic-name" className="block font-semibold text-ink-700 mb-1">Clinic / Hospital</label>
                     <input
+                      id="clinic-name"
                       type="text"
                       placeholder="e.g. South City Hospital"
                       value={newClinic}
@@ -462,8 +464,9 @@ export function DoctorDirectoryPage() {
                   </div>
 
                   <div>
-                    <label className="block font-semibold text-ink-700 mb-1">Consultation Date</label>
+                    <label htmlFor="consultation-date" className="block font-semibold text-ink-700 mb-1">Consultation Date</label>
                     <input
+                      id="consultation-date"
                       type="date"
                       required
                       value={newDate}
@@ -474,8 +477,9 @@ export function DoctorDirectoryPage() {
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-ink-700 mb-1">Clinical Diagnosis</label>
+                  <label htmlFor="diagnosis-text" className="block font-semibold text-ink-700 mb-1">Clinical Diagnosis</label>
                   <input
+                    id="diagnosis-text"
                     type="text"
                     placeholder="e.g. Hypertension, Root Canal, Diabetes review"
                     value={newDiagnosis}
@@ -485,8 +489,9 @@ export function DoctorDirectoryPage() {
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-ink-700 mb-1">Doctor's Advice & Notes</label>
+                  <label htmlFor="advice-text" className="block font-semibold text-ink-700 mb-1">Doctor's Advice & Notes</label>
                   <textarea
+                    id="advice-text"
                     rows={2}
                     placeholder="e.g. Reduce sodium intake, repeat lipid profile in 4 weeks"
                     value={newAdvice}
@@ -497,8 +502,9 @@ export function DoctorDirectoryPage() {
 
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="block font-semibold text-ink-700 mb-1">Follow-up Date</label>
+                    <label htmlFor="followup-date" className="block font-semibold text-ink-700 mb-1">Follow-up Date</label>
                     <input
+                      id="followup-date"
                       type="date"
                       value={newFollowUp}
                       onChange={(e) => setNewFollowUp(e.target.value)}
@@ -507,8 +513,9 @@ export function DoctorDirectoryPage() {
                   </div>
 
                   <div>
-                    <label className="block font-semibold text-ink-700 mb-1">Consultation Fee (PKR)</label>
+                    <label htmlFor="consultation-fee" className="block font-semibold text-ink-700 mb-1">Consultation Fee (PKR)</label>
                     <input
+                      id="consultation-fee"
                       type="number"
                       placeholder="e.g. 3000"
                       value={newCost}

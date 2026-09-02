@@ -181,10 +181,11 @@ export function DoctorQuestionsPage() {
                   : 'bg-ink-100 text-ink-700 border-ink-200';
 
               return (
-                <div
+                <button
+                  type="button"
                   key={q.id}
                   onClick={() => toggleCheck(q.id)}
-                  className={`p-4 rounded-2xl border transition-all cursor-pointer select-none ${
+                  className={`w-full text-left p-4 rounded-2xl border transition-all cursor-pointer select-none ${
                     isChecked
                       ? 'bg-ink-50/70 border-ink-200 opacity-70'
                       : 'bg-white border-ink-200/90 hover:border-teal-300 shadow-2xs'
@@ -194,7 +195,9 @@ export function DoctorQuestionsPage() {
                     <input
                       type="checkbox"
                       checked={isChecked}
-                      onChange={() => {}} // handled by parent div onClick
+                      onChange={() => {}} // handled by parent button onClick
+                      tabIndex={-1}
+                      aria-hidden="true"
                       className="mt-1 h-4 w-4 rounded text-teal-800 focus:ring-teal-600 pointer-events-none"
                     />
 
@@ -219,7 +222,7 @@ export function DoctorQuestionsPage() {
                       <p className="text-[11px] text-ink-500 font-mono">{q.context}</p>
                     </div>
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>

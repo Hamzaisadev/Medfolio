@@ -1,32 +1,36 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { clsx } from 'clsx';
 import { AppShell } from '../../components/layout/AppShell';
-import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
-import { ProgressRing } from '../../components/ui/ProgressRing';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { Dialog } from '../../components/ui/Dialog';
 import { Toast } from '../../components/ui/Toast';
 import { Skeleton } from '../../components/ui/Skeleton';
-import { DateStrip } from '../../components/ui/DateStrip';
 import { DoseCard } from '../../components/ui/DoseCard';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { SLOT_META } from '../../components/ui/slotMeta';
-import { PlusIcon, MedicineIcon } from '../../components/ui/icons';
 import {
-  Clock,
-  CheckCircle2,
-  Sparkles,
+  PlusIcon,
+  CalendarIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  ChevronDownIcon,
+} from '../../components/ui/icons';
+import {
   Archive,
   Check,
-  CalendarCheck,
   ShieldCheck,
-  Flame,
 } from 'lucide-react';
-import { todayInAppTz, formatDayHeading } from '../../lib/time';
+import {
+  todayInAppTz,
+  fromAppDate,
+  addDaysAppTz,
+  formatRelativeDay,
+  formatDateShort,
+} from '../../lib/time';
 import { bucketOf, Bucket, BUCKET_ORDER } from '../../domain/timeBuckets';
 import { deriveStatusOnRead, calculateAdherence } from '../../domain/adherence';
 import { defaultDoseTimes, parseFrequency } from '../../domain/frequency';
@@ -40,6 +44,12 @@ import type { Tables } from '../../lib/supabase/types';
 type Dose = Tables<'doses'>;
 type Medicine = Tables<'medicines'>;
 type ScheduleFilter = 'all' | 'actionable' | 'taken';
+
+const WEEKDAYS = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
+];
 
 const SKIP_REASONS = [
   'Forgot',
@@ -334,25 +344,110 @@ export function TodaySchedulePage() {
   const pendingCount = doses.filter((d) => deriveStatusOnRead(d, new Date()) === 'pending').length;
   const actionableCount = pendingCount + missedCount;
 
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const calendarRef = useRef<HTMLDivElement>(null);
+
+  const [viewYear, setViewYear] = useState(() => {
+    try {
+      return fromAppDate(selectedDate).getUTCFullYear();
+    } catch {
+      return new Date().getFullYear();
+    }
+  });
+
+  const [viewMonth, setViewMonth] = useState(() => {
+    try {
+      return fromAppDate(selectedDate).getUTCMonth();
+    } catch {
+      return new Date().getMonth();
+    }
+  });
+
+  useEffect(() => {
+    try {
+      const d = fromAppDate(selectedDate);
+      setViewYear(d.getUTCFullYear());
+      setViewMonth(d.getUTCMonth());
+    } catch {
+      // ignore
+    }
+  }, [selectedDate]);
+
+  useEffect(() => {
+    if (!isCalendarOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (calendarRef.current && !calendarRef.current.contains(e.target as Node)) {
+        setIsCalendarOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isCalendarOpen]);
+
+  const calendarMonthDays = useMemo(() => {
+    const firstDay = new Date(Date.UTC(viewYear, viewMonth, 1));
+    const startDayIndex = (firstDay.getUTCDay() + 6) % 7;
+    const totalDays = new Date(Date.UTC(viewYear, viewMonth + 1, 0)).getUTCDate();
+
+    const cells: Array<{ dateStr: string; dayNum: number; isCurrentMonth: boolean }> = [];
+
+    const prevMonthTotalDays = new Date(Date.UTC(viewYear, viewMonth, 0)).getUTCDate();
+    for (let i = startDayIndex - 1; i >= 0; i--) {
+      const d = prevMonthTotalDays - i;
+      const prevM = viewMonth === 0 ? 11 : viewMonth - 1;
+      const prevY = viewMonth === 0 ? viewYear - 1 : viewYear;
+      const mm = String(prevM + 1).padStart(2, '0');
+      const dd = String(d).padStart(2, '0');
+      cells.push({ dateStr: `${prevY}-${mm}-${dd}`, dayNum: d, isCurrentMonth: false });
+    }
+
+    for (let d = 1; d <= totalDays; d++) {
+      const mm = String(viewMonth + 1).padStart(2, '0');
+      const dd = String(d).padStart(2, '0');
+      cells.push({ dateStr: `${viewYear}-${mm}-${dd}`, dayNum: d, isCurrentMonth: true });
+    }
+
+    const remaining = (7 - (cells.length % 7)) % 7;
+    for (let d = 1; d <= remaining; d++) {
+      const nextM = viewMonth === 11 ? 0 : viewMonth + 1;
+      const nextY = viewMonth === 11 ? viewYear + 1 : viewYear;
+      const mm = String(nextM + 1).padStart(2, '0');
+      const dd = String(d).padStart(2, '0');
+      cells.push({ dateStr: `${nextY}-${mm}-${dd}`, dayNum: d, isCurrentMonth: false });
+    }
+
+    return cells;
+  }, [viewYear, viewMonth]);
+
+  const handlePrevMonth = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (viewMonth === 0) {
+      setViewMonth(11);
+      setViewYear((y) => y - 1);
+    } else {
+      setViewMonth((m) => m - 1);
+    }
+  };
+
+  const handleNextMonth = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (viewMonth === 11) {
+      setViewMonth(0);
+      setViewYear((y) => y + 1);
+    } else {
+      setViewMonth((m) => m + 1);
+    }
+  };
+
+  const displayDateLabel = useMemo(() => {
+    const relative = formatRelativeDay(selectedDate);
+    const shortDate = formatDateShort(selectedDate);
+    if (relative === shortDate) return shortDate;
+    return `${relative}, ${shortDate}`;
+  }, [selectedDate]);
+
   return (
     <AppShell>
-      {/* Executive Page Header with Timezone Indicator */}
-      <PageHeader
-        title="Medication Schedule"
-        description="Chronotherapy-timed daily doses for Pakistan Standard Time (PKT)."
-        action={
-          <Link to="/medicines/cabinet">
-            <Button
-              variant="secondary"
-              leftIcon={<MedicineIcon size={16} />}
-              className="h-10 text-xs font-bold tap-spring shadow-2xs"
-            >
-              Medicine Cabinet
-            </Button>
-          </Link>
-        }
-      />
-
       {toast && (
         <Toast
           open
@@ -362,263 +457,406 @@ export function TodaySchedulePage() {
         />
       )}
 
-      {/* Compact Date Navigator Strip */}
-      <DateStrip value={selectedDate} onChange={setSelectedDate} className="mb-6" />
-
-      {/* 2-Panel Clinical Workspace */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left Panel (4 cols): Sticky Daily Adherence & Control Deck */}
-        <aside className="lg:col-span-4 lg:sticky lg:top-24">
-          <Card className="p-6 shadow-card border border-line bg-surface-raised/95 backdrop-blur-md rounded-3xl space-y-6">
-            {/* Header: Date + Adherence Score Ring */}
-            <div className="flex items-center gap-4">
-              <div className="relative shrink-0">
-                <ProgressRing
-                  percentage={adherence.percentage}
-                  size={64}
-                  strokeWidth={7}
-                  tone={adherence.percentage >= 80 ? 'ok' : 'warn'}
-                />
-              </div>
-
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h2 className="text-lg font-bold text-content tracking-tight">
-                    {formatDayHeading(selectedDate)}
-                  </h2>
-                  {adherence.percentage === 100 && (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-teal-500/10 border border-teal-500/20 text-teal-700 dark:text-teal-400 text-xs font-semibold">
-                      <Sparkles size={11} />
-                      Complete
-                    </span>
-                  )}
-                </div>
-
-                <p className="mt-1 text-xs text-content-muted leading-relaxed">
-                  {adherence.percentage === 100
-                    ? 'All scheduled doses accounted for.'
-                    : `${pendingCount} dose${pendingCount === 1 ? '' : 's'} remaining today.`}
-                </p>
-              </div>
+      {/* Compact & Focused Master Header Deck */}
+      <Card
+        bare
+        className="p-3 sm:p-4 rounded-2xl sm:rounded-3xl border border-line bg-surface-raised/95 backdrop-blur-md shadow-card mb-6 overflow-visible relative z-30"
+      >
+        <div className="flex items-center justify-between gap-2 sm:gap-3 flex-nowrap w-full overflow-x-auto no-scrollbar py-0.5">
+          {/* Left: App Icon + Title + Subtitle */}
+          <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-teal-600 dark:bg-teal-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+              <CalendarIcon size={18} />
             </div>
-
-            {/* 4-Stat KPI Grid with comfortable padding & rounded corners */}
-            <div className="grid grid-cols-2 gap-3 pt-3 border-t border-line/70">
-              <div className="p-3 rounded-2xl bg-surface-sunken border border-line text-center transition-all hover:bg-surface-hover/50">
-                <span className="text-[11px] font-semibold text-content-subtle block tracking-wide uppercase">Scheduled</span>
-                <span className="text-lg font-black text-content block mt-0.5" data-numeric>
-                  {doses.length}
-                </span>
-              </div>
-
-              <div className="p-3 rounded-2xl bg-teal-500/5 border border-teal-500/15 text-center transition-all hover:bg-teal-500/10">
-                <span className="text-[11px] font-semibold text-teal-700 dark:text-teal-400 block flex items-center justify-center gap-1 tracking-wide uppercase">
-                  <CheckCircle2 size={11} />
-                  Taken
-                </span>
-                <span className="text-lg font-black text-teal-700 dark:text-teal-400 block mt-0.5" data-numeric>
-                  {takenCount}
-                </span>
-              </div>
-
-              <div className="p-3 rounded-2xl bg-surface-sunken border border-line text-center transition-all hover:bg-surface-hover/50">
-                <span className="text-[11px] font-semibold text-content-muted block flex items-center justify-center gap-1 tracking-wide uppercase">
-                  <Clock size={11} />
-                  Pending
-                </span>
-                <span className="text-lg font-black text-content block mt-0.5" data-numeric>
-                  {pendingCount}
-                </span>
-              </div>
-
-              <div className="p-3 rounded-2xl bg-amber-500/5 border border-amber-500/15 text-center transition-all hover:bg-amber-500/10">
-                <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-400 block flex items-center justify-center gap-1 tracking-wide uppercase">
-                  <Flame size={11} className="text-amber-500" />
-                  Score
-                </span>
-                <span className="text-lg font-black text-amber-700 dark:text-amber-400 block mt-0.5" data-numeric>
-                  {adherence.percentage}%
-                </span>
-              </div>
-            </div>
-
-            {/* Quick Segmented Filter */}
-            <div className="space-y-3 pt-3 border-t border-line/70">
-              <div className="text-xs font-bold text-content flex items-center gap-1.5 tracking-wider uppercase">
-                <CalendarCheck size={14} className="text-accent" />
-                <span>Filter View</span>
-              </div>
-              <SegmentedControl<ScheduleFilter>
-                value={activeFilter}
-                onChange={setActiveFilter}
-                size="sm"
-                options={[
-                  { value: 'all', label: `All (${doses.length})` },
-                  { value: 'actionable', label: `Due (${actionableCount})` },
-                  { value: 'taken', label: `Done (${takenCount})` },
-                ]}
-              />
-            </div>
-
-            {/* Quick Actions Shortcuts */}
-            <div className="pt-3 border-t border-line/70 space-y-2.5">
-              <Link to="/prescriptions/new" className="w-full block">
-                <Button
-                  variant="secondary"
-                  size="md"
-                  leftIcon={<PlusIcon size={15} />}
-                  className="w-full h-11 justify-center text-xs font-bold tap-spring shadow-2xs rounded-xl"
-                >
-                  Scan New Prescription
-                </Button>
-              </Link>
-              <div className="flex items-center justify-center gap-1.5 text-[11px] text-content-subtle pt-1">
-                <ShieldCheck size={13} className="text-teal-600" />
-                <span>EHR Verified Chronotherapy</span>
-              </div>
-            </div>
-          </Card>
-        </aside>
-
-        {/* Right Panel (8 cols): Chronotherapy Multi-Column Medication Stream */}
-        <main className="lg:col-span-8 space-y-7">
-          {/* Loading Skeleton */}
-          {isLoading ? (
-            <div className="space-y-4">
-              {[0, 1].map((i) => (
-                <Skeleton key={i} className="h-44 w-full rounded-2xl" />
-              ))}
-            </div>
-          ) : loadError ? (
-            <ErrorState
-              title="Could not load this day"
-              message={loadError}
-              onRetry={() => loadData(selectedDate)}
-            />
-          ) : doses.length === 0 ? (
-            <EmptyState
-              heading={isPast ? 'No records for this day' : 'No doses scheduled'}
-              description={
-                isPast
-                  ? 'There are no medication records recorded for this date.'
-                  : 'Scan a prescription or add your active medicines to automatically generate your chronotherapy schedule.'
-              }
-              action={
-                !isPast ? (
-                  <Link to="/prescriptions/new">
-                    <Button leftIcon={<PlusIcon size={17} />} className="tap-spring">
-                      Scan a prescription
-                    </Button>
-                  </Link>
-                ) : undefined
-              }
-            />
-          ) : filteredDoses.length === 0 ? (
-            <div className="p-8 rounded-2xl border border-line bg-surface-raised text-center space-y-3">
-              <div className="w-12 h-12 rounded-2xl bg-surface-sunken mx-auto flex items-center justify-center text-content-subtle">
-                <Archive size={22} />
-              </div>
-              <h3 className="text-base font-bold text-content">No doses match this filter</h3>
-              <p className="text-xs text-content-muted max-w-sm mx-auto">
-                {activeFilter === 'actionable'
-                  ? 'Great work! You have no pending or overdue doses for this day.'
-                  : 'No completed or skipped doses recorded under this filter.'}
+            <div className="min-w-0">
+              <h1 className="text-sm sm:text-base font-bold text-content leading-tight whitespace-nowrap">
+                Medication Schedule
+              </h1>
+              <p className="text-xs text-content-muted hidden sm:block whitespace-nowrap">
+                Stay on track with your meds.
               </p>
-              <Button variant="secondary" size="sm" onClick={() => setActiveFilter('all')}>
-                Show all doses
-              </Button>
             </div>
-          ) : (
-            /* Chronotherapy Timed Sections */
-            <div className="space-y-7">
-              {BUCKET_ORDER.map((key) => {
-                const bucketDoses = buckets[key];
-                if (bucketDoses.length === 0) return null;
-                const slot = SLOT_META[key];
-                const bucketPending = bucketDoses.filter(
-                  (d) => deriveStatusOnRead(d, new Date()) === 'pending' || deriveStatusOnRead(d, new Date()) === 'missed'
-                ).length;
+          </div>
 
-                return (
-                  <section key={key} aria-labelledby={`slot-${key}`} className="space-y-3">
-                    {/* Routine Header Bar with Executive Styling */}
-                    <div className="flex items-center justify-between gap-3 px-1 py-1.5 border-b border-line/60 pb-2.5">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <span
-                          className={clsx(
-                            'w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border shadow-2xs',
-                            slot.surface,
-                            slot.text,
-                            slot.border
-                          )}
-                        >
-                          {slot.icon(16)}
-                        </span>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h2 id={`slot-${key}`} className="text-sm font-bold text-content tracking-tight uppercase">
-                            {slot.label} Routine
-                          </h2>
-                          <span className="text-[11px] text-content-subtle font-semibold px-2 py-0.5 rounded-md bg-surface-sunken border border-line">
-                            {slot.timeRange}
-                          </span>
-                        </div>
+          {/* Center: Date Stepper & Calendar Trigger + Cabinet Button Beside It */}
+          <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+            <div className="flex items-center gap-1 sm:gap-1.5 shrink-0" ref={calendarRef}>
+              <button
+                type="button"
+                aria-label="Previous day"
+                onClick={() => setSelectedDate(addDaysAppTz(selectedDate, -1))}
+                className="w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-full border border-line bg-surface-sunken/80 hover:bg-surface-hover text-content-muted flex items-center justify-center tap-spring transition-colors shrink-0"
+              >
+                <ChevronLeftIcon size={13} />
+              </button>
+
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setIsCalendarOpen((prev) => !prev)}
+                  className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 rounded-full border border-line bg-surface-sunken/80 hover:bg-surface-hover text-content text-xs font-bold shadow-2xs tap-spring whitespace-nowrap transition-colors"
+                  aria-expanded={isCalendarOpen}
+                  aria-label="Select date"
+                >
+                  <CalendarIcon size={13} className="text-teal-600 dark:text-teal-400" />
+                  <span>{displayDateLabel}</span>
+                  <ChevronDownIcon
+                    size={12}
+                    className={clsx('text-content-muted transition-transform duration-200', isCalendarOpen && 'rotate-180')}
+                  />
+                </button>
+
+                {/* Interactive Calendar Popover */}
+                {isCalendarOpen && (
+                  <div
+                    className="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-72 p-3.5 rounded-2xl bg-surface-raised border border-line-strong shadow-raise z-50 animate-in fade-in zoom-in-95 duration-150"
+                    role="dialog"
+                    aria-label="Select date from calendar"
+                  >
+                    {/* Calendar Month Header */}
+                    <div className="flex items-center justify-between pb-2 mb-2 border-b border-line">
+                      <button
+                        type="button"
+                        aria-label="Previous month"
+                        onClick={handlePrevMonth}
+                        className="w-7 h-7 rounded-lg border border-line flex items-center justify-center text-content-muted hover:bg-surface-hover"
+                      >
+                        <ChevronLeftIcon size={14} />
+                      </button>
+
+                      <div className="text-xs font-bold text-content">
+                        {MONTH_NAMES[viewMonth]} {viewYear}
                       </div>
 
-                      <div className="flex items-center gap-2 shrink-0">
-                        {bucketPending > 1 && !isPast && (
-                          <button
-                            type="button"
-                            onClick={() => handleMarkRoutineTaken(bucketDoses, slot.label)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-teal-500/10 hover:bg-teal-500/20 text-teal-700 dark:text-teal-300 text-xs font-bold border border-teal-500/20 transition-all cursor-pointer tap-spring shadow-2xs"
-                          >
-                            <Check size={13} className="stroke-[2.5]" />
-                            Take all due ({bucketPending})
-                          </button>
-                        )}
-
-                        <span
-                          className={clsx(
-                            'px-2.5 py-1 rounded-xl border text-xs font-bold shadow-2xs',
-                            bucketPending > 0
-                              ? 'bg-amber-500/10 border-amber-500/20 text-amber-800 dark:text-amber-300'
-                              : 'bg-teal-500/10 border-teal-500/20 text-teal-700 dark:text-teal-400'
-                          )}
-                        >
-                          {bucketPending > 0 ? `${bucketPending} of ${bucketDoses.length} due` : 'All taken ✓'}
-                        </span>
-                      </div>
+                      <button
+                        type="button"
+                        aria-label="Next month"
+                        onClick={handleNextMonth}
+                        className="w-7 h-7 rounded-lg border border-line flex items-center justify-center text-content-muted hover:bg-surface-hover"
+                      >
+                        <ChevronRightIcon size={14} />
+                      </button>
                     </div>
 
-                    {/* Proportioned Multi-Column Medication Tiles Grid */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                      {bucketDoses.map((dose) => {
-                        const medicine = medicinesMap[dose.medicine_id];
+                    {/* Weekday Labels */}
+                    <div className="grid grid-cols-7 gap-1 text-center mb-1">
+                      {WEEKDAYS.map((wd) => (
+                        <span key={wd} className="text-[10px] font-bold text-content-subtle uppercase">
+                          {wd}
+                        </span>
+                      ))}
+                    </div>
+
+                    {/* Day Cells Grid */}
+                    <div className="grid grid-cols-7 gap-1">
+                      {calendarMonthDays.map((cell) => {
+                        const isSelected = cell.dateStr === selectedDate;
+                        const isTodayCell = cell.dateStr === today;
+
                         return (
-                          <DoseCard
-                            key={dose.id}
-                            medicineName={medicine?.medicine_name || 'Prescribed medicine'}
-                            strength={medicine?.strength}
-                            doseAmount={medicine?.dose_amount}
-                            scheduledMinutes={dose.scheduled_minutes}
-                            status={deriveStatusOnRead(dose, new Date())}
-                            withFood={medicine?.with_food}
-                            instructions={medicine?.instructions}
-                            skippedReason={dose.skipped_reason}
-                            remaining={inventory[dose.medicine_id]}
-                            onTake={() => handleMarkTaken(dose)}
-                            onSkip={() => handleOpenSkip(dose)}
-                            onUndo={() => handleUndo(dose)}
-                          />
+                          <button
+                            key={cell.dateStr}
+                            type="button"
+                            onClick={() => {
+                              setSelectedDate(cell.dateStr);
+                              setIsCalendarOpen(false);
+                            }}
+                            className={clsx(
+                              'h-8 w-8 text-xs font-semibold rounded-lg flex items-center justify-center transition-all relative',
+                              isSelected
+                                ? 'bg-accent text-content-onaccent font-bold shadow-xs'
+                                : cell.isCurrentMonth
+                                  ? 'text-content hover:bg-surface-hover'
+                                  : 'text-content-subtle opacity-40 hover:opacity-100 hover:bg-surface-hover',
+                              isTodayCell && !isSelected && 'ring-1 ring-accent font-bold text-accent'
+                            )}
+                          >
+                            {cell.dayNum}
+                            {isTodayCell && !isSelected && (
+                              <span className="absolute bottom-1 w-1 h-1 rounded-full bg-accent" />
+                            )}
+                          </button>
                         );
                       })}
                     </div>
-                  </section>
-                );
-              })}
+
+                    {/* Quick Jump Shortcuts */}
+                    <div className="flex items-center justify-between pt-2.5 mt-2 border-t border-line text-2xs">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedDate(addDaysAppTz(selectedDate, -7));
+                          setIsCalendarOpen(false);
+                        }}
+                        className="px-2 py-1 rounded-md text-content-muted hover:bg-surface-hover hover:text-content font-medium transition-colors"
+                      >
+                        ← Prev Week
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedDate(today);
+                          setIsCalendarOpen(false);
+                        }}
+                        className="px-2 py-1 rounded-md bg-accent-subtle text-accent font-bold hover:bg-accent hover:text-content-onaccent transition-colors"
+                      >
+                        Today
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedDate(addDaysAppTz(selectedDate, 7));
+                          setIsCalendarOpen(false);
+                        }}
+                        className="px-2 py-1 rounded-md text-content-muted hover:bg-surface-hover hover:text-content font-medium transition-colors"
+                      >
+                        Next Week →
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <button
+                type="button"
+                aria-label="Next day"
+                onClick={() => setSelectedDate(addDaysAppTz(selectedDate, 1))}
+                className="w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-full border border-line bg-surface-sunken/80 hover:bg-surface-hover text-content-muted flex items-center justify-center tap-spring transition-colors shrink-0"
+              >
+                <ChevronRightIcon size={13} />
+              </button>
             </div>
-          )}
-        </main>
+
+            {/* Cabinet Pill Button Right Beside Date Controls */}
+            <Link
+              to="/medicines/cabinet"
+              className="inline-flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-full border border-line bg-surface-sunken/80 hover:bg-surface-hover hover:border-line-strong text-content text-xs font-bold shadow-2xs tap-spring transition-colors shrink-0"
+            >
+              <Archive size={13} className="text-content-muted" />
+              <span>Cabinet</span>
+            </Link>
+          </div>
+
+          {/* Right: 4 KPI Metrics with Dividers */}
+          <div className="flex items-center gap-2 sm:gap-3 py-1 px-3 sm:px-3.5 rounded-full bg-surface-sunken/60 border border-line/60 shrink-0">
+            <div className="text-center px-0.5">
+              <span className="text-xs sm:text-sm font-black text-content block leading-tight" data-numeric>
+                {doses.length}
+              </span>
+              <span className="text-[9px] sm:text-[10px] font-semibold text-content-subtle uppercase tracking-wider block">
+                Total
+              </span>
+            </div>
+
+            <div className="h-4.5 w-[1px] bg-line" />
+
+            <div className="text-center px-0.5">
+              <span className="text-xs sm:text-sm font-black text-content block leading-tight" data-numeric>
+                {doses.length - takenCount}
+              </span>
+              <span className="text-[9px] sm:text-[10px] font-semibold text-content-subtle uppercase tracking-wider block">
+                Remaining
+              </span>
+            </div>
+
+            <div className="h-4.5 w-[1px] bg-line" />
+
+            <div className="text-center px-0.5">
+              <span className="text-xs sm:text-sm font-black text-content block leading-tight" data-numeric>
+                {pendingCount}
+              </span>
+              <span className="text-[9px] sm:text-[10px] font-semibold text-content-subtle uppercase tracking-wider block">
+                Pending
+              </span>
+            </div>
+
+            <div className="h-4.5 w-[1px] bg-line" />
+
+            <div className="text-center px-0.5">
+              <span className="text-xs sm:text-sm font-black text-content block leading-tight" data-numeric>
+                {adherence.percentage}%
+              </span>
+              <span className="text-[9px] sm:text-[10px] font-semibold text-content-subtle uppercase tracking-wider block">
+                Progress
+              </span>
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {/* Routine Filter Toolbar */}
+      <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
+        <div className="w-full sm:w-64">
+          <SegmentedControl<ScheduleFilter>
+            value={activeFilter}
+            onChange={setActiveFilter}
+            size="sm"
+            fullWidth
+            options={[
+              { value: 'all', label: `All (${doses.length})` },
+              { value: 'actionable', label: `Due (${actionableCount})` },
+              { value: 'taken', label: `Done (${takenCount})` },
+            ]}
+          />
+        </div>
+
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 text-xs text-content-subtle">
+            <ShieldCheck size={13} className="text-teal-600" />
+            <span>Chronotherapy Active</span>
+          </div>
+
+          <Link to="/prescriptions/new">
+            <Button
+              variant="secondary"
+              size="sm"
+              leftIcon={<PlusIcon size={13} />}
+              className="h-8 px-3 text-xs font-bold rounded-xl tap-spring shadow-2xs"
+            >
+              Scan Prescription
+            </Button>
+          </Link>
+        </div>
       </div>
+
+      {/* Main Chronotherapy Medication Stream (Full-Width with 3-Column Dose Tiles) */}
+      <main className="space-y-7">
+        {/* Loading Skeleton */}
+        {isLoading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[0, 1, 2].map((i) => (
+              <Skeleton key={i} className="h-44 w-full rounded-2xl" />
+            ))}
+          </div>
+        ) : loadError ? (
+          <ErrorState
+            title="Could not load this day"
+            message={loadError}
+            onRetry={() => loadData(selectedDate)}
+          />
+        ) : doses.length === 0 ? (
+          <EmptyState
+            heading={isPast ? 'No records for this day' : 'No doses scheduled'}
+            description={
+              isPast
+                ? 'There are no medication records recorded for this date.'
+                : 'Scan a prescription or add your active medicines to automatically generate your chronotherapy schedule.'
+            }
+            action={
+              !isPast ? (
+                <Link to="/prescriptions/new">
+                  <Button leftIcon={<PlusIcon size={17} />} className="tap-spring">
+                    Scan a prescription
+                  </Button>
+                </Link>
+              ) : undefined
+            }
+          />
+        ) : filteredDoses.length === 0 ? (
+          <div className="p-8 rounded-2xl border border-line bg-surface-raised text-center space-y-3">
+            <div className="w-12 h-12 rounded-2xl bg-surface-sunken mx-auto flex items-center justify-center text-content-subtle">
+              <Archive size={22} />
+            </div>
+            <h3 className="text-base font-bold text-content">No doses match this filter</h3>
+            <p className="text-xs text-content-muted max-w-sm mx-auto">
+              {activeFilter === 'actionable'
+                ? 'Great work! You have no pending or overdue doses for this day.'
+                : 'No completed or skipped doses recorded under this filter.'}
+            </p>
+            <Button variant="secondary" size="sm" onClick={() => setActiveFilter('all')}>
+              Show all doses
+            </Button>
+          </div>
+        ) : (
+          /* Chronotherapy Timed Sections (3 Columns) */
+          <div className="space-y-7">
+            {BUCKET_ORDER.map((key) => {
+              const bucketDoses = buckets[key];
+              if (bucketDoses.length === 0) return null;
+              const slot = SLOT_META[key];
+              const bucketPending = bucketDoses.filter(
+                (d) => deriveStatusOnRead(d, new Date()) === 'pending' || deriveStatusOnRead(d, new Date()) === 'missed'
+              ).length;
+
+              return (
+                <section key={key} aria-labelledby={`slot-${key}`} className="space-y-3.5">
+                  {/* Routine Header Bar with Executive Styling */}
+                  <div className="flex items-center justify-between gap-3 px-1 py-1.5 border-b border-line/60 pb-2.5">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span
+                        className={clsx(
+                          'w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border shadow-2xs',
+                          slot.surface,
+                          slot.text,
+                          slot.border
+                        )}
+                      >
+                        {slot.icon(16)}
+                      </span>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h2 id={`slot-${key}`} className="text-sm font-bold text-content tracking-tight uppercase">
+                          {slot.label} Routine
+                        </h2>
+                        <span className="text-[11px] text-content-subtle font-semibold px-2 py-0.5 rounded-md bg-surface-sunken border border-line">
+                          {slot.timeRange}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      {bucketPending > 1 && !isPast && (
+                        <button
+                          type="button"
+                          onClick={() => handleMarkRoutineTaken(bucketDoses, slot.label)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-teal-500/10 hover:bg-teal-500/20 text-teal-700 dark:text-teal-300 text-xs font-bold border border-teal-500/20 transition-all cursor-pointer tap-spring shadow-2xs"
+                        >
+                          <Check size={13} className="stroke-[2.5]" />
+                          Take all due ({bucketPending})
+                        </button>
+                      )}
+
+                      <span
+                        className={clsx(
+                          'px-2.5 py-1 rounded-xl border text-xs font-bold shadow-2xs',
+                          bucketPending > 0
+                            ? 'bg-amber-500/10 border-amber-500/20 text-amber-800 dark:text-amber-300'
+                            : 'bg-teal-500/10 border-teal-500/20 text-teal-700 dark:text-teal-400'
+                        )}
+                      >
+                        {bucketPending > 0 ? `${bucketPending} of ${bucketDoses.length} due` : 'All taken ✓'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* 3-Column Medication Tiles Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {bucketDoses.map((dose) => {
+                      const medicine = medicinesMap[dose.medicine_id];
+                      return (
+                        <DoseCard
+                          key={dose.id}
+                          medicineName={medicine?.medicine_name || 'Prescribed medicine'}
+                          strength={medicine?.strength}
+                          doseAmount={medicine?.dose_amount}
+                          scheduledMinutes={dose.scheduled_minutes}
+                          status={deriveStatusOnRead(dose, new Date())}
+                          withFood={medicine?.with_food}
+                          instructions={medicine?.instructions}
+                          skippedReason={dose.skipped_reason}
+                          remaining={inventory[dose.medicine_id]}
+                          onTake={() => handleMarkTaken(dose)}
+                          onSkip={() => handleOpenSkip(dose)}
+                          onUndo={() => handleUndo(dose)}
+                        />
+                      );
+                    })}
+                  </div>
+                </section>
+              );
+            })}
+          </div>
+        )}
+      </main>
 
       {/* Skip Reason Recording Dialog */}
       <Dialog

@@ -47,12 +47,12 @@ export interface GenerateStructuredResult<T> {
 }
 
 /** Default model. Override with GEMINI_MODEL. */
-export const DEFAULT_GEMINI_MODEL = 'gemini-3.6-flash';
+export const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash';
 
 export function getGeminiModel(): string {
   loadEnvFile();
   const configured = process.env.GEMINI_MODEL?.trim();
-  if (configured && !configured.includes('2.5-flash') && !configured.includes('1.5-flash')) {
+  if (configured) {
     return configured;
   }
   return DEFAULT_GEMINI_MODEL;

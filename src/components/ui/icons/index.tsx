@@ -69,6 +69,19 @@ export function TabletIcon(props: IconProps) {
   return <MedicineIcon {...props} />;
 }
 
+export function CabinetIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect width="18" height="18" x="3" y="3" rx="2" />
+      <path d="M3 9h18" />
+      <path d="M3 15h18" />
+      <path d="M10 6h4" />
+      <path d="M10 12h4" />
+      <path d="M10 18h4" />
+    </Icon>
+  );
+}
+
 export function CapsuleIcon(props: IconProps) {
   return (
     <Icon {...props}>

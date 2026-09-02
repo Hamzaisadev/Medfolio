@@ -186,7 +186,6 @@ export function SearchRecordsPage() {
             onChange={(e) => setQuery(e.target.value)}
             placeholder="e.g. Panadol, Augmentin, Hemoglobin, Dr. Joynal, knee pain..."
             className="h-14 text-base pl-12 shadow-sm rounded-xl"
-            autoFocus
           />
           <div className="absolute left-4 top-4 text-ink-400 pointer-events-none">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

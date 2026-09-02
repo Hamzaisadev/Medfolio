@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { AppShell } from '../../components/layout/AppShell';
 import { PageHeader } from '../../components/layout/PageHeader';
@@ -129,6 +129,15 @@ export function ReviewPrescriptionPage() {
   const [zoomOrigin, setZoomOrigin] = useState<{ x: number; y: number }>({ x: 50, y: 50 });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const imageContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isModalOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsModalOpen(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isModalOpen]);
 
   const handleImageMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!imageContainerRef.current) return;
@@ -979,10 +988,18 @@ export function ReviewPrescriptionPage() {
         <div
           role="dialog"
           aria-modal="true"
+          aria-label="Prescription image fullscreen preview"
           className="fixed inset-0 z-50 bg-ink-900/90 backdrop-blur-md flex flex-col items-center justify-center p-4"
-          onClick={() => setIsModalOpen(false)}
         >
-          <div className="relative max-w-5xl max-h-[90vh] w-full flex flex-col items-center">
+          {/* Accessible Backdrop Click Dismissal */}
+          <button
+            type="button"
+            aria-label="Close fullscreen view"
+            onClick={() => setIsModalOpen(false)}
+            className="absolute inset-0 w-full h-full cursor-default bg-transparent border-none"
+          />
+
+          <div className="relative z-10 max-w-5xl max-h-[90vh] w-full flex flex-col items-center pointer-events-auto">
             <div className="w-full flex items-center justify-between text-white mb-2">
               <span className="text-sm font-semibold">
                 Page {activeImageIndex + 1} of {images.length}
@@ -990,7 +1007,7 @@ export function ReviewPrescriptionPage() {
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="px-3 py-1 bg-white/20 hover:bg-white/30 rounded text-sm font-bold"
+                className="px-3 py-1 bg-white/20 hover:bg-white/30 rounded text-sm font-bold tap-spring"
               >
                 Close (Esc)
               </button>
@@ -999,7 +1016,6 @@ export function ReviewPrescriptionPage() {
               src={`data:${activeImg.mimeType};base64,${activeImg.dataBase64}`}
               alt="Prescription fullscreen"
               className="max-h-[82vh] max-w-full object-contain rounded-lg border border-white/20 shadow-2xl"
-              onClick={(e) => e.stopPropagation()}
             />
           </div>
         </div>

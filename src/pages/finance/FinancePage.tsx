@@ -32,8 +32,6 @@ export interface HealthExpenseItem {
   note?: string;
 }
 
-const EXPENSE_STORAGE_KEY = 'medfolio_health_expenses_v1';
-
 /**
  * Category accent mapping on semantic tokens so the ledger, meters, and icons
  * stay legible in both light and dark themes.
@@ -45,11 +43,18 @@ const CATEGORY_STYLES: Record<HealthExpenseItem['category'], { bar: string; icon
   other: { bar: 'bg-content-subtle', icon: 'text-content-muted' },
 };
 
+function getExpenseStorageKey(profileId: string): string {
+  return `medfolio_health_expenses_v1_${profileId || 'default'}`;
+}
+
 export function FinancePage() {
   const { user, profile } = useAuth();
+  const effectiveUserId = user?.id || profile?.user_id || '';
+  const effectiveProfileId = profile?.id || effectiveUserId;
+
   const [expenses, setExpenses] = useState<HealthExpenseItem[]>(() => {
     try {
-      const saved = localStorage.getItem(EXPENSE_STORAGE_KEY);
+      const saved = localStorage.getItem(getExpenseStorageKey(profile?.id || ''));
       return saved ? JSON.parse(saved) : [];
     } catch {
       return [];
@@ -70,9 +75,6 @@ export function FinancePage() {
 
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
-
-  const effectiveUserId = user?.id || profile?.user_id || '';
-  const effectiveProfileId = profile?.id || effectiveUserId;
 
   const loadData = useCallback(async () => {
     if (!effectiveUserId) {
@@ -133,7 +135,7 @@ export function FinancePage() {
 
         if (hasChanges) {
           try {
-            localStorage.setItem(EXPENSE_STORAGE_KEY, JSON.stringify(synced));
+            localStorage.setItem(getExpenseStorageKey(effectiveProfileId), JSON.stringify(synced));
           } catch {
             // ignore
           }
@@ -152,13 +154,19 @@ export function FinancePage() {
   }, [effectiveProfileId, effectiveUserId]);
 
   useEffect(() => {
+    try {
+      const saved = localStorage.getItem(getExpenseStorageKey(effectiveProfileId));
+      if (saved) setExpenses(JSON.parse(saved));
+    } catch {
+      // ignore
+    }
     loadData();
-  }, [loadData]);
+  }, [effectiveProfileId, loadData]);
 
   const saveExpenses = (newList: HealthExpenseItem[]) => {
     setExpenses(newList);
     try {
-      localStorage.setItem(EXPENSE_STORAGE_KEY, JSON.stringify(newList));
+      localStorage.setItem(getExpenseStorageKey(effectiveProfileId), JSON.stringify(newList));
     } catch (err) {
       console.error('Failed to save expenses:', err);
     }

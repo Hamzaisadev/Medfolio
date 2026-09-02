@@ -478,13 +478,15 @@ export function SettingsPage() {
                 <span className="font-bold text-sm text-ink-900 block">Browser / Push Notifications</span>
                 <span className="text-xs text-ink-500">Receive alerts when scheduled dose times arrive</span>
               </div>
-              <label className="relative inline-flex items-center cursor-pointer">
+              <label htmlFor="notifications-toggle" className="relative inline-flex items-center cursor-pointer">
                 <input
+                  id="notifications-toggle"
                   type="checkbox"
                   checked={notificationsEnabled}
                   onChange={(e) => handleToggleNotifications(e.target.checked)}
                   className="sr-only peer"
                 />
+                <span className="sr-only">Toggle Browser / Push Notifications</span>
                 <div className="w-11 h-6 bg-ink-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-ink-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-700" />
               </label>
             </div>
