@@ -77,8 +77,7 @@ export function DoctorPrepBrief({
         filename: `${slug}_Doctor_Prep_Brief.pdf`,
       });
     } catch (err) {
-      console.error('Failed to export brief PDF:', err);
-      window.print();
+      console.error('Failed to export PDF:', err);
     } finally {
       setIsExporting(false);
     }

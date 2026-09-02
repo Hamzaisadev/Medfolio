@@ -7,9 +7,10 @@ import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { ErrorState } from '../../components/ui/ErrorState';
-import { SectionHeader } from '../../components/ui/SectionHeader';
 import { Toast } from '../../components/ui/Toast';
 import { QuickVitalsModal } from '../../components/vitals/QuickVitalsModal';
+import { MilestoneBadgeCard } from '../../components/ui/MilestoneBadgeCard';
+import { evaluateAchievements } from '../../domain/achievements';
 import { mealRelationIcon } from '../../components/ui/slotMeta';
 import { VITAL_TONE } from '../../components/ui/vitalTone';
 import {
@@ -32,6 +33,7 @@ import {
   AlertCircleIcon,
   DoctorIcon,
   BarChartIcon,
+  TrophyIcon,
 } from '../../components/ui/icons';
 import { useAuth } from '../../lib/auth/AuthContext';
 import {
@@ -66,24 +68,22 @@ import {
 import { staggerContainer, staggerItem } from '../../lib/motion';
 import type { Tables } from '../../lib/supabase/types';
 
-/** PRN doses are excluded from adherence: they are taken as needed, not on schedule. */
 function isPrnMedicine(medicine: Tables<'medicines'> | undefined): boolean {
   return medicine?.frequency_code === 'PRN' || medicine?.frequency_code === 'SOS';
 }
 
 function formatReadingTime(isoStr: string): string {
   try {
-    const d = new Date(isoStr);
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return new Date(isoStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   } catch {
     return '';
   }
 }
 
 const EMERGENCY_NUMBERS = [
-  { tel: '1122', label: 'Rescue Ambulance' },
-  { tel: '115', label: 'Edhi Foundation' },
-  { tel: '1020', label: 'Chhipa Welfare' },
+  { tel: '1122', label: 'Rescue' },
+  { tel: '115', label: 'Edhi' },
+  { tel: '1020', label: 'Chhipa' },
 ];
 
 const QUICK_SYMPTOM_TAGS = [
@@ -106,6 +106,62 @@ interface TimelineEventSummary {
   link: string;
 }
 
+// ─── Inline mini bar chart (reference-style) ─────────────────────────────────
+function MiniBars({ bars, color }: { bars: number[]; color: string }) {
+  const max = Math.max(...bars, 1);
+  return (
+    <div className="flex items-end gap-0.5 h-8" aria-hidden>
+      {bars.map((v, i) => (
+        <div
+          key={i}
+          className="flex-1 rounded-sm transition-all duration-300"
+          style={{
+            height: `${Math.max(15, (v / max) * 100)}%`,
+            background:
+              i === bars.length - 1
+                ? color
+                : 'var(--color-surface-hover)',
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ─── Dot-matrix progress (reference-style "activity dots") ───────────────────
+function ActivityDots({ filled, total, color }: { filled: number; total: number; color: string }) {
+  return (
+    <div className="flex flex-wrap gap-1" aria-hidden>
+      {Array.from({ length: total }).map((_, i) => (
+        <div
+          key={i}
+          className="w-2.5 h-2.5 rounded-full"
+          style={{ background: i < filled ? color : 'var(--color-surface-hover)' }}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ─── Gradient icon badge (reference style) ───────────────────────────────────
+function GradientBadge({
+  children,
+  gradient,
+}: {
+  children: React.ReactNode;
+  gradient: string;
+}) {
+  return (
+    <div
+      className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 text-white shadow-sm"
+      style={{ background: gradient }}
+      aria-hidden
+    >
+      {children}
+    </div>
+  );
+}
+
 export function DashboardPage() {
   const { user, profile } = useAuth();
   const [activeMedsList, setActiveMedsList] = useState<Tables<'medicines'>[]>([]);
@@ -116,25 +172,16 @@ export function DashboardPage() {
   const [recentReports, setRecentReports] = useState<Tables<'reports'>[]>([]);
   const [recentVisits, setRecentVisits] = useState<Tables<'visits'>[]>([]);
   const [labResults, setLabResults] = useState<ReportResult[]>([]);
-
   const [glucoseLogs, setGlucoseLogs] = useState<GlucoseReading[]>([]);
   const [bpLogs, setBpLogs] = useState<BloodPressureReading[]>([]);
-
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; tone: 'ok' | 'risk' } | null>(null);
-
-  // Interactive Quick Symptom Checker State
   const [selectedSymptom, setSelectedSymptom] = useState<string | null>(null);
-
-  // Quick Vitals Logger Modal
   const [quickVitalsModal, setQuickVitalsModal] = useState<{
     open: boolean;
     type: 'glucose' | 'bp';
-  }>({
-    open: false,
-    type: 'glucose',
-  });
+  }>({ open: false, type: 'glucose' });
 
   const today = todayInAppTz();
   const userId = user?.id || profile?.user_id || '';
@@ -146,7 +193,6 @@ export function DashboardPage() {
     setLoadError(null);
     try {
       const streakFrom = addDaysAppTz(today, -60);
-
       const [meds, doses, orders, reports, visits, glucose, bp] = await Promise.all([
         medicinesRepo.listMedicines(profileId),
         dosesRepo.listDosesForRange(profileId, streakFrom, today),
@@ -161,7 +207,6 @@ export function DashboardPage() {
       for (const m of meds) map[m.id] = m;
       setMedsMap(map);
       setActiveMedsList(activeMedicines(meds, today));
-
       setStreakDoses(doses);
       setTodayDoses(doses.filter((d) => d.scheduled_date === today));
       setPendingOrders(orders);
@@ -170,7 +215,6 @@ export function DashboardPage() {
       setGlucoseLogs(glucose);
       setBpLogs(bp);
 
-      // Load lab results for top recent reports to surface out-of-range biomarkers
       if (reports.length > 0) {
         try {
           const resultsNested = await Promise.all(
@@ -178,11 +222,11 @@ export function DashboardPage() {
           );
           setLabResults(resultsNested.flat());
         } catch (rErr) {
-          console.warn('Could not load detailed lab results:', rErr);
+          console.warn('Could not load lab results:', rErr);
         }
       }
     } catch (err) {
-      console.error('Failed to load dashboard data:', err);
+      console.error('Dashboard load error:', err);
       setLoadError('Your dashboard could not be loaded. Check your connection and try again.');
     } finally {
       setIsLoading(false);
@@ -199,7 +243,6 @@ export function DashboardPage() {
     setTodayDoses((curr) =>
       curr.map((d) => (d.id === dose.id ? { ...d, status: 'taken', taken_at: nowIso } : d))
     );
-
     try {
       await dosesRepo.updateDoseStatus(dose.id, 'taken', nowIso);
       decrementPill(profileId, dose.medicine_id);
@@ -226,34 +269,30 @@ export function DashboardPage() {
   const nowMinutes = minutesInAppTz();
   const outstanding = todayDoses
     .filter((d) => {
-      const status = deriveStatusOnRead(d, new Date());
-      return status === 'pending' || status === 'missed';
+      const s = deriveStatusOnRead(d, new Date());
+      return s === 'pending' || s === 'missed';
     })
     .sort((a, b) => a.scheduled_minutes - b.scheduled_minutes);
   const nextDose = outstanding.find((d) => d.scheduled_minutes >= nowMinutes) ?? outstanding[0];
   const nextMedicine = nextDose ? medsMap[nextDose.medicine_id] : undefined;
   const remainingToday = outstanding.length;
 
-  // Latest Vitals Computation
   const latestGlucose = glucoseLogs[0];
   const latestBp = bpLogs[0];
 
-  const glucoseEval = useMemo(() => {
-    if (!latestGlucose) return null;
-    return evaluateGlucose(latestGlucose.value_mg_dl, latestGlucose.type);
-  }, [latestGlucose]);
+  const glucoseEval = useMemo(
+    () => (latestGlucose ? evaluateGlucose(latestGlucose.value_mg_dl, latestGlucose.type) : null),
+    [latestGlucose]
+  );
+  const bpEval = useMemo(
+    () => (latestBp ? evaluateBloodPressure(latestBp.systolic, latestBp.diastolic) : null),
+    [latestBp]
+  );
+  const bpMapValue = useMemo(
+    () => (latestBp ? calculateMap(latestBp.systolic, latestBp.diastolic) : null),
+    [latestBp]
+  );
 
-  const bpEval = useMemo(() => {
-    if (!latestBp) return null;
-    return evaluateBloodPressure(latestBp.systolic, latestBp.diastolic);
-  }, [latestBp]);
-
-  const bpMapValue = useMemo(() => {
-    if (!latestBp) return null;
-    return calculateMap(latestBp.systolic, latestBp.diastolic);
-  }, [latestBp]);
-
-  // Low stock inventory pills check from local inventory store
   const lowStockMedicines = useMemo(() => {
     if (!profileId) return [];
     const inventory = readInventory(profileId);
@@ -263,50 +302,38 @@ export function DashboardPage() {
     });
   }, [activeMedsList, profileId]);
 
-  // Estimated Monthly Healthcare Spend (in PKR / Rs.)
   const monthlySpendEstimate = useMemo(() => {
     try {
-      const savedExpenses = localStorage.getItem(`medfolio_health_expenses_v1_${profileId}`);
-      if (savedExpenses) {
-        const parsed = JSON.parse(savedExpenses);
+      const saved = localStorage.getItem(`medfolio_health_expenses_v1_${profileId}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+          return parsed.reduce((s: number, i: { amount?: number }) => s + (Number(i.amount) || 0), 0);
         }
       }
-    } catch {
-      // fallback
-    }
-    // Baseline projection based on active medicines + recorded visits
-    const medCost = activeMedsList.length * 950;
-    const visitCost = recentVisits.reduce((sum, v) => sum + (v.visit_cost || 0), 0);
-    return medCost + visitCost;
+    } catch { /* noop */ }
+    return activeMedsList.length * 950 + recentVisits.reduce((s, v) => s + (v.visit_cost || 0), 0);
   }, [profileId, activeMedsList, recentVisits]);
 
-  // Flagged out-of-range biomarkers from diagnostic lab reports
-  const outOfRangeBiomarkers = useMemo(() => {
-    return labResults.filter(
-      (r) => r.range_status !== 'within' && r.range_status !== 'unknown'
-    );
-  }, [labResults]);
+  const outOfRangeBiomarkers = useMemo(
+    () => labResults.filter((r) => r.range_status === 'above' || r.range_status === 'below'),
+    [labResults]
+  );
 
-  // Live Symptom Triage Evaluation
   const symptomTriageResult = useMemo(() => {
     if (!selectedSymptom) return null;
-    const redFlagCheck = checkRedFlags(selectedSymptom);
+    const result = checkRedFlags(selectedSymptom);
     return {
       name: selectedSymptom,
-      isEmergency: redFlagCheck.isEmergency,
-      advice: redFlagCheck.isEmergency
-        ? 'High clinical priority: Seek urgent medical attention or consultation immediately.'
-        : 'Common clinical symptom: Monitor hydration and rest. Can be added to your doctor brief.',
+      isEmergency: result.isEmergency,
+      advice: result.isEmergency
+        ? 'High clinical priority: Seek urgent medical attention immediately.'
+        : 'Common symptom: Monitor closely. You can add this to your doctor brief.',
     };
   }, [selectedSymptom]);
 
-  // Unified Longitudinal Timeline Summary (Last 3 events)
   const recentTimelineEvents = useMemo(() => {
     const events: TimelineEventSummary[] = [];
-
-    // 1. Doctor Visits
     for (const v of recentVisits) {
       events.push({
         id: `visit-${v.id}`,
@@ -317,8 +344,6 @@ export function DashboardPage() {
         link: '/doctor/brief',
       });
     }
-
-    // 2. Lab Reports
     for (const r of recentReports) {
       events.push({
         id: `report-${r.id}`,
@@ -329,9 +354,7 @@ export function DashboardPage() {
         link: '/reports',
       });
     }
-
-    // 3. Active Medicines
-    for (const m of activeMedsList.slice(0, 3)) {
+    for (const m of activeMedsList.slice(0, 2)) {
       events.push({
         id: `med-${m.id}`,
         type: 'medicine',
@@ -341,20 +364,61 @@ export function DashboardPage() {
         link: `/medicines/${m.id}`,
       });
     }
-
-    // Sort descending by date
     return events
       .sort((a, b) => new Date(b.dateStr).getTime() - new Date(a.dateStr).getTime())
       .slice(0, 3);
   }, [recentVisits, recentReports, activeMedsList, today]);
 
+  // Achievements
+  const achievements = useMemo(() => {
+    const inRangeGlucose = glucoseLogs.filter((g) => {
+      const ev = evaluateGlucose(g.value_mg_dl, g.type);
+      return ev.tone === 'ok';
+    }).length;
+    const normalBp = bpLogs.filter((bp) => {
+      const ev = evaluateBloodPressure(bp.systolic, bp.diastolic);
+      return ev.tone === 'ok';
+    }).length;
+    return evaluateAchievements({
+      adherenceStreakDays: streakDays,
+      totalPrescriptions: activeMedsList.length,
+      totalReports: recentReports.length,
+      totalVisits: recentVisits.length,
+      glucoseLogsCount: glucoseLogs.length,
+      inRangeGlucoseCount: inRangeGlucose,
+      bpLogsCount: bpLogs.length,
+      normalBpCount: normalBp,
+    });
+  }, [streakDays, activeMedsList, recentReports, recentVisits, glucoseLogs, bpLogs]);
+
+  // Fake last-7-days bar data for mini charts (derived from log counts per day)
+  const glucoseBars = useMemo(() => {
+    const buckets: number[] = [10, 10, 10, 10, 10, 10, 10];
+    for (const g of glucoseLogs) {
+      const daysAgo = Math.floor((Date.now() - new Date(g.measured_at).getTime()) / 86400000);
+      const idx = 6 - daysAgo;
+      if (daysAgo >= 0 && daysAgo < 7 && idx >= 0 && idx < 7) {
+        buckets[idx] = (buckets[idx] ?? 10) + 40;
+      }
+    }
+    return buckets;
+  }, [glucoseLogs]);
+
+  const bpBars = useMemo(() => {
+    const buckets: number[] = [10, 10, 10, 10, 10, 10, 10];
+    for (const b of bpLogs) {
+      const daysAgo = Math.floor((Date.now() - new Date(b.measured_at).getTime()) / 86400000);
+      const idx = 6 - daysAgo;
+      if (daysAgo >= 0 && daysAgo < 7 && idx >= 0 && idx < 7) {
+        buckets[idx] = (buckets[idx] ?? 10) + 40;
+      }
+    }
+    return buckets;
+  }, [bpLogs]);
+
   const currentHour = new Date().getHours();
   const timeGreeting =
-    currentHour < 12
-      ? 'Good morning'
-      : currentHour < 17
-        ? 'Good afternoon'
-        : 'Good evening';
+    currentHour < 12 ? 'Good morning' : currentHour < 17 ? 'Good afternoon' : 'Good evening';
 
   return (
     <AppShell>
@@ -365,47 +429,35 @@ export function DashboardPage() {
         onClose={() => setToast(null)}
       />
 
-      <motion.div
-        variants={staggerContainer}
-        initial="hidden"
-        animate="visible"
-        className="space-y-6"
-      >
-        {/* ── Top Greeting & Primary Actions ─────────────────────────────────── */}
+      <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-5">
+
+        {/* ── Greeting Header ──────────────────────────────────────────────── */}
         <motion.div
           variants={staggerItem}
-          className="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+          className="flex flex-col sm:flex-row sm:items-center justify-between gap-3"
         >
           <div>
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-2.5">
               <h1 className="text-2xl sm:text-3xl font-black text-content tracking-tight">
                 {timeGreeting}, {firstName}
               </h1>
               {streakDays > 0 && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-accent-subtle text-accent text-xs font-bold border border-accent/20">
-                  <FlameIcon size={13} className="text-accent" />
-                  {streakDays}d Streak
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-600 text-xs font-bold border border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20">
+                  <FlameIcon size={12} />
+                  {streakDays}d
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-2 text-xs text-content-muted">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-surface-raised text-content-muted font-medium border border-line">
-                <span className="w-1.5 h-1.5 rounded-full bg-accent" />
-                Pakistan Standard Time
-              </span>
-              <span>•</span>
-              <span className="font-medium">{formatDayHeading(today)}</span>
-            </div>
+            <p className="text-sm text-content-muted mt-0.5">{formatDayHeading(today)}</p>
           </div>
-
           <div className="flex items-center gap-2">
             <Link to="/prescriptions/new">
-              <Button leftIcon={<PrescriptionIcon size={16} />} className="shadow-xs hover:shadow-md">
+              <Button leftIcon={<PrescriptionIcon size={15} />} size="sm">
                 Add Prescription
               </Button>
             </Link>
             <Link to="/assistant">
-              <Button variant="secondary" leftIcon={<SparklesIcon size={16} />}>
+              <Button variant="secondary" leftIcon={<SparklesIcon size={15} />} size="sm">
                 Assistant
               </Button>
             </Link>
@@ -413,792 +465,619 @@ export function DashboardPage() {
         </motion.div>
 
         {loadError ? (
-          <ErrorState
-            title="Dashboard didn't load"
-            message={loadError}
-            onRetry={loadDashboard}
-            className="mb-8"
-          />
+          <ErrorState title="Dashboard didn't load" message={loadError} onRetry={loadDashboard} />
+        ) : isLoading ? (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            <Skeleton className="lg:col-span-8 h-48 rounded-2xl" />
+            <Skeleton className="lg:col-span-4 h-48 rounded-2xl" />
+            <Skeleton className="lg:col-span-6 h-44 rounded-2xl" />
+            <Skeleton className="lg:col-span-6 h-44 rounded-2xl" />
+          </div>
         ) : (
           <>
-            {/* ═════════════════════════════════════════════════════════════════════
-                BENTO ROW 1: THE CORE COMMAND CENTER (8 + 4 COLS)
-                ═════════════════════════════════════════════════════════════════════ */}
-            <motion.section variants={staggerItem} aria-labelledby="core-hub-heading">
-              <h2 id="core-hub-heading" className="sr-only">
-                Medication and Spend Command Center
-              </h2>
+            {/* ══════════════════════════════════════════════════════════
+                ROW 1 — MEDICATION HERO (8) + HEALTH SPEND (4)
+                ══════════════════════════════════════════════════════════ */}
+            <motion.div variants={staggerItem} className="grid grid-cols-1 lg:grid-cols-12 gap-4">
 
-              {isLoading ? (
-                <Skeleton className="h-48 w-full rounded-[var(--radius-xl)]" />
-              ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
-                  {/* Card 1: Next Scheduled Dose Hero (8 Columns) */}
-                  <div className="lg:col-span-8 flex">
-                    {nextDose ? (
-                      <Card className="p-5 sm:p-6 bg-surface-raised border border-line shadow-card hover:shadow-raise transition-all relative overflow-hidden flex flex-col justify-between w-full">
-                        <span
-                          className="absolute inset-y-0 left-0 w-1.5 bg-accent"
-                          aria-hidden="true"
-                        />
-
+              {/* ── Next Dose Hero Card (8 cols) ────────────────────── */}
+              <div className="lg:col-span-8">
+                {nextDose ? (
+                  <Card className="p-6 h-full flex flex-col justify-between">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-start gap-4">
+                        <GradientBadge gradient="linear-gradient(135deg,#6366f1,#8b5cf6)">
+                          <MedicineIcon size={20} />
+                        </GradientBadge>
                         <div>
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="flex items-center gap-3">
-                              <div className="w-12 h-12 rounded-2xl bg-accent-subtle text-accent border border-accent/20 flex items-center justify-center shrink-0">
-                                <MedicineIcon size={24} />
-                              </div>
-                              <div>
-                                <span className="text-2xs uppercase tracking-wider font-bold text-accent">
-                                  Next Scheduled Dose
-                                </span>
-                                <h3 className="text-xl font-black text-content tracking-tight">
-                                  {nextMedicine?.medicine_name || 'Prescribed medicine'}
-                                </h3>
-                                <p className="text-xs text-content-muted mt-0.5">
-                                  {[nextMedicine?.strength, nextMedicine?.dose_amount]
-                                    .filter(Boolean)
-                                    .join(' · ') || 'Take as prescribed'}
-                                </p>
-                              </div>
-                            </div>
-
-                            {/* Due Time Badge */}
-                            <div className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-accent text-content-onaccent font-bold text-xs font-mono shadow-xs">
-                              <ClockIcon size={14} />
-                              <span>{formatDoseTime(nextDose.scheduled_minutes)}</span>
-                            </div>
-                          </div>
-
-                          {/* Meal & Clinical Instructions */}
-                          <div className="mt-4 flex flex-wrap items-center gap-2">
-                            <span className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg bg-surface-sunken text-content-muted border border-line font-medium">
-                              <span className="text-accent">
-                                {mealRelationIcon(mealRelationOf(nextMedicine?.with_food), 13)}
-                              </span>
-                              <span>{mealRelationInstruction(nextMedicine?.with_food)}</span>
-                            </span>
-
-                            {remainingToday > 0 && (
-                              <span className="text-2xs px-2.5 py-1 rounded-lg bg-surface-sunken text-content-subtle font-medium border border-line">
-                                {remainingToday} dose{remainingToday === 1 ? '' : 's'} remaining today
-                              </span>
-                            )}
-                          </div>
-
-                          {nextMedicine?.instructions && (
-                            <p className="mt-2.5 text-xs text-content-muted bg-surface-sunken/80 border border-line rounded-lg px-3 py-2 leading-relaxed">
-                              <span className="font-semibold text-content">Instructions: </span>
-                              {nextMedicine.instructions}
-                            </p>
-                          )}
+                          <p className="text-xs font-semibold text-content-muted uppercase tracking-wider mb-0.5">
+                            Next Scheduled Dose
+                          </p>
+                          <h2 className="text-2xl font-black text-content tracking-tight leading-tight">
+                            {nextMedicine?.medicine_name || 'Prescribed medicine'}
+                          </h2>
+                          <p className="text-sm text-content-muted mt-0.5">
+                            {[nextMedicine?.strength, nextMedicine?.dose_amount].filter(Boolean).join(' · ') || 'Take as prescribed'}
+                          </p>
                         </div>
+                      </div>
 
-                        {/* Quick 1-Tap Take Action & Timetable Link */}
-                        <div className="mt-5 pt-3 border-t border-line flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-                          <Link
-                            to="/medicines"
-                            className="text-xs font-bold text-accent hover:text-accent-hover flex items-center gap-1"
-                          >
-                            <span>Open Timetable</span>
-                            <ArrowRightIcon size={13} />
-                          </Link>
-                          <Button
-                            size="md"
-                            variant="primary"
-                            onClick={() => handleMarkTaken(nextDose)}
-                            leftIcon={<CheckIcon size={16} className="stroke-[2.5]" />}
-                            className="font-bold shadow-xs hover:shadow-md"
-                          >
-                            Take Dose Now
-                          </Button>
-                        </div>
-                      </Card>
-                    ) : (
-                      <Card className="p-6 bg-surface-raised border border-line shadow-card flex flex-col justify-between w-full">
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                          <span className="shrink-0 flex items-center justify-center w-12 h-12 rounded-2xl bg-ok-bg text-ok-text border border-ok-border">
-                            <CheckIcon size={24} className="stroke-[2.5]" />
-                          </span>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-base font-bold text-content">
-                              All scheduled doses completed!
-                            </p>
-                            <p className="mt-1 text-xs text-content-muted">
-                              {activeMedsList.length > 0
-                                ? 'Your upcoming schedule is clean. Next due doses will appear here automatically.'
-                                : 'Scan or enter a prescription to generate your automated timetable.'}
-                            </p>
-                          </div>
-                        </div>
+                      {/* Due-time pill */}
+                      <div className="shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 font-black text-sm font-mono">
+                        <ClockIcon size={14} />
+                        {formatDoseTime(nextDose.scheduled_minutes)}
+                      </div>
+                    </div>
 
-                        <div className="mt-4 pt-3 border-t border-line flex items-center justify-between">
-                          <Link
-                            to="/medicines"
-                            className="text-xs font-bold text-accent hover:underline flex items-center gap-1"
-                          >
-                            <span>View Full Timetable</span>
-                            <ArrowRightIcon size={13} />
-                          </Link>
-                          {activeMedsList.length === 0 && (
-                            <Link to="/prescriptions/new">
-                              <Button size="sm" leftIcon={<PrescriptionIcon size={14} />}>
-                                Scan Prescription
-                              </Button>
-                            </Link>
-                          )}
-                        </div>
-                      </Card>
+                    {/* Meal + remaining info */}
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <span className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl bg-surface-sunken border border-line font-medium text-content-muted">
+                        {mealRelationIcon(mealRelationOf(nextMedicine?.with_food), 13)}
+                        {mealRelationInstruction(nextMedicine?.with_food)}
+                      </span>
+                      {remainingToday > 0 && (
+                        <span className="text-xs px-3 py-1.5 rounded-xl bg-surface-sunken border border-line font-medium text-content-subtle">
+                          {remainingToday} dose{remainingToday !== 1 ? 's' : ''} remaining today
+                        </span>
+                      )}
+                    </div>
+
+                    {nextMedicine?.instructions && (
+                      <p className="mt-3 text-xs text-content-muted bg-surface-sunken border border-line rounded-xl px-3 py-2 leading-relaxed">
+                        <span className="font-semibold text-content">Note: </span>
+                        {nextMedicine.instructions}
+                      </p>
                     )}
-                  </div>
 
-                  {/* Card 2: Healthcare Finances & Pharmacy Budget (4 Columns) */}
-                  <div className="lg:col-span-4 flex">
-                    <Card className="p-5 sm:p-6 bg-surface-raised border border-line shadow-card flex flex-col justify-between w-full">
+                    <div className="mt-5 flex items-center justify-between gap-3 pt-4 border-t border-line">
+                      <Link
+                        to="/medicines"
+                        className="text-xs font-bold text-indigo-500 hover:text-indigo-600 flex items-center gap-1"
+                      >
+                        Open Timetable <ArrowRightIcon size={13} />
+                      </Link>
+                      <Button
+                        onClick={() => handleMarkTaken(nextDose)}
+                        leftIcon={<CheckIcon size={15} className="stroke-[2.5]" />}
+                        size="sm"
+                      >
+                        Take Dose Now
+                      </Button>
+                    </div>
+                  </Card>
+                ) : (
+                  <Card className="p-6 h-full flex flex-col justify-between">
+                    <div className="flex items-start gap-4">
+                      <GradientBadge gradient="linear-gradient(135deg,#22c55e,#16a34a)">
+                        <CheckIcon size={20} />
+                      </GradientBadge>
                       <div>
-                        <div className="flex items-center justify-between gap-2 mb-3">
-                          <span className="text-2xs uppercase tracking-wider font-bold text-content-subtle">
-                            Health Spend & Pharmacy
-                          </span>
-                          <Badge tone="info" size="sm">
-                            PKR
-                          </Badge>
-                        </div>
-
-                        <div className="space-y-1">
-                          <span className="text-2xs text-content-muted block">Estimated Monthly Spend</span>
-                          <div className="flex items-baseline gap-1.5">
-                            <span className="text-2xl sm:text-3xl font-black text-content font-mono">
-                              Rs. {monthlySpendEstimate.toLocaleString()}
-                            </span>
-                            <span className="text-xs font-semibold text-content-subtle">/ month</span>
-                          </div>
-                        </div>
-
-                        {/* Refill status badge */}
-                        <div className="mt-3.5 p-2.5 rounded-xl bg-surface-sunken/80 border border-line flex items-center justify-between gap-2">
-                          <div className="min-w-0">
-                            <span className="text-xs font-bold text-content block truncate">
-                              {lowStockMedicines.length > 0
-                                ? `${lowStockMedicines.length} medicine(s) low on stock`
-                                : `${activeMedsList.length} active prescription(s)`}
-                            </span>
-                            <span className="text-2xs text-content-subtle">
-                              {lowStockMedicines.length > 0
-                                ? 'Refill required within 5 days'
-                                : 'Supplies adequately stocked'}
-                            </span>
-                          </div>
-                          {lowStockMedicines.length > 0 ? (
-                            <Badge tone="warn" size="sm">
-                              Refill Due
-                            </Badge>
-                          ) : (
-                            <Badge tone="ok" size="sm">
-                              Stocked
-                            </Badge>
-                          )}
-                        </div>
+                        <p className="text-xs font-semibold text-content-muted uppercase tracking-wider mb-0.5">
+                          Medication Schedule
+                        </p>
+                        <h2 className="text-xl font-black text-content">All doses complete!</h2>
+                        <p className="text-sm text-content-muted mt-1">
+                          {activeMedsList.length > 0
+                            ? 'Next due doses will appear here automatically.'
+                            : 'Scan a prescription to set up your timetable.'}
+                        </p>
                       </div>
-
-                      <div className="mt-4 pt-3 border-t border-line flex items-center justify-between gap-2">
-                        <Link
-                          to="/finances"
-                          className="text-xs font-bold text-accent hover:text-accent-hover flex items-center gap-1"
-                        >
-                          <span>Manage Expenses</span>
-                          <ArrowRightIcon size={13} />
-                        </Link>
-                        <Link to="/medicines/cabinet">
-                          <Button size="sm" variant="secondary" leftIcon={<MedicineIcon size={14} />}>
-                            Reorder Refill
+                    </div>
+                    <div className="mt-5 flex items-center justify-between pt-4 border-t border-line">
+                      <Link to="/medicines" className="text-xs font-bold text-indigo-500 hover:text-indigo-600 flex items-center gap-1">
+                        View Timetable <ArrowRightIcon size={13} />
+                      </Link>
+                      {activeMedsList.length === 0 && (
+                        <Link to="/prescriptions/new">
+                          <Button size="sm" leftIcon={<PrescriptionIcon size={14} />}>
+                            Scan Prescription
                           </Button>
                         </Link>
-                      </div>
-                    </Card>
-                  </div>
-                </div>
-              )}
-            </motion.section>
-
-            {/* ═════════════════════════════════════════════════════════════════════
-                BENTO ROW 2: BIOMETRICS & CHRONIC VITALS BENTO (6 + 6 COLS)
-                ═════════════════════════════════════════════════════════════════════ */}
-            <motion.section variants={staggerItem} aria-labelledby="vitals-bento-heading">
-              <div className="flex items-center justify-between mb-3">
-                <SectionHeader
-                  title="Biometrics & Chronic Vitals"
-                  icon={<ActivityIcon size={16} />}
-                />
-                <Link
-                  to="/vitals"
-                  className="text-xs font-bold text-accent hover:underline flex items-center gap-1"
-                >
-                  Vitals Radar <ArrowRightIcon size={13} />
-                </Link>
+                      )}
+                    </div>
+                  </Card>
+                )}
               </div>
-              <h2 id="vitals-bento-heading" className="sr-only">
-                Biometrics & Chronic Vitals Bento
-              </h2>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* 1. Blood Glucose Card (6 Columns) */}
-                <Card className="p-5 bg-surface-raised border border-line shadow-card hover:border-line-strong transition-all flex flex-col justify-between">
+              {/* ── Health Spend Card (4 cols) ───────────────────────── */}
+              <div className="lg:col-span-4">
+                <Card className="p-6 h-full flex flex-col justify-between">
                   <div>
-                    {/* Header */}
-                    <div className="flex items-center justify-between gap-2 pb-3 border-b border-line">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/20 flex items-center justify-center">
-                          <DropletIcon size={18} />
-                        </div>
-                        <div>
-                          <h3 className="text-sm font-bold text-content">Blood Glucose</h3>
-                          <p className="text-2xs text-content-subtle">
-                            {latestGlucose
-                              ? `Last checked: ${formatReadingTime(latestGlucose.measured_at)}`
-                              : 'No readings logged'}
-                          </p>
-                        </div>
+                    <div className="flex items-start gap-3 mb-4">
+                      <GradientBadge gradient="linear-gradient(135deg,#f59e0b,#d97706)">
+                        <ActivityIcon size={18} />
+                      </GradientBadge>
+                      <div>
+                        <p className="text-xs font-semibold text-content-muted uppercase tracking-wider mb-0.5">
+                          Health Spend
+                        </p>
+                        <p className="text-2xs text-content-subtle">Estimated monthly</p>
                       </div>
-
-                      {glucoseEval && (
-                        <Badge tone={VITAL_TONE[glucoseEval.tone].badge} size="sm" withIcon>
-                          {glucoseEval.label}
-                        </Badge>
-                      )}
                     </div>
 
-                    {/* Value Preview */}
-                    {latestGlucose ? (
-                      <div className="mt-4 space-y-2">
-                        <div className="flex items-baseline gap-2">
-                          <span className="text-3xl font-black text-content tracking-tight font-mono">
-                            {latestGlucose.value_mg_dl}
-                          </span>
-                          <span className="text-xs font-bold text-content-muted">mg/dL</span>
-                          <span className="ml-auto text-xs px-2 py-0.5 rounded-md bg-surface-sunken border border-line text-content-muted font-medium capitalize">
-                            {latestGlucose.type.replace('_', ' ')}
-                          </span>
-                        </div>
+                    <div className="mb-1">
+                      <span className="text-3xl font-black text-content font-mono tracking-tight">
+                        Rs. {monthlySpendEstimate.toLocaleString()}
+                      </span>
+                      <span className="text-xs text-content-muted ml-1.5">/ mo</span>
+                    </div>
 
-                        {glucoseEval && (
-                          <p className="text-xs text-content-muted bg-surface-sunken/60 border border-line rounded-lg px-3 py-2 leading-relaxed">
-                            {glucoseEval.advice}
-                          </p>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="mt-4 py-4 text-center rounded-xl bg-surface-sunken/40 border border-line/60">
-                        <p className="text-xs font-semibold text-content-muted">
-                          No glucose readings logged yet
-                        </p>
-                        <p className="text-2xs text-content-subtle mt-0.5">
-                          Track fasting and post-meal targets regularly
-                        </p>
-                      </div>
-                    )}
+                    {/* Activity dots as pharmacy items indicator */}
+                    <div className="mt-3">
+                      <ActivityDots
+                        filled={activeMedsList.length}
+                        total={Math.max(activeMedsList.length, 8)}
+                        color="#f59e0b"
+                      />
+                    </div>
+
+                    <div className={`mt-3 px-3 py-2 rounded-xl border text-xs font-medium ${
+                      lowStockMedicines.length > 0
+                        ? 'bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-500/10 dark:border-amber-500/20 dark:text-amber-400'
+                        : 'bg-surface-sunken border-line text-content-muted'
+                    }`}>
+                      {lowStockMedicines.length > 0
+                        ? `${lowStockMedicines.length} medicine(s) need refill`
+                        : `${activeMedsList.length} active prescriptions`}
+                    </div>
                   </div>
 
-                  {/* Actions Footer */}
-                  <div className="mt-5 pt-3 border-t border-line flex items-center justify-between gap-2">
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      leftIcon={<PlusIcon size={14} />}
-                      onClick={() =>
-                        setQuickVitalsModal({ open: true, type: 'glucose' })
-                      }
-                      className="font-bold"
-                    >
-                      Log Blood Sugar
-                    </Button>
-                    <Link
-                      to="/vitals"
-                      className="text-2xs font-bold text-content-muted hover:text-accent transition-colors flex items-center gap-1"
-                    >
-                      <span>Full Trends</span>
-                      <ArrowRightIcon size={12} />
+                  <div className="flex items-center justify-between pt-4 border-t border-line mt-4">
+                    <Link to="/finances" className="text-xs font-bold text-amber-600 hover:text-amber-700 dark:text-amber-400 flex items-center gap-1">
+                      Manage Expenses <ArrowRightIcon size={12} />
                     </Link>
-                  </div>
-                </Card>
-
-                {/* 2. Blood Pressure Card (6 Columns) */}
-                <Card className="p-5 bg-surface-raised border border-line shadow-card hover:border-line-strong transition-all flex flex-col justify-between">
-                  <div>
-                    {/* Header */}
-                    <div className="flex items-center justify-between gap-2 pb-3 border-b border-line">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-9 h-9 rounded-xl bg-rose-500/10 text-rose-500 border border-rose-500/20 flex items-center justify-center">
-                          <HeartPulseIcon size={18} />
-                        </div>
-                        <div>
-                          <h3 className="text-sm font-bold text-content">Blood Pressure</h3>
-                          <p className="text-2xs text-content-subtle">
-                            {latestBp
-                              ? `Last checked: ${formatReadingTime(latestBp.measured_at)}`
-                              : 'No readings logged'}
-                          </p>
-                        </div>
-                      </div>
-
-                      {bpEval && (
-                        <Badge tone={VITAL_TONE[bpEval.tone].badge} size="sm" withIcon>
-                          {bpEval.label}
-                        </Badge>
-                      )}
-                    </div>
-
-                    {/* Value Preview */}
-                    {latestBp ? (
-                      <div className="mt-4 space-y-2">
-                        <div className="flex items-baseline gap-2">
-                          <span className="text-3xl font-black text-content tracking-tight font-mono">
-                            {latestBp.systolic}/{latestBp.diastolic}
-                          </span>
-                          <span className="text-xs font-bold text-content-muted">mmHg</span>
-
-                          <div className="ml-auto flex items-center gap-2">
-                            {latestBp.pulse_bpm && (
-                              <span className="text-xs px-2 py-0.5 rounded-md bg-rose-500/10 text-rose-600 border border-rose-500/20 font-bold font-mono flex items-center gap-1">
-                                <HeartPulseIcon size={11} />
-                                {latestBp.pulse_bpm} bpm
-                              </span>
-                            )}
-                            {bpMapValue && (
-                              <span className="text-2xs px-2 py-0.5 rounded-md bg-surface-sunken border border-line text-content-muted font-medium">
-                                MAP {bpMapValue}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-
-                        {bpEval && (
-                          <p className="text-xs text-content-muted bg-surface-sunken/60 border border-line rounded-lg px-3 py-2 leading-relaxed">
-                            {bpEval.advice}
-                          </p>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="mt-4 py-4 text-center rounded-xl bg-surface-sunken/40 border border-line/60">
-                        <p className="text-xs font-semibold text-content-muted">
-                          No blood pressure readings logged yet
-                        </p>
-                        <p className="text-2xs text-content-subtle mt-0.5">
-                          Track systolic, diastolic & pulse regularly
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Actions Footer */}
-                  <div className="mt-5 pt-3 border-t border-line flex items-center justify-between gap-2">
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      leftIcon={<PlusIcon size={14} />}
-                      onClick={() =>
-                        setQuickVitalsModal({ open: true, type: 'bp' })
-                      }
-                      className="font-bold"
-                    >
-                      Log Blood Pressure
-                    </Button>
-                    <Link
-                      to="/vitals"
-                      className="text-2xs font-bold text-content-muted hover:text-accent transition-colors flex items-center gap-1"
-                    >
-                      <span>Full Trends</span>
-                      <ArrowRightIcon size={12} />
-                    </Link>
-                  </div>
-                </Card>
-              </div>
-            </motion.section>
-
-            {/* ═════════════════════════════════════════════════════════════════════
-                BENTO ROW 3: BIOMARKER RADAR & SYMPTOM TRIAGE (7 + 5 COLS)
-                ═════════════════════════════════════════════════════════════════════ */}
-            <motion.section variants={staggerItem} aria-labelledby="biomarkers-symptoms-heading">
-              <h2 id="biomarkers-symptoms-heading" className="sr-only">
-                Biomarkers Radar and Symptom Checker
-              </h2>
-
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-                {/* 1. Biomarker Radar & Lab Trajectory (7 Columns) */}
-                <Card className="lg:col-span-7 p-5 bg-surface-raised border border-line shadow-card flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-center justify-between gap-2 mb-3 pb-2.5 border-b border-line">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-9 h-9 rounded-xl bg-teal-500/10 text-teal-600 border border-teal-500/20 flex items-center justify-center">
-                          <BarChartIcon size={18} />
-                        </div>
-                        <div>
-                          <h3 className="text-sm font-bold text-content">Biomarker Radar & Labs</h3>
-                          <p className="text-2xs text-content-subtle">
-                            Diagnostic test results & flagged markers
-                          </p>
-                        </div>
-                      </div>
-
-                      {pendingOrders.length > 0 ? (
-                        <Badge tone="warn" size="sm">
-                          {pendingOrders.length} Order(s) Due
-                        </Badge>
-                      ) : (
-                        <Badge tone="ok" size="sm">
-                          {recentReports.length} Reports
-                        </Badge>
-                      )}
-                    </div>
-
-                    {/* Out of range flagged lab results */}
-                    {outOfRangeBiomarkers.length > 0 ? (
-                      <div className="space-y-2">
-                        <span className="text-2xs uppercase tracking-wider font-bold text-content-subtle">
-                          Attention: Flagged Lab Values
-                        </span>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          {outOfRangeBiomarkers.slice(0, 4).map((res) => (
-                            <div
-                              key={res.id}
-                              className="p-2.5 rounded-xl bg-warn-bg/30 border border-warn-border/60 flex items-center justify-between gap-2"
-                            >
-                              <div className="min-w-0">
-                                <span className="text-xs font-bold text-content block truncate">
-                                  {res.test_name}
-                                </span>
-                                <span className="text-2xs text-content-subtle">
-                                  Ref: {res.reference_range || 'N/A'}
-                                </span>
-                              </div>
-                              <div className="text-right shrink-0">
-                                <span className="text-xs font-black text-warn-text font-mono block">
-                                  {res.value_text} {res.unit || ''}
-                                </span>
-                                <Badge tone="warn" size="sm">
-                                  {res.range_status === 'above' ? 'High' : 'Low'}
-                                </Badge>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ) : pendingOrders.length > 0 ? (
-                      <div className="space-y-2">
-                        <span className="text-2xs uppercase tracking-wider font-bold text-content-subtle">
-                          Pending Diagnostic Orders
-                        </span>
-                        {pendingOrders.slice(0, 2).map((order) => (
-                          <div
-                            key={order.id}
-                            className="p-2.5 rounded-xl bg-surface-sunken/80 border border-line flex items-center justify-between gap-2"
-                          >
-                            <div className="min-w-0">
-                              <p className="text-xs font-bold text-content truncate">{order.test_name}</p>
-                              <p className="text-2xs text-content-subtle truncate">
-                                {order.notes || `Ordered on ${order.ordered_date}`}
-                              </p>
-                            </div>
-                            <Badge tone="warn" size="sm">
-                              Pending
-                            </Badge>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="py-4 text-center rounded-xl bg-surface-sunken/40 border border-line/60">
-                        <p className="text-xs font-semibold text-content-muted">
-                          All recorded biomarkers within expected targets
-                        </p>
-                        <p className="text-2xs text-content-subtle mt-0.5">
-                          Upload new lab reports to track longitudinal trajectories
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="mt-4 pt-3 border-t border-line flex items-center justify-between gap-2">
-                    <Link to="/reports/new">
-                      <Button size="sm" variant="secondary" leftIcon={<PlusIcon size={14} />}>
-                        Upload Lab Report
+                    <Link to="/medicines/cabinet">
+                      <Button size="sm" variant="secondary" leftIcon={<MedicineIcon size={13} />}>
+                        Reorder
                       </Button>
                     </Link>
-                    <Link
-                      to="/reports"
-                      className="text-xs font-bold text-accent hover:underline flex items-center gap-1"
-                    >
-                      <span>View All Reports</span>
-                      <ArrowRightIcon size={12} />
-                    </Link>
                   </div>
                 </Card>
+              </div>
+            </motion.div>
 
-                {/* 2. Interactive Symptom Checker & Triage (5 Columns) */}
-                <Card className="lg:col-span-5 p-5 bg-surface-raised border border-line shadow-card flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-center justify-between gap-2 mb-2 pb-2.5 border-b border-line">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-500 border border-indigo-500/20 flex items-center justify-center">
-                          <ActivityIcon size={16} />
-                        </div>
-                        <div>
-                          <h3 className="text-sm font-bold text-content">Quick Symptom Check</h3>
-                          <p className="text-2xs text-content-subtle">1-tap safety triage</p>
-                        </div>
-                      </div>
-                      <Link to="/symptoms" className="text-2xs font-bold text-accent hover:underline">
-                        Full Triage &rarr;
-                      </Link>
+            {/* ══════════════════════════════════════════════════════════
+                ROW 2 — BLOOD GLUCOSE (6) + BLOOD PRESSURE (6)
+                ══════════════════════════════════════════════════════════ */}
+            <motion.div variants={staggerItem} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+              {/* ── Blood Glucose Card ───────────────────────────────── */}
+              <Card className="p-6">
+                <div className="flex items-start justify-between gap-3 mb-4">
+                  <div className="flex items-start gap-3">
+                    <GradientBadge gradient="linear-gradient(135deg,#8b5cf6,#7c3aed)">
+                      <DropletIcon size={18} />
+                    </GradientBadge>
+                    <div>
+                      <p className="text-xs font-semibold text-content-muted uppercase tracking-wider mb-0.5">
+                        Blood Glucose
+                      </p>
+                      <p className="text-2xs text-content-subtle">
+                        {latestGlucose
+                          ? `Last: ${formatReadingTime(latestGlucose.measured_at)}`
+                          : 'No readings yet'}
+                      </p>
                     </div>
+                  </div>
+                  {glucoseEval && (
+                    <Badge tone={VITAL_TONE[glucoseEval.tone].badge} size="sm">
+                      {glucoseEval.label}
+                    </Badge>
+                  )}
+                </div>
 
-                    <p className="text-2xs text-content-muted mb-2.5">
-                      Select any active symptom for immediate red-flag safety grading:
+                {latestGlucose ? (
+                  <>
+                    <div className="flex items-baseline gap-1.5 mb-1">
+                      <span className="text-4xl font-black text-content font-mono tracking-tight">
+                        {latestGlucose.value_mg_dl}
+                      </span>
+                      <span className="text-sm font-semibold text-content-muted">/mg/dL</span>
+                      <span className="ml-auto text-xs px-2 py-0.5 rounded-lg bg-surface-sunken border border-line text-content-muted font-medium capitalize">
+                        {latestGlucose.type.replace('_', ' ')}
+                      </span>
+                    </div>
+                    <div className="mt-3 mb-2 text-xs text-content-subtle flex items-center justify-between">
+                      <span>This week</span>
+                      <span className="font-semibold text-content-muted">{glucoseLogs.length} readings</span>
+                    </div>
+                    <MiniBars bars={glucoseBars} color="#8b5cf6" />
+                  </>
+                ) : (
+                  <div className="py-6 text-center">
+                    <p className="text-sm font-semibold text-content-muted">No readings yet</p>
+                    <p className="text-xs text-content-subtle mt-1">Track fasting & post-meal levels</p>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between pt-4 mt-3 border-t border-line">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    leftIcon={<PlusIcon size={13} />}
+                    onClick={() => setQuickVitalsModal({ open: true, type: 'glucose' })}
+                  >
+                    Log Blood Sugar
+                  </Button>
+                  <Link to="/vitals" className="text-xs font-bold text-violet-500 hover:text-violet-600 flex items-center gap-1">
+                    Full Trends <ArrowRightIcon size={12} />
+                  </Link>
+                </div>
+              </Card>
+
+              {/* ── Blood Pressure Card ──────────────────────────────── */}
+              <Card className="p-6">
+                <div className="flex items-start justify-between gap-3 mb-4">
+                  <div className="flex items-start gap-3">
+                    <GradientBadge gradient="linear-gradient(135deg,#ef4444,#dc2626)">
+                      <HeartPulseIcon size={18} />
+                    </GradientBadge>
+                    <div>
+                      <p className="text-xs font-semibold text-content-muted uppercase tracking-wider mb-0.5">
+                        Blood Pressure
+                      </p>
+                      <p className="text-2xs text-content-subtle">
+                        {latestBp
+                          ? `Last: ${formatReadingTime(latestBp.measured_at)}`
+                          : 'No readings yet'}
+                      </p>
+                    </div>
+                  </div>
+                  {bpEval && (
+                    <Badge tone={VITAL_TONE[bpEval.tone].badge} size="sm">
+                      {bpEval.label}
+                    </Badge>
+                  )}
+                </div>
+
+                {latestBp ? (
+                  <>
+                    <div className="flex items-baseline gap-1.5 mb-1 flex-wrap">
+                      <span className="text-4xl font-black text-content font-mono tracking-tight">
+                        {latestBp.systolic}/{latestBp.diastolic}
+                      </span>
+                      <span className="text-sm font-semibold text-content-muted">mmHg</span>
+                      {latestBp.pulse_bpm && (
+                        <span className="ml-auto text-xs px-2 py-0.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-600 font-bold font-mono dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400 flex items-center gap-1">
+                          <HeartPulseIcon size={11} />
+                          {latestBp.pulse_bpm} bpm
+                        </span>
+                      )}
+                    </div>
+                    {bpMapValue && (
+                      <p className="text-xs text-content-subtle mb-1">MAP: {bpMapValue} mmHg</p>
+                    )}
+                    <div className="mt-3 mb-2 text-xs text-content-subtle flex items-center justify-between">
+                      <span>This week</span>
+                      <span className="font-semibold text-content-muted">{bpLogs.length} readings</span>
+                    </div>
+                    <MiniBars bars={bpBars} color="#ef4444" />
+                  </>
+                ) : (
+                  <div className="py-6 text-center">
+                    <p className="text-sm font-semibold text-content-muted">No readings yet</p>
+                    <p className="text-xs text-content-subtle mt-1">Track systolic, diastolic & pulse</p>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between pt-4 mt-3 border-t border-line">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    leftIcon={<PlusIcon size={13} />}
+                    onClick={() => setQuickVitalsModal({ open: true, type: 'bp' })}
+                  >
+                    Log Blood Pressure
+                  </Button>
+                  <Link to="/vitals" className="text-xs font-bold text-rose-500 hover:text-rose-600 flex items-center gap-1">
+                    Full Trends <ArrowRightIcon size={12} />
+                  </Link>
+                </div>
+              </Card>
+            </motion.div>
+
+            {/* ══════════════════════════════════════════════════════════
+                ROW 3 — BIOMARKER RADAR (7) + SYMPTOM CHECKER (5)
+                ══════════════════════════════════════════════════════════ */}
+            <motion.div variants={staggerItem} className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+
+              {/* ── Biomarker Radar (7 cols) ─────────────────────────── */}
+              <Card className="lg:col-span-7 p-6">
+                <div className="flex items-start justify-between gap-3 mb-4">
+                  <div className="flex items-start gap-3">
+                    <GradientBadge gradient="linear-gradient(135deg,#14b8a6,#0d9488)">
+                      <BarChartIcon size={18} />
+                    </GradientBadge>
+                    <div>
+                      <p className="text-xs font-semibold text-content-muted uppercase tracking-wider mb-0.5">
+                        Biomarker Radar & Labs
+                      </p>
+                      <p className="text-2xs text-content-subtle">Flagged results & pending orders</p>
+                    </div>
+                  </div>
+                  {pendingOrders.length > 0 ? (
+                    <Badge tone="warn" size="sm">{pendingOrders.length} Due</Badge>
+                  ) : (
+                    <Badge tone="ok" size="sm">{recentReports.length} Reports</Badge>
+                  )}
+                </div>
+
+                {outOfRangeBiomarkers.length > 0 ? (
+                  <div className="space-y-2">
+                    <p className="text-2xs font-bold uppercase tracking-wider text-content-subtle mb-2">
+                      Flagged Lab Values
                     </p>
-
-                    {/* 1-Tap Symptom Chips */}
-                    <div className="flex flex-wrap gap-1.5">
-                      {QUICK_SYMPTOM_TAGS.map((sym) => (
-                        <button
-                          key={sym}
-                          type="button"
-                          onClick={() =>
-                            setSelectedSymptom(selectedSymptom === sym ? null : sym)
-                          }
-                          className={`px-2.5 py-1 rounded-xl text-2xs font-bold border transition-all cursor-pointer ${
-                            selectedSymptom === sym
-                              ? 'bg-accent text-content-onaccent border-accent shadow-2xs'
-                              : 'bg-surface-sunken text-content-muted border-line hover:border-line-strong'
-                          }`}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {outOfRangeBiomarkers.slice(0, 4).map((res) => (
+                        <div
+                          key={res.id}
+                          className="p-3 rounded-xl bg-amber-50 border border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/20 flex items-center justify-between gap-2"
                         >
-                          {sym}
-                        </button>
+                          <div className="min-w-0">
+                            <p className="text-xs font-bold text-content truncate">{res.test_name}</p>
+                            <p className="text-2xs text-content-subtle">Ref: {res.reference_range || 'N/A'}</p>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="text-sm font-black text-amber-700 dark:text-amber-400 font-mono">
+                              {res.value_text} {res.unit || ''}
+                            </p>
+                            <Badge tone="warn" size="sm">
+                              {res.range_status === 'above' ? 'High' : 'Low'}
+                            </Badge>
+                          </div>
+                        </div>
                       ))}
                     </div>
-
-                    {/* Live Triage Assessment Preview */}
-                    {symptomTriageResult ? (
-                      <div
-                        className={`mt-3 p-2.5 rounded-xl border text-xs ${
-                          symptomTriageResult.isEmergency
-                            ? 'bg-risk-bg text-risk-text border-risk-border'
-                            : 'bg-info-bg text-info-text border-info-border'
-                        }`}
-                      >
-                        <div className="flex items-center gap-1.5 font-bold mb-1">
-                          {symptomTriageResult.isEmergency ? (
-                            <>
-                              <AlertCircleIcon size={14} /> Red-Flag Warning
-                            </>
-                          ) : (
-                            <>
-                              <CheckIcon size={14} /> Triage Assessment
-                            </>
-                          )}
+                  </div>
+                ) : pendingOrders.length > 0 ? (
+                  <div className="space-y-2">
+                    <p className="text-2xs font-bold uppercase tracking-wider text-content-subtle mb-2">
+                      Pending Orders
+                    </p>
+                    {pendingOrders.slice(0, 2).map((o) => (
+                      <div key={o.id} className="flex items-center justify-between gap-3 p-3 rounded-xl bg-surface-sunken border border-line">
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-content truncate">{o.test_name}</p>
+                          <p className="text-2xs text-content-subtle">{o.notes || o.ordered_date}</p>
                         </div>
-                        <p className="text-2xs leading-relaxed">{symptomTriageResult.advice}</p>
+                        <Badge tone="warn" size="sm">Pending</Badge>
                       </div>
-                    ) : (
-                      <div className="mt-3 p-2.5 rounded-xl bg-surface-sunken/40 border border-line text-2xs text-content-subtle">
-                        Tap a symptom tag above to run instantaneous clinical safety analysis.
-                      </div>
-                    )}
+                    ))}
                   </div>
-
-                  <div className="mt-4 pt-3 border-t border-line flex items-center justify-between">
-                    <Link
-                      to="/symptoms"
-                      className="text-xs font-bold text-accent hover:text-accent-hover flex items-center gap-1"
-                    >
-                      <span>Log Detailed Symptom Timeline</span>
-                      <ArrowRightIcon size={12} />
-                    </Link>
+                ) : (
+                  <div className="py-5 text-center rounded-xl bg-surface-sunken border border-dashed border-line">
+                    <p className="text-sm font-semibold text-content-muted">All biomarkers on target</p>
+                    <p className="text-xs text-content-subtle mt-0.5">Upload lab reports to track trends</p>
                   </div>
-                </Card>
-              </div>
-            </motion.section>
+                )}
 
-            {/* ═════════════════════════════════════════════════════════════════════
-                BENTO ROW 4: LONGITUDINAL TIMELINE & CLINICAL DOSSIER (7 + 5 COLS)
-                ═════════════════════════════════════════════════════════════════════ */}
-            <motion.section variants={staggerItem} aria-labelledby="timeline-dossier-heading">
-              <h2 id="timeline-dossier-heading" className="sr-only">
-                Longitudinal Timeline and Clinical Dossier
-              </h2>
+                <div className="flex items-center justify-between pt-4 mt-4 border-t border-line">
+                  <Link to="/reports/new">
+                    <Button size="sm" variant="secondary" leftIcon={<PlusIcon size={13} />}>
+                      Upload Lab Report
+                    </Button>
+                  </Link>
+                  <Link to="/reports" className="text-xs font-bold text-teal-600 hover:text-teal-700 dark:text-teal-400 flex items-center gap-1">
+                    All Reports <ArrowRightIcon size={12} />
+                  </Link>
+                </div>
+              </Card>
 
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-                {/* 1. Longitudinal Medical Timeline Feed (7 Columns) */}
-                <Card className="lg:col-span-7 p-5 bg-surface-raised border border-line shadow-card flex flex-col justify-between">
+              {/* ── Quick Symptom Checker (5 cols) ───────────────────── */}
+              <Card className="lg:col-span-5 p-6">
+                <div className="flex items-start gap-3 mb-4">
+                  <GradientBadge gradient="linear-gradient(135deg,#6366f1,#4f46e5)">
+                    <ActivityIcon size={18} />
+                  </GradientBadge>
                   <div>
-                    <div className="flex items-center justify-between gap-2 mb-3 pb-2.5 border-b border-line">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-9 h-9 rounded-xl bg-surface-sunken text-content border border-line flex items-center justify-center">
-                          <CalendarIcon size={18} />
+                    <p className="text-xs font-semibold text-content-muted uppercase tracking-wider mb-0.5">
+                      Symptom Checker
+                    </p>
+                    <p className="text-2xs text-content-subtle">1-tap red-flag triage</p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-1.5 mb-3">
+                  {QUICK_SYMPTOM_TAGS.map((sym) => (
+                    <button
+                      key={sym}
+                      type="button"
+                      onClick={() => setSelectedSymptom(selectedSymptom === sym ? null : sym)}
+                      className={`px-2.5 py-1 rounded-xl text-2xs font-bold border transition-all cursor-pointer ${
+                        selectedSymptom === sym
+                          ? 'bg-indigo-500 text-white border-indigo-500 shadow-sm'
+                          : 'bg-surface-sunken text-content-muted border-line hover:border-indigo-300 hover:text-indigo-600'
+                      }`}
+                    >
+                      {sym}
+                    </button>
+                  ))}
+                </div>
+
+                {symptomTriageResult ? (
+                  <div
+                    className={`p-3 rounded-xl border text-xs ${
+                      symptomTriageResult.isEmergency
+                        ? 'bg-red-50 border-red-200 text-red-700 dark:bg-red-500/10 dark:border-red-500/20 dark:text-red-400'
+                        : 'bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-500/10 dark:border-indigo-500/20 dark:text-indigo-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5 font-bold mb-1">
+                      <AlertCircleIcon size={13} />
+                      {symptomTriageResult.isEmergency ? 'Red-Flag Warning' : 'Clinical Guidance'}
+                    </div>
+                    <p className="text-2xs leading-relaxed">{symptomTriageResult.advice}</p>
+                  </div>
+                ) : (
+                  <div className="p-3 rounded-xl bg-surface-sunken border border-dashed border-line text-2xs text-content-subtle text-center">
+                    Select a symptom for instant safety grading
+                  </div>
+                )}
+
+                <div className="flex items-center justify-end pt-4 mt-3 border-t border-line">
+                  <Link to="/symptoms" className="text-xs font-bold text-indigo-500 hover:text-indigo-600 flex items-center gap-1">
+                    Full Symptom Log <ArrowRightIcon size={12} />
+                  </Link>
+                </div>
+              </Card>
+            </motion.div>
+
+            {/* ══════════════════════════════════════════════════════════
+                ROW 4 — TIMELINE (7) + CLINICAL DOSSIER (5)
+                ══════════════════════════════════════════════════════════ */}
+            <motion.div variants={staggerItem} className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+
+              {/* ── Health Timeline (7 cols) ─────────────────────────── */}
+              <Card className="lg:col-span-7 p-6">
+                <div className="flex items-start justify-between gap-3 mb-4">
+                  <div className="flex items-start gap-3">
+                    <GradientBadge gradient="linear-gradient(135deg,#64748b,#475569)">
+                      <CalendarIcon size={18} />
+                    </GradientBadge>
+                    <div>
+                      <p className="text-xs font-semibold text-content-muted uppercase tracking-wider mb-0.5">
+                        Health Timeline
+                      </p>
+                      <p className="text-2xs text-content-subtle">Recent clinical events</p>
+                    </div>
+                  </div>
+                  <Link to="/timeline" className="text-xs font-bold text-content-muted hover:text-accent flex items-center gap-1">
+                    Full Stream <ArrowRightIcon size={12} />
+                  </Link>
+                </div>
+
+                {recentTimelineEvents.length > 0 ? (
+                  <div className="space-y-2">
+                    {recentTimelineEvents.map((ev) => (
+                      <Link
+                        key={ev.id}
+                        to={ev.link}
+                        className="group flex items-center gap-3 p-3 rounded-xl bg-surface-sunken hover:bg-surface-hover border border-line transition-all"
+                      >
+                        <div className="w-8 h-8 rounded-xl bg-surface border border-line flex items-center justify-center shrink-0 text-content-muted">
+                          {ev.type === 'visit' ? <DoctorIcon size={15} /> : ev.type === 'report' ? <LabFlaskIcon size={15} /> : <MedicineIcon size={15} />}
                         </div>
-                        <div>
-                          <h3 className="text-sm font-bold text-content">Longitudinal Health Timeline</h3>
-                          <p className="text-2xs text-content-subtle">
-                            Recent consultations, prescriptions & lab records
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold text-content truncate group-hover:text-accent transition-colors">
+                            {ev.title}
                           </p>
+                          <p className="text-2xs text-content-subtle truncate">{ev.subtitle}</p>
                         </div>
-                      </div>
-
-                      <Link to="/timeline" className="text-xs font-bold text-accent hover:underline flex items-center gap-1">
-                        Full Stream <ArrowRightIcon size={12} />
-                      </Link>
-                    </div>
-
-                    {/* Chronological Event Stream */}
-                    {recentTimelineEvents.length > 0 ? (
-                      <div className="space-y-2.5">
-                        {recentTimelineEvents.map((ev) => (
-                          <Link
-                            key={ev.id}
-                            to={ev.link}
-                            className="group flex items-center justify-between gap-3 p-2.5 rounded-xl bg-surface-sunken/60 hover:bg-surface-sunken border border-line transition-all"
-                          >
-                            <div className="flex items-center gap-2.5 min-w-0">
-                              <span className="w-7 h-7 rounded-lg bg-surface border border-line text-content flex items-center justify-center shrink-0">
-                                {ev.type === 'visit' ? (
-                                  <DoctorIcon size={14} />
-                                ) : ev.type === 'report' ? (
-                                  <LabFlaskIcon size={14} />
-                                ) : (
-                                  <MedicineIcon size={14} />
-                                )}
-                              </span>
-                              <div className="min-w-0">
-                                <span className="text-xs font-bold text-content block truncate group-hover:text-accent transition-colors">
-                                  {ev.title}
-                                </span>
-                                <span className="text-2xs text-content-subtle truncate block">
-                                  {ev.subtitle}
-                                </span>
-                              </div>
-                            </div>
-
-                            <span className="text-2xs font-mono font-medium text-content-muted shrink-0">
-                              {formatDateShort(ev.dateStr)}
-                            </span>
-                          </Link>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="py-5 text-center rounded-xl bg-surface-sunken/40 border border-line/60">
-                        <p className="text-xs font-semibold text-content-muted">
-                          No clinical events recorded yet
-                        </p>
-                        <p className="text-2xs text-content-subtle mt-0.5">
-                          Doctor visits and prescriptions will populate this longitudinal feed
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="mt-4 pt-3 border-t border-line flex items-center justify-between">
-                    <span className="text-2xs text-content-subtle">
-                      Continuity of care across all treatments
-                    </span>
-                    <Link
-                      to="/timeline"
-                      className="text-xs font-bold text-accent hover:text-accent-hover flex items-center gap-1"
-                    >
-                      <span>Explore Timeline</span>
-                      <ArrowRightIcon size={13} />
-                    </Link>
-                  </div>
-                </Card>
-
-                {/* 2. Clinical Care Dossier & Assistant Launchpad (5 Columns) */}
-                <Card className="lg:col-span-5 p-5 bg-gradient-to-br from-surface-raised to-accent-subtle/20 border border-line shadow-card flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-center justify-between gap-2 mb-2 pb-2.5 border-b border-line">
-                      <div className="flex items-center gap-2">
-                        <span className="w-8 h-8 rounded-xl bg-accent text-content-onaccent flex items-center justify-center shadow-xs">
-                          <SparklesIcon size={16} />
+                        <span className="text-2xs font-mono text-content-subtle shrink-0">
+                          {formatDateShort(ev.dateStr)}
                         </span>
-                        <div>
-                          <h3 className="text-sm font-bold text-content">Clinical Care Dossier</h3>
-                          <p className="text-2xs text-content-muted">Consultation & guidance tools</p>
-                        </div>
-                      </div>
-                      <Badge tone="info" size="sm">
-                        24/7
-                      </Badge>
-                    </div>
-
-                    <div className="space-y-2 mt-3">
-                      <Link
-                        to="/doctor/questions"
-                        className="p-2.5 rounded-xl bg-surface border border-line hover:border-accent flex items-center justify-between transition-all group"
-                      >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <QuestionIcon size={15} className="text-accent shrink-0" />
-                          <span className="text-xs font-bold text-content truncate group-hover:text-accent">
-                            Doctor Consultation Questions
-                          </span>
-                        </div>
-                        <ArrowRightIcon size={13} className="text-content-subtle group-hover:translate-x-0.5 transition-transform" />
                       </Link>
-
-                      <Link
-                        to="/doctor/second-opinion"
-                        className="p-2.5 rounded-xl bg-surface border border-line hover:border-accent flex items-center justify-between transition-all group"
-                      >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <FileTextIcon size={15} className="text-indigo-500 shrink-0" />
-                          <span className="text-xs font-bold text-content truncate group-hover:text-accent">
-                            Second Opinion Export Pack
-                          </span>
-                        </div>
-                        <ArrowRightIcon size={13} className="text-content-subtle group-hover:translate-x-0.5 transition-transform" />
-                      </Link>
-
-                      <Link
-                        to="/assistant"
-                        className="p-2.5 rounded-xl bg-surface border border-line hover:border-accent flex items-center justify-between transition-all group"
-                      >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <MedicineIcon size={15} className="text-teal-600 shrink-0" />
-                          <span className="text-xs font-bold text-content truncate group-hover:text-accent">
-                            Drug Interaction Radar
-                          </span>
-                        </div>
-                        <ArrowRightIcon size={13} className="text-content-subtle group-hover:translate-x-0.5 transition-transform" />
-                      </Link>
-                    </div>
+                    ))}
                   </div>
+                ) : (
+                  <div className="py-5 text-center rounded-xl bg-surface-sunken border border-dashed border-line">
+                    <p className="text-sm font-semibold text-content-muted">No events yet</p>
+                    <p className="text-xs text-content-subtle mt-0.5">Visits and reports will appear here</p>
+                  </div>
+                )}
 
-                  <div className="mt-4 pt-3 border-t border-line flex items-center justify-between">
-                    <span className="text-2xs text-content-subtle">
-                      Encrypted & patient-controlled
-                    </span>
+                <div className="flex items-center justify-end pt-4 mt-4 border-t border-line">
+                  <Link to="/timeline" className="text-xs font-bold text-slate-500 hover:text-slate-600 flex items-center gap-1">
+                    Explore Timeline <ArrowRightIcon size={12} />
+                  </Link>
+                </div>
+              </Card>
+
+              {/* ── Clinical Care Dossier (5 cols) ───────────────────── */}
+              <Card className="lg:col-span-5 p-6">
+                <div className="flex items-start gap-3 mb-5">
+                  <GradientBadge gradient="linear-gradient(135deg,#06b6d4,#0891b2)">
+                    <SparklesIcon size={18} />
+                  </GradientBadge>
+                  <div>
+                    <p className="text-xs font-semibold text-content-muted uppercase tracking-wider mb-0.5">
+                      Clinical Dossier
+                    </p>
+                    <p className="text-2xs text-content-subtle">24/7 consultation tools</p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  {[
+                    { to: '/doctor/questions', icon: <QuestionIcon size={15} />, label: 'Doctor Consultation Questions', color: 'text-cyan-600 dark:text-cyan-400' },
+                    { to: '/doctor/second-opinion', icon: <FileTextIcon size={15} />, label: 'Second Opinion Export Pack', color: 'text-indigo-600 dark:text-indigo-400' },
+                    { to: '/assistant', icon: <MedicineIcon size={15} />, label: 'Drug Interaction Radar', color: 'text-teal-600 dark:text-teal-400' },
+                  ].map((item) => (
                     <Link
-                      to="/assistant"
-                      className="text-xs font-bold text-accent hover:text-accent-hover flex items-center gap-1"
+                      key={item.to}
+                      to={item.to}
+                      className="flex items-center justify-between gap-3 p-3 rounded-xl bg-surface-sunken hover:bg-surface-hover border border-line transition-all group"
                     >
-                      <span>Open Assistant</span>
-                      <ArrowRightIcon size={13} />
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className={item.color}>{item.icon}</span>
+                        <span className="text-xs font-bold text-content truncate group-hover:text-accent transition-colors">
+                          {item.label}
+                        </span>
+                      </div>
+                      <ArrowRightIcon size={13} className="text-content-subtle shrink-0 group-hover:translate-x-0.5 transition-transform" />
                     </Link>
+                  ))}
+                </div>
+
+                <div className="flex items-center justify-end pt-4 mt-4 border-t border-line">
+                  <Link to="/assistant" className="text-xs font-bold text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 flex items-center gap-1">
+                    Open Assistant <ArrowRightIcon size={12} />
+                  </Link>
+                </div>
+              </Card>
+            </motion.div>
+
+            {/* ══════════════════════════════════════════════════════════
+                ROW 5 — ACHIEVEMENTS (FULL WIDTH)
+                ══════════════════════════════════════════════════════════ */}
+            <motion.section variants={staggerItem} aria-labelledby="achievements-heading">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2.5">
+                  <GradientBadge gradient="linear-gradient(135deg,#f59e0b,#b45309)">
+                    <TrophyIcon size={16} />
+                  </GradientBadge>
+                  <div>
+                    <h2
+                      id="achievements-heading"
+                      className="text-sm font-bold text-content"
+                    >
+                      Health Milestones & Achievements
+                    </h2>
+                    <p className="text-2xs text-content-subtle">
+                      {achievements.filter((a) => a.unlocked).length} of {achievements.length} earned
+                    </p>
                   </div>
-                </Card>
+                </div>
+                {streakDays > 0 && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 text-xs font-bold border border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20">
+                    <FlameIcon size={12} />
+                    {streakDays}-day streak
+                  </span>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {achievements.map((achievement) => (
+                  <MilestoneBadgeCard key={achievement.id} achievement={achievement} />
+                ))}
               </div>
             </motion.section>
 
-            {/* ═════════════════════════════════════════════════════════════════════
-                BENTO ROW 5: EMERGENCY QUICK DIAL STRIP (12 COLS)
-                ═════════════════════════════════════════════════════════════════════ */}
+            {/* ══════════════════════════════════════════════════════════
+                ROW 6 — EMERGENCY QUICK DIAL STRIP (FULL WIDTH)
+                ══════════════════════════════════════════════════════════ */}
             <motion.section variants={staggerItem} aria-labelledby="emergency-heading">
-              <Card accent="risk" className="p-4 sm:p-5">
+              <Card className="p-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
-                    <span className="shrink-0 flex items-center justify-center w-10 h-10 rounded-xl bg-risk-bg text-risk-text border border-risk-border">
-                      <EmergencyAmbulanceIcon size={20} />
-                    </span>
+                    <GradientBadge gradient="linear-gradient(135deg,#ef4444,#b91c1c)">
+                      <EmergencyAmbulanceIcon size={18} />
+                    </GradientBadge>
                     <div>
                       <h2 id="emergency-heading" className="text-sm font-bold text-content">
-                        Emergency Hotlines (Pakistan)
+                        Emergency Hotlines
                       </h2>
-                      <p className="text-xs text-content-muted">Tap to call directly. Works offline without internet.</p>
+                      <p className="text-2xs text-content-muted">Tap to call · Works offline</p>
                     </div>
                   </div>
 
@@ -1207,9 +1086,9 @@ export function DashboardPage() {
                       <a
                         key={line.tel}
                         href={`tel:${line.tel}`}
-                        className="flex-1 sm:flex-initial min-w-24 px-3.5 py-2 rounded-xl border border-risk-border bg-risk-bg text-center hover:brightness-[0.96] transition-all"
+                        className="flex-1 sm:flex-initial min-w-20 px-4 py-2.5 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 transition-all text-center dark:bg-red-500/10 dark:border-red-500/20 dark:hover:bg-red-500/20"
                       >
-                        <span className="block text-xs font-bold text-risk-text font-mono" data-numeric>
+                        <span className="block text-sm font-black text-red-700 dark:text-red-400 font-mono" data-numeric>
                           {line.tel}
                         </span>
                         <span className="block text-2xs text-content-muted">{line.label}</span>

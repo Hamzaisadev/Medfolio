@@ -100,8 +100,7 @@ export function SecondOpinionPage() {
         filename: `Second_Opinion_Dossier_${slug}.pdf`,
       });
     } catch (err) {
-      console.error('Failed to export PDF directly, falling back to print:', err);
-      window.print();
+      console.error('Failed to export PDF:', err);
     } finally {
       setIsExporting(false);
     }

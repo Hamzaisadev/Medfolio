@@ -116,8 +116,7 @@ export function DoctorQuestionsPage() {
         filename: 'Doctor_Consultation_Questions.pdf',
       });
     } catch (err) {
-      console.error('Failed to export questions PDF, falling back to print:', err);
-      window.print();
+      console.error('Failed to export PDF:', err);
     } finally {
       setIsExporting(false);
     }

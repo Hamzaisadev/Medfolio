@@ -5,6 +5,7 @@ import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Skeleton } from '../../components/ui/Skeleton';
+import { Toast } from '../../components/ui/Toast';
 import {
   MedicineIcon,
   StethoscopeIcon,
@@ -73,6 +74,9 @@ export function DoctorBriefPage() {
     return activeMedicines(medicines, today);
   }, [medicines, today]);
 
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toastTone, setToastTone] = useState<'ok' | 'critical'>('ok');
+
   const recentlyFinished = useMemo(() => {
     return recentlyFinishedMedicines(medicines, today, 30);
   }, [medicines, today]);
@@ -85,9 +89,12 @@ export function DoctorBriefPage() {
       await exportElementToPdf(dossierRef.current, {
         filename: `${patientSlug}_Clinical_Dossier_${today}.pdf`,
       });
+      setToastTone('ok');
+      setToastMessage('PDF downloaded successfully.');
     } catch (err) {
-      console.error('Failed to export PDF directly, falling back to print:', err);
-      window.print();
+      console.error('Failed to export PDF:', err);
+      setToastTone('critical');
+      setToastMessage('PDF export failed. Please try again.');
     } finally {
       setIsExporting(false);
     }
@@ -123,6 +130,14 @@ export function DoctorBriefPage() {
 
   return (
     <AppShell>
+      {toastMessage && (
+        <Toast
+          open
+          onClose={() => setToastMessage(null)}
+          message={toastMessage}
+          tone={toastTone}
+        />
+      )}
       {/* Header hidden on print */}
       <div className="print:hidden">
         <PageHeader

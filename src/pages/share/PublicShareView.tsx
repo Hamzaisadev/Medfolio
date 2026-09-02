@@ -71,8 +71,7 @@ export function PublicShareView() {
         filename: `${slug}_Shared_Medical_Brief.pdf`,
       });
     } catch (err) {
-      console.error('Failed to export shared brief PDF:', err);
-      window.print();
+      console.error('Failed to export PDF:', err);
     } finally {
       setIsExporting(false);
     }
