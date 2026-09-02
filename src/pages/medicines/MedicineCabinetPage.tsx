@@ -15,6 +15,8 @@ import { ErrorState } from '../../components/ui/ErrorState';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { SectionHeader } from '../../components/ui/SectionHeader';
 import { PackageIcon, PlusIcon, CheckIcon, MedicineIcon } from '../../components/ui/icons';
+import { MessageCircle } from 'lucide-react';
+import { MedicineOrderModal } from '../../components/medicines/MedicineOrderModal';
 import { useAuth } from '../../lib/auth/AuthContext';
 import { medicinesRepo, dosesRepo } from '../../lib/db';
 import { readInventory, writeInventory } from '../../lib/inventory';
@@ -52,6 +54,7 @@ export function MedicineCabinetPage() {
 
   const [refillTarget, setRefillTarget] = useState<Medicine | null>(null);
   const [refillAmount, setRefillAmount] = useState<number>(30);
+  const [orderTarget, setOrderTarget] = useState<Medicine | null>(null);
   const [discontinueTarget, setDiscontinueTarget] = useState<Medicine | null>(null);
   const [toast, setToast] = useState<{ message: string; tone: 'ok' | 'risk' } | null>(null);
 
@@ -357,20 +360,31 @@ export function MedicineCabinetPage() {
                           </div>
                         </div>
 
-                        <div className="mt-4 pt-4 border-t border-line flex items-center justify-between gap-2">
-                          <Button variant="secondary" size="sm" onClick={() => setRefillTarget(med)}>
-                            Log a refill
-                          </Button>
+                        <div className="mt-4 pt-4 border-t border-line flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              onClick={() => setOrderTarget(med)}
+                              leftIcon={<MessageCircle size={14} />}
+                              className="bg-emerald-600 hover:bg-emerald-700 border-emerald-600 text-white font-bold text-xs tap-spring"
+                            >
+                              Order via WhatsApp
+                            </Button>
+                            <Button variant="secondary" size="sm" onClick={() => setRefillTarget(med)} className="text-xs">
+                              Log Refill
+                            </Button>
+                          </div>
                           <div className="flex items-center gap-1">
                             <Link to={`/medicines/${med.id}`}>
-                              <Button variant="ghost" size="sm">
+                              <Button variant="ghost" size="sm" className="text-xs">
                                 Details
                               </Button>
                             </Link>
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="text-risk-text hover:bg-risk-bg"
+                              className="text-risk-text hover:bg-risk-bg text-xs"
                               onClick={() => setDiscontinueTarget(med)}
                             >
                               Stop
@@ -532,6 +546,15 @@ export function MedicineCabinetPage() {
           </div>
         </div>
       </Dialog>
+
+      {/* WhatsApp Procurement & Refill Modal */}
+      <MedicineOrderModal
+        isOpen={Boolean(orderTarget)}
+        onClose={() => setOrderTarget(null)}
+        medicine={orderTarget}
+        profileId={effectiveProfileId}
+        onStockUpdated={loadMedicines}
+      />
 
       <ConfirmDialog
         open={Boolean(discontinueTarget)}

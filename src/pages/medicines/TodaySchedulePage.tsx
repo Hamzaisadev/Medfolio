@@ -9,6 +9,7 @@ import { Dialog } from '../../components/ui/Dialog';
 import { Toast } from '../../components/ui/Toast';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { DoseCard } from '../../components/ui/DoseCard';
+import { MedicineOrderModal } from '../../components/medicines/MedicineOrderModal';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { SLOT_META } from '../../components/ui/slotMeta';
 import {
@@ -31,7 +32,7 @@ import {
   formatDateShort,
 } from '../../lib/time';
 import { bucketOf, Bucket, BUCKET_ORDER } from '../../domain/timeBuckets';
-import { deriveStatusOnRead, calculateAdherence } from '../../domain/adherence';
+import { deriveStatusOnRead } from '../../domain/adherence';
 import { defaultDoseTimes, parseFrequency } from '../../domain/frequency';
 import { buildSchedule } from '../../domain/schedule';
 import { computeEndDate } from '../../domain/duration';
@@ -135,6 +136,9 @@ export function TodaySchedulePage() {
   const [skipDialogOpen, setSkipDialogOpen] = useState(false);
   const [activeDoseForSkip, setActiveDoseForSkip] = useState<Dose | null>(null);
   const [selectedSkipReason, setSelectedSkipReason] = useState<string>(SKIP_REASONS[0]);
+
+  const [orderModalOpen, setOrderModalOpen] = useState(false);
+  const [selectedMedicineForOrder, setSelectedMedicineForOrder] = useState<Medicine | null>(null);
 
   const [toast, setToast] = useState<{ message: string; tone: 'ok' | 'risk' } | null>(null);
 
@@ -295,6 +299,24 @@ export function TodaySchedulePage() {
     }
   };
 
+  const handleOpenOrderModal = (medicine: Medicine | undefined) => {
+    if (!medicine) return;
+    setSelectedMedicineForOrder(medicine);
+    setOrderModalOpen(true);
+  };
+
+  const handleStockUpdated = (newStock: number) => {
+    if (!selectedMedicineForOrder) return;
+    setInventory((prev) => ({
+      ...prev,
+      [selectedMedicineForOrder.id]: newStock,
+    }));
+    setToast({
+      tone: 'ok',
+      message: `Cabinet updated: ${newStock} tablets of ${selectedMedicineForOrder.medicine_name} now in stock.`,
+    });
+  };
+
   const today = todayInAppTz();
   const isPast = selectedDate < today;
 
@@ -324,19 +346,6 @@ export function TodaySchedulePage() {
   for (const key of BUCKET_ORDER) {
     buckets[key].sort((a, b) => a.scheduled_minutes - b.scheduled_minutes);
   }
-
-  const adherence = calculateAdherence(
-    doses.map((d) => ({
-      id: d.id,
-      medicine_id: d.medicine_id,
-      scheduled_date: d.scheduled_date,
-      scheduled_minutes: d.scheduled_minutes,
-      status: d.status,
-      taken_at: d.taken_at,
-    })),
-    { from: selectedDate, to: selectedDate },
-    new Date()
-  );
 
   const takenCount = doses.filter((d) => d.status === 'taken').length;
   const missedCount = doses.filter((d) => deriveStatusOnRead(d, new Date()) === 'missed').length;
@@ -642,91 +651,44 @@ export function TodaySchedulePage() {
             {/* Vertical Divider between Date Controls & KPI Stats */}
             <div className="h-7 w-[1px] bg-teal-500/25 mx-1 hidden md:block" />
 
-            {/* 3 KPI Metrics (Total, Remaining, Pending) + Progress Meter */}
+            {/* 3 KPI Metrics (Total, Remaining, Pending) */}
             <div className="flex items-center gap-3 sm:gap-4 lg:gap-5 shrink-0">
-              <div className="flex flex-col items-center min-w-[32px] sm:min-w-[36px]">
+              <div className="flex flex-col items-center min-w-[34px] sm:min-w-[40px]">
                 <div className="h-7 sm:h-7.5 flex items-center justify-center">
                   <span className="text-sm sm:text-base font-bold text-white leading-none" data-numeric>
                     {doses.length}
                   </span>
                 </div>
-                <span className="text-[10px] font-medium text-[#78c2ba] block mt-1 leading-tight text-center">
+                <span className="text-[10px] sm:text-xs font-medium text-[#78c2ba] block mt-1 leading-tight text-center">
                   Total
                 </span>
               </div>
 
               <div className="h-6 w-[1px] bg-teal-500/25" />
 
-              <div className="flex flex-col items-center min-w-[32px] sm:min-w-[36px]">
+              <div className="flex flex-col items-center min-w-[34px] sm:min-w-[40px]">
                 <div className="h-7 sm:h-7.5 flex items-center justify-center">
                   <span className="text-sm sm:text-base font-bold text-white leading-none" data-numeric>
                     {doses.length - takenCount}
                   </span>
                 </div>
-                <span className="text-[10px] font-medium text-[#78c2ba] block mt-1 leading-tight text-center">
+                <span className="text-[10px] sm:text-xs font-medium text-[#78c2ba] block mt-1 leading-tight text-center">
                   Remaining
                 </span>
               </div>
 
               <div className="h-6 w-[1px] bg-teal-500/25" />
 
-              <div className="flex flex-col items-center min-w-[32px] sm:min-w-[36px]">
+              <div className="flex flex-col items-center min-w-[34px] sm:min-w-[40px]">
                 <div className="h-7 sm:h-7.5 flex items-center justify-center">
                   <span className="text-sm sm:text-base font-bold text-white leading-none" data-numeric>
                     {pendingCount}
                   </span>
                 </div>
-                <span className="text-[10px] font-medium text-[#78c2ba] block mt-1 leading-tight text-center">
+                <span className="text-[10px] sm:text-xs font-medium text-[#78c2ba] block mt-1 leading-tight text-center">
                   Pending
                 </span>
               </div>
-
-              {/* Circular Progress Gauge - Vertically Aligned with Numbers and Baseline Labels */}
-              {(() => {
-                const radius = 11;
-                const strokeWidth = 2.5;
-                const circumference = 2 * Math.PI * radius;
-                const strokeOffset =
-                  circumference -
-                  (Math.min(100, Math.max(0, adherence.percentage)) / 100) * circumference;
-
-                return (
-                  <div className="flex flex-col items-center min-w-[36px] sm:min-w-[40px]">
-                    <div className="relative w-7 h-7 sm:w-7.5 sm:h-7.5 flex items-center justify-center">
-                      <svg className="w-7 h-7 sm:w-7.5 sm:h-7.5 -rotate-90" viewBox="0 0 28 28">
-                        <circle
-                          cx="14"
-                          cy="14"
-                          r={radius}
-                          className="stroke-[#05413c]"
-                          strokeWidth={strokeWidth}
-                          fill="none"
-                        />
-                        <circle
-                          cx="14"
-                          cy="14"
-                          r={radius}
-                          className="stroke-[#00e5c9] transition-all duration-500 ease-out"
-                          strokeWidth={strokeWidth}
-                          strokeDasharray={circumference}
-                          strokeDashoffset={strokeOffset}
-                          strokeLinecap="round"
-                          fill="none"
-                        />
-                      </svg>
-                      <span
-                        className="absolute text-[9px] sm:text-[10px] font-bold text-white tracking-tight leading-none"
-                        data-numeric
-                      >
-                        {adherence.percentage}%
-                      </span>
-                    </div>
-                    <span className="text-[10px] font-medium text-[#78c2ba] block mt-1 leading-tight text-center">
-                      Progress
-                    </span>
-                  </div>
-                );
-              })()}
             </div>
           </div>
         </div>
@@ -895,6 +857,7 @@ export function TodaySchedulePage() {
                           onTake={() => handleMarkTaken(dose)}
                           onSkip={() => handleOpenSkip(dose)}
                           onUndo={() => handleUndo(dose)}
+                          onSelect={() => handleOpenOrderModal(medicine)}
                         />
                       );
                     })}
@@ -905,6 +868,15 @@ export function TodaySchedulePage() {
           </div>
         )}
       </main>
+
+      {/* Medication Order, WhatsApp Refill & Procurement Modal */}
+      <MedicineOrderModal
+        isOpen={orderModalOpen}
+        onClose={() => setOrderModalOpen(false)}
+        medicine={selectedMedicineForOrder}
+        profileId={effectiveProfileId}
+        onStockUpdated={handleStockUpdated}
+      />
 
       {/* Skip Reason Recording Dialog */}
       <Dialog

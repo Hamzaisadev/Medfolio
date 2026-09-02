@@ -164,21 +164,21 @@ export function RollerNumberInput({
 
   const sizeStyles = {
     sm: {
-      btn: 'w-8 h-9',
-      input: 'h-9 text-base font-bold w-16',
-      wrapper: 'gap-1',
+      btn: 'w-7 sm:w-8 h-8 sm:h-9 shrink-0',
+      input: 'h-8 sm:h-9 text-sm sm:text-base font-bold w-12 sm:w-14 min-w-0',
+      wrapper: 'gap-0.5 sm:gap-1 max-w-full',
       unit: 'text-2xs',
     },
     md: {
-      btn: 'w-9 h-11',
-      input: 'h-11 text-xl font-extrabold w-20',
-      wrapper: 'gap-1.5',
+      btn: 'w-7.5 sm:w-9 h-9 sm:h-10 shrink-0',
+      input: 'h-9 sm:h-10 text-base sm:text-lg font-bold w-12 sm:w-16 min-w-0',
+      wrapper: 'gap-1 sm:gap-1.5 max-w-full',
       unit: 'text-xs',
     },
     lg: {
-      btn: 'w-11 h-14',
-      input: 'h-14 text-3xl font-black w-28',
-      wrapper: 'gap-2',
+      btn: 'w-9 sm:w-11 h-11 sm:h-13 shrink-0',
+      input: 'h-11 sm:h-13 text-2xl sm:text-3xl font-black w-20 sm:w-24 min-w-0',
+      wrapper: 'gap-1.5 sm:gap-2 max-w-full',
       unit: 'text-sm font-bold',
     },
   }[size];
@@ -199,7 +199,7 @@ export function RollerNumberInput({
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
         className={clsx(
-          'relative flex items-center rounded-2xl border border-line bg-surface-sunken p-1 transition-all shadow-xs',
+          'relative flex items-center rounded-2xl border border-line bg-surface-sunken/60 p-1 transition-all',
           sizeStyles.wrapper,
           isDragging && 'border-accent ring-2 ring-accent/20 cursor-ew-resize',
           disabled && 'opacity-50 cursor-not-allowed'
@@ -214,19 +214,19 @@ export function RollerNumberInput({
             onClick={() => updateValue(value - step)}
             aria-label={`Decrease ${label || 'value'}`}
             className={clsx(
-              'rounded-xl border border-line/60 bg-surface-raised hover:bg-surface-hover active:scale-95 text-content flex items-center justify-center transition-all cursor-pointer shadow-xs disabled:opacity-30 disabled:cursor-not-allowed',
+              'rounded-xl border border-line bg-surface hover:bg-surface-hover active:scale-95 text-content flex items-center justify-center transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed shadow-2xs',
               sizeStyles.btn
             )}
           >
-            <MinusIcon size={size === 'lg' ? 18 : 15} />
+            <MinusIcon size={size === 'lg' ? 18 : 14} />
           </button>
         )}
 
         {/* Central Direct Input Box */}
         <div
           className={clsx(
-            'flex items-center justify-center rounded-xl bg-surface-raised border border-line-strong/30 px-2 shadow-inner group transition-all',
-            isFocused && 'ring-2 ring-accent border-accent'
+            'flex items-center justify-center rounded-xl bg-surface border border-line px-2 transition-all shadow-2xs',
+            isFocused && 'ring-2 ring-accent/30 border-accent'
           )}
         >
           <input
@@ -245,7 +245,7 @@ export function RollerNumberInput({
             step={step}
             disabled={disabled}
             className={clsx(
-              'bg-transparent text-center text-content tracking-tight focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none',
+              'bg-transparent text-center text-content tracking-tight font-bold focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none',
               sizeStyles.input
             )}
           />
@@ -265,11 +265,11 @@ export function RollerNumberInput({
             onClick={() => updateValue(value + step)}
             aria-label={`Increase ${label || 'value'}`}
             className={clsx(
-              'rounded-xl border border-line/60 bg-surface-raised hover:bg-surface-hover active:scale-95 text-content flex items-center justify-center transition-all cursor-pointer shadow-xs disabled:opacity-30 disabled:cursor-not-allowed',
+              'rounded-xl border border-line bg-surface hover:bg-surface-hover active:scale-95 text-content flex items-center justify-center transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed shadow-2xs',
               sizeStyles.btn
             )}
           >
-            <PlusIcon size={size === 'lg' ? 18 : 15} />
+            <PlusIcon size={size === 'lg' ? 18 : 14} />
           </button>
         )}
       </div>

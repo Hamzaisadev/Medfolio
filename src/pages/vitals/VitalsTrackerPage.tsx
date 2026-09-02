@@ -242,12 +242,12 @@ export function VitalsTrackerPage() {
             {
               value: 'glucose',
               label: `Blood Glucose (${glucoseLogs.length})`,
-              icon: '🩸',
+              icon: <DropletIcon size={14} />,
             },
             {
               value: 'bp',
               label: `Blood Pressure (${bpLogs.length})`,
-              icon: '🩺',
+              icon: <HeartPulseIcon size={14} />,
             },
           ]}
         />
@@ -518,91 +518,129 @@ export function VitalsTrackerPage() {
           open={isGlucoseModalOpen}
           onOpenChange={setIsGlucoseModalOpen}
           title="Log Blood Glucose"
-          description="Type, scroll, or tap + / − to set your reading."
-          className="max-w-md"
+          description="Record blood glucose level with target zone guidance."
+          className="max-w-lg"
         >
-          <form onSubmit={handleSaveGlucose} className="space-y-5">
+          <form onSubmit={handleSaveGlucose} className="space-y-4">
             {glucoseSaveError && <ErrorState compact message={glucoseSaveError} />}
 
+            {/* Context: Meal Timing Selector */}
             <div>
-              <span className="block text-xs font-bold text-content mb-2">Meal Timing</span>
-              <div className="grid grid-cols-2 gap-2">
-                {(['fasting', 'post_prandial', 'random', 'bedtime'] as GlucoseType[]).map((t) => (
+              <span className="block text-2xs uppercase tracking-wider font-bold text-content-subtle mb-1.5">
+                Measurement Context
+              </span>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {[
+                  { type: 'fasting' as GlucoseType, label: 'Fasting', desc: 'Before food' },
+                  { type: 'post_prandial' as GlucoseType, label: 'Post-Meal', desc: '2h after' },
+                  { type: 'random' as GlucoseType, label: 'Random', desc: 'Anytime' },
+                  { type: 'bedtime' as GlucoseType, label: 'Bedtime', desc: 'Before sleep' },
+                ].map(({ type, label, desc }) => (
                   <button
-                    key={t}
+                    key={type}
                     type="button"
-                    onClick={() => setGlucoseType(t)}
-                    className={`py-2 px-3 rounded-xl text-xs font-bold capitalize transition-colors border cursor-pointer ${
-                      glucoseType === t
-                        ? 'bg-accent-subtle border-accent text-accent shadow-xs'
-                        : 'bg-surface-raised border-line text-content-muted hover:bg-surface-hover'
+                    onClick={() => setGlucoseType(type)}
+                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                      glucoseType === type
+                        ? 'bg-accent/10 border-accent text-accent ring-1 ring-accent'
+                        : 'bg-surface-sunken/60 border-line text-content-muted hover:text-content hover:bg-surface-hover'
                     }`}
                   >
-                    {t.replace('_', ' ')}
+                    <span className="block text-xs font-bold">{label}</span>
+                    <span className="block text-2xs text-content-subtle mt-0.5">{desc}</span>
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Stepper Card for Glucose */}
-            <div className="p-5 rounded-2xl bg-surface-sunken/40 border border-line flex flex-col items-center justify-center space-y-3">
-              <div className="flex items-center justify-between w-full">
-                <span className="text-xs font-bold text-content-muted">Glucose Reading</span>
-                <div className="flex items-center gap-1 bg-surface-raised border border-line p-0.5 rounded-lg">
-                  {(['mg/dL', 'mmol/L'] as const).map((unit) => (
-                    <button
-                      key={unit}
-                      type="button"
-                      onClick={() => {
-                        if (unit !== glucoseUnit) {
-                          if (unit === 'mmol/L') {
-                            setGlucoseValue(mgDlToMmol(glucoseValue));
-                          } else {
-                            setGlucoseValue(Math.round(mmolToMgDl(glucoseValue)));
-                          }
-                          setGlucoseUnit(unit);
-                        }
-                      }}
-                      className={`px-2 py-0.5 rounded text-2xs font-bold transition-colors cursor-pointer ${
-                        glucoseUnit === unit
-                          ? 'bg-accent text-white shadow-xs'
-                          : 'text-content-subtle hover:text-content'
-                      }`}
-                    >
-                      {unit}
-                    </button>
-                  ))}
+            {/* Main Clinical Stepper & Status Card */}
+            {(() => {
+              const gEval = evaluateGlucose(glucoseValue, glucoseType);
+              return (
+                <div className="p-4 rounded-2xl bg-surface-sunken/40 border border-line space-y-4">
+                  {/* Top Bar with Unit Switcher and Live Status Badge */}
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xs uppercase tracking-wider font-bold text-content-subtle">
+                        Reading Value
+                      </span>
+                      <Badge tone={VITAL_TONE[gEval.tone].badge} size="sm" withIcon>
+                        {gEval.label}
+                      </Badge>
+                    </div>
+
+                    <div className="flex items-center gap-1 bg-surface border border-line p-0.5 rounded-lg shadow-2xs">
+                      {(['mg/dL', 'mmol/L'] as const).map((unit) => (
+                        <button
+                          key={unit}
+                          type="button"
+                          onClick={() => {
+                            if (unit !== glucoseUnit) {
+                              if (unit === 'mmol/L') {
+                                setGlucoseValue(mgDlToMmol(glucoseValue));
+                              } else {
+                                setGlucoseValue(Math.round(mmolToMgDl(glucoseValue)));
+                              }
+                              setGlucoseUnit(unit);
+                            }
+                          }}
+                          className={`px-2.5 py-0.5 rounded text-2xs font-bold transition-all cursor-pointer ${
+                            glucoseUnit === unit
+                              ? 'bg-accent text-white shadow-xs'
+                              : 'text-content-subtle hover:text-content'
+                          }`}
+                        >
+                          {unit}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Main Stepper Input */}
+                  <div className="flex flex-col items-center justify-center py-1">
+                    <RollerNumberInput
+                      unit={glucoseUnit}
+                      value={glucoseValue}
+                      onChange={setGlucoseValue}
+                      min={glucoseUnit === 'mg/dL' ? 30 : 2}
+                      max={glucoseUnit === 'mg/dL' ? 500 : 30}
+                      step={glucoseUnit === 'mg/dL' ? 1 : 0.1}
+                      size="lg"
+                      showQuickPills={true}
+                    />
+                  </div>
+
+                  {/* Target Guidance Footer */}
+                  <div className="pt-2.5 border-t border-line/60 flex items-center justify-between text-2xs text-content-subtle">
+                    <span>
+                      {glucoseType === 'fasting'
+                        ? 'ADA Target (Fasting): 70–99 mg/dL'
+                        : glucoseType === 'post_prandial'
+                        ? 'ADA Target (Post-Meal): < 140 mg/dL'
+                        : 'Standard Target: 70–140 mg/dL'}
+                    </span>
+                    <span className="text-content-muted">{gEval.advice}</span>
+                  </div>
                 </div>
-              </div>
+              );
+            })()}
 
-              <RollerNumberInput
-                unit={glucoseUnit}
-                value={glucoseValue}
-                onChange={setGlucoseValue}
-                min={glucoseUnit === 'mg/dL' ? 30 : 2}
-                max={glucoseUnit === 'mg/dL' ? 500 : 30}
-                step={glucoseUnit === 'mg/dL' ? 1 : 0.1}
-                size="lg"
-                showQuickPills={true}
-              />
-              <p className="text-2xs text-content-subtle">
-                Click & type directly, or hover and scroll mouse wheel
-              </p>
-            </div>
-
+            {/* Notes Field */}
             <div>
-              <label htmlFor="glucose-notes" className="block text-xs font-bold text-content mb-1">Notes (Optional)</label>
+              <label htmlFor="glucose-notes" className="block text-2xs uppercase tracking-wider font-bold text-content-subtle mb-1">
+                Notes & Context (Optional)
+              </label>
               <input
                 id="glucose-notes"
                 type="text"
                 value={glucoseNotes}
                 onChange={(e) => setGlucoseNotes(e.target.value)}
                 placeholder="e.g. 2 hours after breakfast"
-                className="w-full px-3 py-2 rounded-xl border border-line bg-surface text-xs text-content focus:outline-accent"
+                className="w-full px-3 py-2 rounded-xl border border-line bg-surface text-xs text-content placeholder:text-content-subtle focus:outline-accent"
               />
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2">
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-line">
               <Button variant="secondary" size="sm" type="button" onClick={() => setIsGlucoseModalOpen(false)}>
                 Cancel
               </Button>
@@ -618,63 +656,144 @@ export function VitalsTrackerPage() {
           open={isBpModalOpen}
           onOpenChange={setIsBpModalOpen}
           title="Log Blood Pressure"
-          description="Type, scroll, or tap + / − to set your BP reading."
+          description="Record blood pressure and pulse with AHA classification."
           className="max-w-lg"
         >
-          <form onSubmit={handleSaveBp} className="space-y-5">
+          <form onSubmit={handleSaveBp} className="space-y-4">
             {bpSaveError && <ErrorState compact message={bpSaveError} />}
 
-            {/* Steppers for BP */}
-            <div className="p-4 rounded-2xl bg-surface-sunken/40 border border-line space-y-3">
-              <div className="flex items-center justify-around gap-2 flex-wrap sm:flex-nowrap">
-                <RollerNumberInput
-                  label="Systolic"
-                  unit="mmHg"
-                  value={systolic}
-                  onChange={setSystolic}
-                  min={70}
-                  max={240}
-                  step={1}
-                  size="md"
-                />
-                <span className="text-2xl font-black text-content-subtle mt-4">/</span>
-                <RollerNumberInput
-                  label="Diastolic"
-                  unit="mmHg"
-                  value={diastolic}
-                  onChange={setDiastolic}
-                  min={40}
-                  max={140}
-                  step={1}
-                  size="md"
-                />
-                <RollerNumberInput
-                  label="Pulse"
-                  unit="bpm"
-                  value={pulse}
-                  onChange={setPulse}
-                  min={40}
-                  max={200}
-                  step={1}
-                  size="sm"
-                />
+            {/* Main Clinical BP Entry Card */}
+            {(() => {
+              const bpEval = evaluateBloodPressure(systolic, diastolic);
+              return (
+                <div className="p-4 rounded-2xl bg-surface-sunken/40 border border-line space-y-4">
+                  {/* Status Banner */}
+                  <div className="flex items-center justify-between gap-2 flex-wrap pb-2 border-b border-line/60">
+                    <div className="flex items-center gap-2">
+                      <span className="text-base font-black text-content tracking-tight font-mono">
+                        {systolic} / {diastolic}
+                      </span>
+                      <span className="text-2xs font-bold text-content-subtle">mmHg</span>
+                    </div>
+                    <Badge tone={VITAL_TONE[bpEval.tone].badge} size="sm" withIcon>
+                      {bpEval.label}
+                    </Badge>
+                  </div>
+
+                  {/* Dual Stepper Grid: Systolic & Diastolic */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Systolic Column */}
+                    <div className="p-3 rounded-xl bg-surface border border-line flex flex-col items-center space-y-2">
+                      <div className="w-full flex items-center justify-between">
+                        <span className="text-2xs uppercase tracking-wider font-bold text-content-subtle">
+                          Systolic (Upper)
+                        </span>
+                        <span className="text-2xs font-semibold text-content-subtle">mmHg</span>
+                      </div>
+                      <RollerNumberInput
+                        value={systolic}
+                        onChange={setSystolic}
+                        min={70}
+                        max={240}
+                        step={1}
+                        size="md"
+                        className="w-full"
+                      />
+                      <div className="flex items-center gap-1 w-full justify-center pt-1 border-t border-line/60">
+                        {[110, 120, 130, 140].map((preset) => (
+                          <button
+                            key={preset}
+                            type="button"
+                            onClick={() => setSystolic(preset)}
+                            className={`px-2 py-0.5 rounded text-2xs font-bold transition-all cursor-pointer ${
+                              systolic === preset
+                                ? 'bg-accent text-white shadow-2xs'
+                                : 'bg-surface-sunken text-content-muted hover:text-content'
+                            }`}
+                          >
+                            {preset}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Diastolic Column */}
+                    <div className="p-3 rounded-xl bg-surface border border-line flex flex-col items-center space-y-2">
+                      <div className="w-full flex items-center justify-between">
+                        <span className="text-2xs uppercase tracking-wider font-bold text-content-subtle">
+                          Diastolic (Lower)
+                        </span>
+                        <span className="text-2xs font-semibold text-content-subtle">mmHg</span>
+                      </div>
+                      <RollerNumberInput
+                        value={diastolic}
+                        onChange={setDiastolic}
+                        min={40}
+                        max={140}
+                        step={1}
+                        size="md"
+                        className="w-full"
+                      />
+                      <div className="flex items-center gap-1 w-full justify-center pt-1 border-t border-line/60">
+                        {[70, 80, 85, 90].map((preset) => (
+                          <button
+                            key={preset}
+                            type="button"
+                            onClick={() => setDiastolic(preset)}
+                            className={`px-2 py-0.5 rounded text-2xs font-bold transition-all cursor-pointer ${
+                              diastolic === preset
+                                ? 'bg-accent text-white shadow-2xs'
+                                : 'bg-surface-sunken text-content-muted hover:text-content'
+                            }`}
+                          >
+                            {preset}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Clinical Advice Snippet */}
+                  <p className="text-2xs text-content-muted leading-relaxed">
+                    {bpEval.advice}
+                  </p>
+                </div>
+              );
+            })()}
+
+            {/* Pulse Rate Card */}
+            <div className="p-3 rounded-2xl bg-surface-sunken/40 border border-line flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <HeartPulseIcon size={16} className="text-rose-500 shrink-0" />
+                <div>
+                  <span className="text-xs font-bold text-content block">Pulse Rate</span>
+                  <span className="text-2xs text-content-subtle">Resting heart rate</span>
+                </div>
               </div>
-              <p className="text-center text-2xs text-content-subtle">
-                Click any number to type directly, or hover and scroll mouse wheel
-              </p>
+              <RollerNumberInput
+                unit="bpm"
+                value={pulse}
+                onChange={setPulse}
+                min={40}
+                max={200}
+                step={1}
+                size="sm"
+              />
             </div>
 
-            {/* Collapsible Advanced Details (Arm, Posture, Notes) */}
+            {/* Collapsible Measurement Context (Arm, Posture, Notes) */}
             <details className="group rounded-xl border border-line bg-surface p-3 text-xs">
               <summary className="cursor-pointer font-bold text-content-muted hover:text-content flex items-center justify-between list-none">
-                <span>More options (Arm, Posture, Notes)</span>
+                <span>Measurement Details (Arm, Posture, Notes)</span>
                 <span className="text-content-subtle group-open:rotate-180 transition-transform">▼</span>
               </summary>
 
               <div className="mt-3 pt-3 border-t border-line space-y-3">
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label htmlFor="bp-arm" className="block text-xs font-bold text-content mb-1">Arm</label>
+                    <label htmlFor="bp-arm" className="block text-2xs uppercase tracking-wider font-bold text-content-subtle mb-1">
+                      Arm
+                    </label>
                     <Select
                       id="bp-arm"
                       value={bpArm}
@@ -687,7 +806,9 @@ export function VitalsTrackerPage() {
                     />
                   </div>
                   <div>
-                    <label htmlFor="bp-posture" className="block text-xs font-bold text-content mb-1">Posture</label>
+                    <label htmlFor="bp-posture" className="block text-2xs uppercase tracking-wider font-bold text-content-subtle mb-1">
+                      Posture
+                    </label>
                     <Select
                       id="bp-posture"
                       value={bpPosture}
@@ -703,20 +824,22 @@ export function VitalsTrackerPage() {
                 </div>
 
                 <div>
-                  <label htmlFor="bp-notes" className="block text-xs font-bold text-content mb-1">Notes</label>
+                  <label htmlFor="bp-notes" className="block text-2xs uppercase tracking-wider font-bold text-content-subtle mb-1">
+                    Notes & Context
+                  </label>
                   <input
                     id="bp-notes"
                     type="text"
                     value={bpNotes}
                     onChange={(e) => setBpNotes(e.target.value)}
                     placeholder="e.g. Morning reading before coffee"
-                    className="w-full px-3 py-2 rounded-xl border border-line bg-surface text-xs text-content focus:outline-accent"
+                    className="w-full px-3 py-2 rounded-xl border border-line bg-surface text-xs text-content placeholder:text-content-subtle focus:outline-accent"
                   />
                 </div>
               </div>
             </details>
 
-            <div className="flex items-center justify-end gap-2 pt-2">
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-line">
               <Button variant="secondary" size="sm" type="button" onClick={() => setIsBpModalOpen(false)}>
                 Cancel
               </Button>

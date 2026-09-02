@@ -1,3 +1,4 @@
+import React from 'react';
 import { clsx } from 'clsx';
 import { motion } from 'motion/react';
 import { Button } from './Button';
@@ -17,6 +18,8 @@ import {
   FileText,
   CheckCircle2,
   XCircle,
+  ChevronRight,
+  ShoppingBag,
 } from 'lucide-react';
 
 export type DoseStatus = 'pending' | 'taken' | 'skipped' | 'missed';
@@ -36,6 +39,8 @@ export interface DoseCardProps {
   onTake?: () => void;
   onSkip?: () => void;
   onUndo?: () => void;
+  /** Callback when the patient clicks on the medication card to view details or order/refill */
+  onSelect?: () => void;
   /** Disables the actions, e.g. while browsing a past date. */
   readOnly?: boolean;
   className?: string;
@@ -50,8 +55,8 @@ const statusBadge: Record<DoseStatus, { tone: 'ok' | 'warn' | 'neutral' | 'info'
 
 /**
  * Modern Clinical Medication Tile
- * Features chronotherapy slot accents, inline medical attributes,
- * low-stock safety radar, and tactile action buttons.
+ * Features chronotherapy slot accents, high-contrast accessible typography,
+ * interactive card click-through for details/refills, and tactile action buttons.
  */
 export function DoseCard({
   medicineName,
@@ -66,6 +71,7 @@ export function DoseCard({
   onTake,
   onSkip,
   onUndo,
+  onSelect,
   readOnly = false,
   className,
 }: DoseCardProps) {
@@ -74,7 +80,21 @@ export function DoseCard({
   const badge = statusBadge[status];
   const isActionable = status === 'pending' || status === 'missed';
   const isSettled = status === 'taken' || status === 'skipped';
-  const isLowStock = typeof remaining === 'number' && remaining <= 5;
+  const isOutOfStock = typeof remaining === 'number' && remaining <= 0;
+  const isLowStock = typeof remaining === 'number' && remaining > 0 && remaining <= 5;
+
+  const handleCardClick = () => {
+    if (onSelect) {
+      onSelect();
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if ((e.key === 'Enter' || e.key === ' ') && onSelect) {
+      e.preventDefault();
+      onSelect();
+    }
+  };
 
   return (
     <motion.article
@@ -83,10 +103,16 @@ export function DoseCard({
       animate={{ opacity: 1, y: 0 }}
       whileHover={{ y: -2 }}
       transition={{ type: 'spring', stiffness: 450, damping: 30 }}
+      onClick={handleCardClick}
+      onKeyDown={handleKeyDown}
+      role={onSelect ? 'button' : undefined}
+      tabIndex={onSelect ? 0 : undefined}
+      aria-label={onSelect ? `${medicineName} - View details and refill options` : undefined}
       className={clsx(
-        'group relative flex flex-col justify-between overflow-hidden rounded-2xl border bg-surface-raised p-4 sm:p-4.5 transition-all duration-200 shadow-2xs hover:shadow-card-hover',
+        'group relative flex flex-col justify-between overflow-hidden rounded-2xl border bg-surface-raised p-4 sm:p-4.5 transition-all duration-200 shadow-2xs hover:shadow-card-hover text-left',
+        onSelect && 'cursor-pointer focus:outline-hidden focus-visible:ring-2 focus-visible:ring-accent',
         status === 'missed'
-          ? 'border-line-strong hover:border-amber-500/40'
+          ? 'border-amber-300 dark:border-amber-700/60 bg-amber-500/5 hover:border-amber-500'
           : status === 'taken'
             ? 'border-line/60 bg-surface-raised/85'
             : 'border-line hover:border-line-strong',
@@ -97,8 +123,8 @@ export function DoseCard({
       {/* Top Chronotherapy Slot Color Accent Strip */}
       <span
         className={clsx(
-          'absolute top-0 inset-x-0 h-1 transition-all',
-          status === 'taken' ? 'bg-teal-500' : status === 'missed' ? 'bg-amber-500/80' : slot.surface
+          'absolute top-0 inset-x-0 h-1.5 transition-all',
+          status === 'taken' ? 'bg-teal-600' : status === 'missed' ? 'bg-amber-600' : slot.surface
         )}
         aria-hidden="true"
       />
@@ -106,19 +132,19 @@ export function DoseCard({
       <div className="space-y-3">
         {/* Top Header: Scheduled Time Pill + Meal / Status Badges */}
         <div className="flex items-center justify-between gap-2">
-          {/* Scheduled Time Chip */}
+          {/* Scheduled Time Chip with High-Contrast Accessible Colors */}
           <span
             className={clsx(
               'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold border shadow-2xs',
               status === 'taken'
-                ? 'bg-teal-500/10 text-teal-700 dark:text-teal-400 border-teal-500/20'
+                ? 'bg-teal-500/15 text-teal-900 dark:text-teal-200 border-teal-500/30'
                 : status === 'missed'
-                  ? 'bg-amber-500/10 text-amber-800 dark:text-amber-300 border-amber-500/20'
+                  ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-950 dark:text-amber-100 border-amber-300 dark:border-amber-700'
                   : 'bg-surface-sunken text-content border-line'
             )}
           >
             <span aria-hidden="true" className="shrink-0">{slot.icon(13)}</span>
-            <time data-numeric className="whitespace-nowrap">
+            <time data-numeric className="whitespace-nowrap font-bold">
               {formatDoseTime(scheduledMinutes)}
             </time>
           </span>
@@ -126,13 +152,13 @@ export function DoseCard({
           {/* Badges / Meal Guidance */}
           <div className="flex items-center gap-1.5">
             {relation === 'with_food' && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 text-[11px] font-semibold">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-100 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-700 text-amber-950 dark:text-amber-200 text-[11px] font-bold">
                 <Utensils size={11} />
                 With Food
               </span>
             )}
             {relation === 'empty_stomach' && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-800 dark:text-blue-300 text-[11px] font-semibold">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-blue-100 dark:bg-blue-950/60 border border-blue-300 dark:border-blue-700 text-blue-950 dark:text-blue-200 text-[11px] font-bold">
                 <Droplets size={11} />
                 Empty Stomach
               </span>
@@ -145,9 +171,17 @@ export function DoseCard({
             )}
 
             {badge && (
-              <Badge tone={badge.tone} size="sm">
+              <Badge tone={badge.tone} size="sm" withIcon>
                 {badge.label}
               </Badge>
+            )}
+
+            {onSelect && (
+              <ChevronRight
+                size={14}
+                className="text-content-subtle group-hover:text-accent group-hover:translate-x-0.5 transition-all ml-0.5"
+                aria-hidden="true"
+              />
             )}
           </div>
         </div>
@@ -158,14 +192,14 @@ export function DoseCard({
             className={clsx(
               'w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border shadow-2xs transition-transform duration-200 group-hover:scale-105',
               status === 'taken'
-                ? 'bg-teal-500/10 text-teal-600 border-teal-500/20'
+                ? 'bg-teal-500/15 text-teal-700 dark:text-teal-300 border-teal-500/30'
                 : status === 'missed'
-                  ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20'
+                  ? 'bg-amber-500/15 text-amber-900 dark:text-amber-200 border-amber-500/30'
                   : 'bg-surface-sunken text-accent border-line'
             )}
           >
             {status === 'taken' ? (
-              <CheckCircle2 size={20} className="text-teal-600" />
+              <CheckCircle2 size={20} className="text-teal-600 dark:text-teal-400" />
             ) : status === 'skipped' ? (
               <XCircle size={20} className="text-content-muted" />
             ) : (
@@ -184,7 +218,7 @@ export function DoseCard({
               {medicineName}
             </h3>
 
-            {/* Strength & Dosage metadata - Guarantees consistent badge structure across all single & combo drugs */}
+            {/* Strength & Dosage metadata */}
             <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
               {strength ? (
                 <>
@@ -216,11 +250,29 @@ export function DoseCard({
             <span
               className={clsx(
                 'inline-flex items-center gap-1.5 text-[11px] font-semibold',
-                isLowStock ? 'text-rose-600 dark:text-rose-400 font-bold animate-pulse' : 'text-content-subtle'
+                isOutOfStock
+                  ? 'text-rose-700 dark:text-rose-400 font-bold'
+                  : isLowStock
+                    ? 'text-amber-800 dark:text-amber-300 font-bold'
+                    : 'text-content-subtle'
               )}
             >
-              {isLowStock ? <AlertCircle size={12} /> : <Package size={12} />}
-              {isLowStock ? `Low stock: ${remaining} left` : `${remaining} in cabinet`}
+              {isOutOfStock ? (
+                <>
+                  <AlertCircle size={12} />
+                  Pending Purchase (0 in cabinet)
+                </>
+              ) : isLowStock ? (
+                <>
+                  <AlertCircle size={12} />
+                  Low stock: {remaining} left
+                </>
+              ) : (
+                <>
+                  <Package size={12} />
+                  {remaining} in cabinet
+                </>
+              )}
             </span>
           ) : (
             <span className="text-[11px] text-content-subtle">Course active</span>
@@ -229,6 +281,11 @@ export function DoseCard({
           {status === 'skipped' && skippedReason ? (
             <span className="text-[10px] text-content-subtle italic truncate max-w-[120px]">
               Reason: {skippedReason}
+            </span>
+          ) : onSelect ? (
+            <span className="text-[10px] text-accent font-semibold flex items-center gap-0.5">
+              <ShoppingBag size={10} />
+              Refill / Details
             </span>
           ) : (
             <span className="text-[10px] text-content-subtle">PKT Schedule</span>
@@ -252,7 +309,10 @@ export function DoseCard({
               <Button
                 variant="primary"
                 size="sm"
-                onClick={onTake}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onTake?.();
+                }}
                 leftIcon={<CheckIcon size={14} />}
                 className={clsx(
                   'flex-1 h-9 font-bold tap-spring shadow-2xs text-xs rounded-xl whitespace-nowrap',
@@ -266,7 +326,10 @@ export function DoseCard({
               <Button
                 variant="secondary"
                 size="sm"
-                onClick={onSkip}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSkip?.();
+                }}
                 className="h-9 px-3.5 text-xs text-content-muted hover:text-content font-semibold rounded-xl border border-line tap-spring"
               >
                 Skip
@@ -275,13 +338,16 @@ export function DoseCard({
           ) : (
             <div className="flex items-center justify-between w-full">
               <span className="text-xs font-semibold text-teal-700 dark:text-teal-400 flex items-center gap-1.5">
-                <CheckCircle2 size={14} className="text-teal-600" />
+                <CheckCircle2 size={14} className="text-teal-600 dark:text-teal-400" />
                 {status === 'taken' ? 'Logged' : 'Skipped'}
               </span>
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={onUndo}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onUndo?.();
+                }}
                 className="text-xs text-content-subtle hover:text-content font-semibold h-8 px-2.5 rounded-lg"
               >
                 Undo

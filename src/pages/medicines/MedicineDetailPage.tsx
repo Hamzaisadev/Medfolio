@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { MessageCircle, ShoppingBag } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { AppShell } from '../../components/layout/AppShell';
 import { PageHeader } from '../../components/layout/PageHeader';
@@ -15,8 +16,10 @@ import { Skeleton } from '../../components/ui/Skeleton';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { Disclaimer } from '../../components/ui/Disclaimer';
 import { MedicineIcon } from '../../components/ui/icons';
+import { MedicineOrderModal } from '../../components/medicines/MedicineOrderModal';
 import { useAuth } from '../../lib/auth/AuthContext';
 import { medicinesRepo, dosesRepo, sideEffectsRepo, visitsRepo } from '../../lib/db';
+import { readInventory } from '../../lib/inventory';
 import { explainMedicine } from '../../lib/ai/client';
 import { formatMinutesTo24h, todayInAppTz } from '../../lib/time';
 import { frequencyDescription, defaultDoseTimes } from '../../domain/frequency';
@@ -50,6 +53,8 @@ export function MedicineDetailPage() {
 
   // Discontinue Dialog
   const [isDiscontinueOpen, setIsDiscontinueOpen] = useState(false);
+  const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
+  const [inventoryCount, setInventoryCount] = useState<number>(0);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const effectiveUserId = user?.id || profile?.user_id || '';
@@ -66,6 +71,8 @@ export function MedicineDetailPage() {
         return;
       }
       setMedicine(med);
+      const inv = readInventory(effectiveProfileId);
+      setInventoryCount(inv[med.id] ?? 0);
 
       // Load linked visit if any
       if (med.visit_id) {
@@ -360,8 +367,53 @@ export function MedicineDetailPage() {
           </Card>
         </div>
 
-        {/* Right Column (1/3): Linked Doctor Consultation Context */}
+        {/* Right Column (1/3): Cabinet & Linked Doctor Consultation Context */}
         <div className="space-y-6">
+          {/* Cabinet & WhatsApp Order Action Card */}
+          <Card header={<h2 className="text-base font-bold text-content">Cabinet Stock & Pharmacy</h2>}>
+            <div className="space-y-3.5 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-content-subtle font-semibold">Current In Cabinet</span>
+                {inventoryCount <= 0 ? (
+                  <Badge tone="risk" size="sm" withIcon>
+                    0 in stock (Needs Purchase)
+                  </Badge>
+                ) : inventoryCount <= 5 ? (
+                  <Badge tone="warn" size="sm" withIcon>
+                    Low Stock: {inventoryCount} left
+                  </Badge>
+                ) : (
+                  <Badge tone="ok" size="sm" withIcon>
+                    {inventoryCount} tablets
+                  </Badge>
+                )}
+              </div>
+
+              <div className="pt-2 border-t border-line space-y-2">
+                <Button
+                  variant="primary"
+                  fullWidth
+                  size="sm"
+                  onClick={() => setIsOrderModalOpen(true)}
+                  leftIcon={<MessageCircle size={15} />}
+                  className="bg-emerald-600 hover:bg-emerald-700 border-emerald-600 text-white font-bold text-xs tap-spring"
+                >
+                  Order / Refill via WhatsApp
+                </Button>
+                <Button
+                  variant="secondary"
+                  fullWidth
+                  size="sm"
+                  onClick={() => setIsOrderModalOpen(true)}
+                  leftIcon={<ShoppingBag size={14} />}
+                  className="text-xs font-semibold"
+                >
+                  Record In-Store Purchase
+                </Button>
+              </div>
+            </div>
+          </Card>
+
           <Card header={<h2 className="text-base font-bold text-content">Prescribing Doctor Visit</h2>}>
             {visit ? (
               <div className="space-y-3 text-xs">
@@ -446,6 +498,18 @@ export function MedicineDetailPage() {
           </div>
         </div>
       </Dialog>
+
+      {/* Medicine Order / WhatsApp Refill Modal */}
+      <MedicineOrderModal
+        isOpen={isOrderModalOpen}
+        onClose={() => setIsOrderModalOpen(false)}
+        medicine={medicine}
+        profileId={effectiveProfileId}
+        onStockUpdated={(newStock) => {
+          setInventoryCount(newStock);
+          setToastMessage(`Cabinet updated: ${newStock} tablets in stock.`);
+        }}
+      />
 
       {/* Discontinue Confirmation Dialog */}
       <ConfirmDialog

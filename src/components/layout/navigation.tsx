@@ -35,16 +35,6 @@ export const PRIMARY_NAV: NavItem[] = [
   { label: 'Home', path: '/', icon: (s) => <HomeIcon size={s} /> },
   { label: 'Schedule', path: '/medicines', icon: (s) => <MedicineIcon size={s} /> },
   { label: 'Timeline', path: '/timeline', icon: (s) => <StethoscopeIcon size={s} /> },
-  { label: 'Assistant', path: '/assistant', icon: (s) => <SparklesIcon size={s} /> },
-];
-
-export const SECONDARY_NAV: NavItem[] = [
-  {
-    label: 'Sugar & blood pressure',
-    path: '/vitals',
-    description: 'Log and track your readings',
-    icon: (s) => <DropletIcon size={s} />,
-  },
   {
     label: 'Lab reports',
     path: '/reports',
@@ -56,6 +46,16 @@ export const SECONDARY_NAV: NavItem[] = [
     path: '/symptoms',
     description: 'Emergency red flags and specialist guide',
     icon: (s) => <AlertTriangleIcon size={s} />,
+  },
+  { label: 'Assistant', path: '/assistant', icon: (s) => <SparklesIcon size={s} /> },
+];
+
+export const SECONDARY_NAV: NavItem[] = [
+  {
+    label: 'Sugar & blood pressure',
+    path: '/vitals',
+    description: 'Log and track your readings',
+    icon: (s) => <DropletIcon size={s} />,
   },
   {
     label: 'Questions for your doctor',
@@ -93,6 +93,35 @@ export const SECONDARY_NAV: NavItem[] = [
     description: 'Profile, reminders and appearance',
     icon: (s) => <SettingsIcon size={s} />,
   },
+];
+
+/**
+ * Core destinations displayed in the mobile bottom navigation bar (4 items + More button).
+ */
+export const BOTTOM_NAV_ITEMS: NavItem[] = [
+  { label: 'Home', path: '/', icon: (s) => <HomeIcon size={s} /> },
+  { label: 'Schedule', path: '/medicines', icon: (s) => <MedicineIcon size={s} /> },
+  { label: 'Timeline', path: '/timeline', icon: (s) => <StethoscopeIcon size={s} /> },
+  { label: 'Assistant', path: '/assistant', icon: (s) => <SparklesIcon size={s} /> },
+];
+
+/**
+ * Complete list of tools available in the mobile bottom sheet when "More" is tapped.
+ */
+export const MOBILE_MORE_NAV: NavItem[] = [
+  {
+    label: 'Lab reports',
+    path: '/reports',
+    description: 'Test records and biomarker trends',
+    icon: (s) => <LabFlaskIcon size={s} />,
+  },
+  {
+    label: 'Symptom check',
+    path: '/symptoms',
+    description: 'Emergency red flags and specialist guide',
+    icon: (s) => <AlertTriangleIcon size={s} />,
+  },
+  ...SECONDARY_NAV,
 ];
 
 /**

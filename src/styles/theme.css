@@ -178,20 +178,20 @@
 
   --ok-bg:     oklch(0.979 0.021 166);
   --ok-border: oklch(0.905 0.056 165);
-  --ok-text:   oklch(0.430 0.115 151);
-  --warn-bg:     oklch(0.987 0.026 102);
-  --warn-border: oklch(0.905 0.076 96);
-  --warn-text:   oklch(0.452 0.108 62);
+  --ok-text:   oklch(0.360 0.120 151);
+  --warn-bg:     oklch(0.975 0.035 90);
+  --warn-border: oklch(0.820 0.095 85);
+  --warn-text:   oklch(0.310 0.115 50);
   --risk-bg:     oklch(0.971 0.013 18);
   --risk-border: oklch(0.885 0.062 18);
-  --risk-text:   oklch(0.446 0.172 26);
+  --risk-text:   oklch(0.400 0.180 26);
   --info-bg:     oklch(0.970 0.014 254);
   --info-border: oklch(0.882 0.059 254);
-  --info-text:   oklch(0.452 0.180 264);
+  --info-text:   oklch(0.380 0.180 264);
 
-  --slot-morning-bg:      oklch(0.980 0.028 85);
-  --slot-morning-border:  oklch(0.902 0.075 82);
-  --slot-morning-text:    oklch(0.470 0.108 65);
+  --slot-morning-bg:      oklch(0.975 0.035 90);
+  --slot-morning-border:  oklch(0.820 0.095 85);
+  --slot-morning-text:    oklch(0.310 0.115 50);
   --slot-afternoon-bg:     oklch(0.973 0.021 230);
   --slot-afternoon-border: oklch(0.890 0.060 232);
   --slot-afternoon-text:   oklch(0.462 0.132 245);

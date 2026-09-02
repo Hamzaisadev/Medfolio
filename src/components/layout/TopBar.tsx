@@ -75,7 +75,7 @@ export function TopBar() {
           <Logo size="md" />
         </Link>
 
-        <nav className="hidden md:flex items-center gap-1" aria-label="Main">
+        <nav className="hidden md:flex items-center gap-0.5 lg:gap-1" aria-label="Main">
           {PRIMARY_NAV.map((link) => {
             const active = isNavItemActive(link.path, location.pathname);
             return (
@@ -84,7 +84,7 @@ export function TopBar() {
                 to={link.path}
                 aria-current={active ? 'page' : undefined}
                 className={clsx(
-                  'px-3.5 py-2 text-xs font-semibold rounded-[var(--radius-md)] transition-colors',
+                  'px-2.5 lg:px-3 py-2 text-xs font-semibold rounded-[var(--radius-md)] transition-colors whitespace-nowrap',
                   active
                     ? 'bg-accent-subtle text-accent-onsubtle'
                     : 'text-content-muted hover:text-content hover:bg-surface-hover'
@@ -100,7 +100,7 @@ export function TopBar() {
           <DropdownMenu.Root key={`more-${menuKey}`}>
             <DropdownMenu.Trigger
               className={clsx(
-                'inline-flex items-center gap-1 px-3 py-2 text-xs font-semibold rounded-[var(--radius-md)] transition-colors',
+                'inline-flex items-center gap-1 px-2.5 lg:px-3 py-2 text-xs font-semibold rounded-[var(--radius-md)] transition-colors whitespace-nowrap',
                 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
                 isMoreActive
                   ? 'bg-accent-subtle text-accent-onsubtle'

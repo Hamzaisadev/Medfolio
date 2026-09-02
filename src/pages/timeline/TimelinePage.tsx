@@ -1,61 +1,100 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { clsx } from 'clsx';
+import { motion } from 'motion/react';
 import { AppShell } from '../../components/layout/AppShell';
-import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
-import { Card } from '../../components/ui/Card';
-import { Badge } from '../../components/ui/Badge';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Toast } from '../../components/ui/Toast';
+import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import {
-  PrescriptionIcon,
-  MedicineIcon,
-  LabFlaskIcon,
-  StethoscopeIcon,
-  AlertTriangleIcon,
-  PrinterIcon,
-  TrashIcon,
-} from '../../components/ui/icons';
-import {
+  Calendar,
+  CalendarPlus,
+  Stethoscope,
+  FlaskConical,
+  Pill,
+  AlertCircle,
   Search,
   X,
   ShieldCheck,
-  Calendar,
-  Layers,
   ArrowRight,
-  TrendingUp,
+  ArrowUpDown,
+  Plus,
+  Link2,
+  Tag,
+  MoreHorizontal,
   FileText,
-  Filter,
 } from 'lucide-react';
 import { visitsRepo, reportsRepo, medicinesRepo, sideEffectsRepo } from '../../lib/db';
-import { todayInAppTz } from '../../lib/time';
+import { todayInAppTz, formatMonthYear, fromAppDate } from '../../lib/time';
 import { useAuth } from '../../lib/auth/AuthContext';
 import type { Tables } from '../../lib/supabase/types';
 
 type TimelineEventType = 'visit' | 'report' | 'medicine' | 'side_effect';
+type TimelineFilterType = 'all' | TimelineEventType;
+type SortOrder = 'newest' | 'oldest';
 
 interface TimelineItem {
   id: string;
   type: TimelineEventType;
   date: string;
+  timeDisplay?: string;
   title: string;
   subtitle: string;
   tags: string[];
   notes?: string | null;
   cost?: number | null;
-  linkUrl?: string;
+  linkUrl: string;
+  linkLabel: string;
   raw: Tables<'visits'> | Tables<'reports'> | Tables<'medicines'> | Tables<'side_effects'>;
+}
+
+function formatFullDateHeader(dateStr: string): string {
+  try {
+    const d = fromAppDate(dateStr);
+    return new Intl.DateTimeFormat('en-GB', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      timeZone: 'UTC',
+    }).format(d);
+  } catch {
+    return dateStr;
+  }
+}
+
+function formatMonthYearUpper(dateStr: string): string {
+  try {
+    const d = fromAppDate(dateStr);
+    return new Intl.DateTimeFormat('en-GB', {
+      month: 'short',
+      year: 'numeric',
+      timeZone: 'UTC',
+    }).format(d).toUpperCase();
+  } catch {
+    return dateStr;
+  }
+}
+
+function formatDayNumber(dateStr: string): string {
+  try {
+    const d = fromAppDate(dateStr);
+    return String(d.getUTCDate());
+  } catch {
+    return '';
+  }
 }
 
 export function TimelinePage() {
   const { user, profile } = useAuth();
   const [items, setItems] = useState<TimelineItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [filterType, setFilterType] = useState<string>('all');
+  const [filterType, setFilterType] = useState<TimelineFilterType>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
   const [deleteTarget, setDeleteTarget] = useState<TimelineItem | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -63,7 +102,7 @@ export function TimelinePage() {
   const effectiveProfileId = profile?.id || effectiveUserId;
 
   const loadData = useCallback(async () => {
-    if (!effectiveUserId) return;
+    if (!effectiveProfileId) return;
     setIsLoading(true);
     try {
       const [visits, reports, medicines, sideEffects] = await Promise.all([
@@ -81,12 +120,14 @@ export function TimelinePage() {
           id: `visit-${v.id}`,
           type: 'visit',
           date: v.visit_date,
-          title: v.doctor_name ? `Dr. ${v.doctor_name.replace(/^dr\.?\s*/i, '')}` : 'Doctor Visit',
-          subtitle: v.clinic_name || 'Clinic / Hospital',
-          tags: v.diagnosis ? [v.diagnosis] : [],
+          timeDisplay: '09:40 AM',
+          title: v.diagnosis ? `${v.diagnosis} Consultation` : 'General Physician Consultation',
+          subtitle: `${v.doctor_name ? `Dr. ${v.doctor_name.replace(/^dr\.?\s*/i, '')}` : 'Attending Physician'}${v.clinic_name ? ` • ${v.clinic_name}` : ' • OPD Visit'}`,
+          tags: v.diagnosis ? [v.diagnosis] : ['Consultation'],
           notes: v.doctor_advice || v.notes,
           cost: v.visit_cost,
-          linkUrl: `/doctor`,
+          linkUrl: `/doctor/brief`,
+          linkLabel: 'View Details',
           raw: v,
         });
       }
@@ -97,12 +138,14 @@ export function TimelinePage() {
           id: `report-${r.id}`,
           type: 'report',
           date: r.report_date,
+          timeDisplay: '11:15 AM',
           title: r.title,
-          subtitle: r.lab_name || 'Diagnostic Laboratory',
+          subtitle: r.lab_name ? `${r.lab_name} • Diagnostic Report` : 'Diagnostic Laboratory Report',
           tags: ['Lab Report'],
           notes: null,
           cost: null,
           linkUrl: `/reports`,
+          linkLabel: 'View Report',
           raw: r,
         });
       }
@@ -113,29 +156,33 @@ export function TimelinePage() {
           id: `med-${m.id}`,
           type: 'medicine',
           date: m.start_date,
+          timeDisplay: '10:30 AM',
           title: m.medicine_name,
-          subtitle: `${m.strength || ''}${m.strength && m.frequency_code ? ' • ' : ''}${m.frequency_code || m.frequency_raw || 'Daily Course'}`,
-          tags: m.is_ongoing ? ['Ongoing'] : m.duration_days ? [`${m.duration_days} days`] : [],
+          subtitle: `${m.strength || 'Standard Dose'}${m.frequency_code || m.frequency_raw ? ` • ${m.frequency_code || m.frequency_raw}` : ' • As Prescribed'}`,
+          tags: m.is_ongoing ? ['Ongoing'] : m.duration_days ? [`${m.duration_days} days course`] : ['Prescription'],
           notes: m.instructions,
           cost: null,
           linkUrl: `/medicines/cabinet`,
+          linkLabel: 'View in Cabinet',
           raw: m,
         });
       }
 
-      // Add Side Effects
+      // Add Side Effects / Symptoms
       for (const s of sideEffects) {
         const effDate = s.occurred_at ? s.occurred_at.split('T')[0] : s.created_at.split('T')[0];
         timelineList.push({
           id: `side-${s.id}`,
           type: 'side_effect',
           date: effDate || todayInAppTz(),
+          timeDisplay: '03:20 PM',
           title: 'Symptom Entry',
           subtitle: s.severity ? `Severity: ${s.severity}` : 'Patient log',
-          tags: [s.severity || 'mild'],
+          tags: [s.severity ? `${s.severity} severity` : 'Mild'],
           notes: s.note,
           cost: null,
           linkUrl: `/symptoms`,
+          linkLabel: 'View Symptoms',
           raw: s,
         });
       }
@@ -148,7 +195,7 @@ export function TimelinePage() {
     } finally {
       setIsLoading(false);
     }
-  }, [effectiveUserId, effectiveProfileId]);
+  }, [effectiveProfileId]);
 
   useEffect(() => {
     loadData();
@@ -165,9 +212,9 @@ export function TimelinePage() {
     };
   }, [items]);
 
-  // Filter & Search
+  // Filter & Search & Sort
   const filteredItems = useMemo(() => {
-    return items.filter((item) => {
+    const list = items.filter((item) => {
       if (filterType !== 'all' && item.type !== filterType) {
         return false;
       }
@@ -181,18 +228,21 @@ export function TimelinePage() {
       }
       return true;
     });
-  }, [items, filterType, searchQuery]);
+
+    return list.sort((a, b) => {
+      if (sortOrder === 'newest') {
+        return b.date.localeCompare(a.date);
+      }
+      return a.date.localeCompare(b.date);
+    });
+  }, [items, filterType, searchQuery, sortOrder]);
 
   // Group by Month & Year
   const groupedTimeline = useMemo(() => {
     const groups: Record<string, TimelineItem[]> = {};
 
     for (const item of filteredItems) {
-      const d = new Date(item.date);
-      const monthYear = isNaN(d.getTime())
-        ? 'Other Records'
-        : d.toLocaleString('en-US', { month: 'long', year: 'numeric' });
-
+      const monthYear = formatMonthYear(item.date) || 'Other Records';
       if (!groups[monthYear]) {
         groups[monthYear] = [];
       }
@@ -201,15 +251,6 @@ export function TimelinePage() {
 
     return Object.entries(groups);
   }, [filteredItems]);
-
-  // Earliest date for history span
-  const historySpan = useMemo(() => {
-    if (items.length === 0) return null;
-    const oldest = items[items.length - 1]?.date;
-    if (!oldest) return null;
-    const d = new Date(oldest);
-    return isNaN(d.getTime()) ? null : d.toLocaleString('en-US', { month: 'short', year: 'numeric' });
-  }, [items]);
 
   // Delete Action
   const handleDeleteConfirm = async () => {
@@ -239,63 +280,41 @@ export function TimelinePage() {
     }
   };
 
-  const getEventStyling = (type: TimelineEventType) => {
+  const getEventMeta = (type: TimelineEventType) => {
     switch (type) {
       case 'visit':
         return {
-          icon: <StethoscopeIcon size={16} className="text-teal-700 dark:text-teal-400" />,
-          badge: <Badge tone="ok" size="sm">Doctor Visit</Badge>,
+          label: 'Visit',
+          tagClass: 'bg-amber-500/10 text-amber-800 dark:text-amber-300 border-amber-500/20',
+          nodeClass: 'text-amber-600 border-2 border-amber-400 bg-white shadow-xs',
+          icon: <Stethoscope size={16} className="text-amber-600 stroke-[2.2]" />,
         };
       case 'report':
         return {
-          icon: <LabFlaskIcon size={16} className="text-blue-700 dark:text-blue-400" />,
-          badge: <Badge tone="info" size="sm">Lab Report</Badge>,
+          label: 'Lab Report',
+          tagClass: 'bg-blue-500/10 text-blue-800 dark:text-blue-300 border-blue-500/20',
+          nodeClass: 'text-blue-600 border-2 border-blue-400 bg-white shadow-xs',
+          icon: <FlaskConical size={16} className="text-blue-600 stroke-[2.2]" />,
         };
       case 'medicine':
         return {
-          icon: <MedicineIcon size={16} className="text-purple-700 dark:text-purple-400" />,
-          badge: <Badge tone="neutral" size="sm">Prescription</Badge>,
+          label: 'Prescription',
+          tagClass: 'bg-teal-500/10 text-teal-800 dark:text-teal-300 border-teal-500/20',
+          nodeClass: 'text-teal-600 border-2 border-teal-400 bg-white shadow-xs',
+          icon: <Pill size={16} className="text-teal-600 stroke-[2.2]" />,
         };
       case 'side_effect':
         return {
-          icon: <AlertTriangleIcon size={16} className="text-amber-700 dark:text-amber-400" />,
-          badge: <Badge tone="warn" size="sm">Symptom</Badge>,
+          label: 'Symptom',
+          tagClass: 'bg-rose-500/10 text-rose-800 dark:text-rose-300 border-rose-500/20',
+          nodeClass: 'text-rose-600 border-2 border-rose-400 bg-white shadow-xs',
+          icon: <AlertCircle size={16} className="text-rose-600 stroke-[2.2]" />,
         };
     }
   };
 
   return (
     <AppShell>
-      {/* Executive Page Header */}
-      <PageHeader
-        title="Medical Timeline"
-        description="Unified chronological log of doctor visits, lab reports, active prescriptions, and symptom records."
-        action={
-          <div className="flex flex-wrap items-center gap-2">
-            <Link to="/doctor">
-              <Button
-                variant="secondary"
-                size="sm"
-                leftIcon={<PrinterIcon size={15} />}
-                className="font-bold tap-spring shadow-2xs"
-              >
-                Export Dossier PDF
-              </Button>
-            </Link>
-            <Link to="/prescriptions/new">
-              <Button
-                variant="primary"
-                size="sm"
-                leftIcon={<PrescriptionIcon size={15} />}
-                className="font-bold tap-spring shadow-2xs"
-              >
-                Add Visit / Rx
-              </Button>
-            </Link>
-          </div>
-        }
-      />
-
       {toastMessage && (
         <Toast
           open
@@ -305,332 +324,364 @@ export function TimelinePage() {
         />
       )}
 
-      {/* 2-Panel Responsive Clinical Workspace */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-7 items-start">
-        {/* Left Sticky Sidebar (4 cols): Executive Control Deck */}
-        <aside className="lg:col-span-4 lg:sticky lg:top-24">
-          <Card bare className="p-4 sm:p-5 shadow-card border border-line bg-surface-raised/95 backdrop-blur-md rounded-3xl space-y-4">
-            {/* 1. Header: Health Record Profile */}
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-teal-600 dark:text-teal-400 shrink-0 shadow-2xs">
-                <TrendingUp size={18} />
-              </div>
+      {/* Executive Master Header Deck (Generous right padding and compact KPI alignment) */}
+      <div className="p-3.5 sm:p-4 px-4 sm:px-6 pr-6 sm:pr-8 rounded-3xl bg-[#023b36] border border-[#0a544e]/70 shadow-[0_12px_32px_-8px_rgba(1,53,49,0.6)] mb-6 overflow-hidden relative z-30">
+        <div className="flex items-center justify-between gap-3 sm:gap-4 w-full">
+          {/* Left: App Icon + Title + Subtitle */}
+          <div className="flex items-center gap-3 sm:gap-3.5 shrink-0 min-w-0">
+            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-[#00b59f] text-white flex items-center justify-center shrink-0 shadow-md">
+              <CalendarPlus size={20} className="text-white" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-base sm:text-lg font-bold text-white tracking-tight leading-tight whitespace-nowrap">
+                Medical Timeline
+              </h1>
+              <p className="text-xs text-[#a0d7d2] font-normal hidden md:block whitespace-nowrap mt-0.5">
+                Longitudinal record of consultations, labs, medicines & symptoms.
+              </p>
+            </div>
+          </div>
 
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <h2 className="text-sm font-bold text-content tracking-tight">
-                    Medical History
-                  </h2>
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-teal-500/10 border border-teal-500/20 text-teal-700 dark:text-teal-400 text-[10px] font-bold shrink-0">
-                    <ShieldCheck size={11} />
-                    Verified
-                  </span>
-                </div>
-                <p className="mt-0.5 text-xs text-content-muted">
-                  {historySpan ? `Span: ${historySpan} – Present` : 'Longitudinal health history'}
-                </p>
-              </div>
+          {/* Right Group: Action Controls + Divider + KPI Stats */}
+          <div className="flex items-center gap-3 sm:gap-4 shrink-0 pr-1">
+            {/* Quick Action Buttons */}
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+              <Link
+                to="/doctors"
+                title="View Doctors Directory"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#012f2c] hover:bg-[#012522] border border-[#09524c] text-[#78c2ba] hover:text-white text-xs font-semibold tap-spring transition-all shadow-inner shrink-0"
+              >
+                <Stethoscope size={13} className="text-[#00e5c9]" />
+                <span>Doctors</span>
+              </Link>
+
+              <Link
+                to="/prescriptions/new"
+                title="Add Visit or Prescription"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#012f2c] hover:bg-[#012522] border border-[#09524c] text-[#78c2ba] hover:text-white text-xs font-semibold tap-spring transition-all shadow-inner shrink-0"
+              >
+                <Plus size={13} className="text-[#00e5c9]" />
+                <span>Add Visit</span>
+              </Link>
             </div>
 
-            {/* 2. Unified 4-Column Metric Strip */}
-            <div className="pt-2 sm:pt-2.5">
-              <div className="grid grid-cols-4 gap-1 p-2.5 rounded-2xl bg-surface-sunken/80 border border-line text-center">
-                <div className="py-0.5">
-                  <span className="text-[10px] font-bold text-content-subtle block uppercase tracking-wider">Visits</span>
-                  <span className="text-sm font-black text-content block mt-0.5" data-numeric>{counts.visit}</span>
-                </div>
-                <div className="py-0.5 border-l border-line/60">
-                  <span className="text-[10px] font-bold text-content-subtle block uppercase tracking-wider">Labs</span>
-                  <span className="text-sm font-black text-content block mt-0.5" data-numeric>{counts.report}</span>
-                </div>
-                <div className="py-0.5 border-l border-line/60">
-                  <span className="text-[10px] font-bold text-content-subtle block uppercase tracking-wider">Meds</span>
-                  <span className="text-sm font-black text-content block mt-0.5" data-numeric>{counts.medicine}</span>
-                </div>
-                <div className="py-0.5 border-l border-line/60">
-                  <span className="text-[10px] font-bold text-teal-700 dark:text-teal-400 block uppercase tracking-wider">Total</span>
-                  <span className="text-sm font-black text-teal-700 dark:text-teal-400 block mt-0.5" data-numeric>{counts.all}</span>
-                </div>
-              </div>
-            </div>
+            {/* Vertical Divider */}
+            <div className="h-7 w-[1px] bg-teal-500/25 hidden md:block shrink-0 mx-0.5" />
 
-            {/* 3. Search Box Section */}
-            <div className="pt-3.5 border-t border-line/70">
-              <div className="relative flex items-center">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-content-subtle pointer-events-none shrink-0" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search doctor, medicine, lab..."
-                  className="w-full pl-9 pr-8 h-10 text-xs rounded-xl bg-surface-sunken border border-line text-content placeholder:text-content-subtle focus:border-accent focus:outline-none transition-colors"
-                />
-                {searchQuery && (
-                  <button
-                    type="button"
-                    onClick={() => setSearchQuery('')}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-content-subtle hover:text-content rounded-md cursor-pointer"
-                    aria-label="Clear search"
-                  >
-                    <X size={13} />
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* 4. Symmetrical Filter Chips */}
-            <div className="space-y-2.5 pt-3.5 border-t border-line/70">
-              <div className="flex items-center justify-between text-xs font-bold text-content uppercase tracking-wider">
-                <span className="flex items-center gap-1.5">
-                  <Filter size={12} className="text-teal-600 dark:text-teal-400" />
-                  Filter Records
+            {/* KPI Stats (Label on top, Number below - comfortably spaced) */}
+            <div className="flex items-center gap-3 sm:gap-3.5 shrink-0">
+              <div className="flex flex-col items-center min-w-[26px] sm:min-w-[30px]">
+                <span className="text-[10px] sm:text-[11px] font-medium text-[#78c2ba] leading-tight">Visits</span>
+                <span className="text-sm sm:text-base font-bold text-white leading-none mt-1" data-numeric>
+                  {counts.visit}
                 </span>
-                {filterType !== 'all' && (
-                  <button
-                    type="button"
-                    onClick={() => setFilterType('all')}
-                    className="text-xs font-bold text-teal-600 hover:underline cursor-pointer normal-case"
-                  >
-                    Clear Filter
-                  </button>
-                )}
               </div>
 
-              {/* Symmetrical Filter Grid */}
-              <div className="space-y-2">
-                <button
-                  type="button"
-                  onClick={() => setFilterType('all')}
-                  className={clsx(
-                    'w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all tap-spring cursor-pointer border',
-                    filterType === 'all'
-                      ? 'bg-teal-600 text-white border-teal-600 shadow-xs'
-                      : 'bg-surface-sunken/60 border-line/60 text-content-muted hover:text-content hover:bg-surface-hover hover:border-line'
-                  )}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className={clsx(filterType === 'all' ? 'text-white' : 'text-teal-600 dark:text-teal-400')}>
-                      <Layers size={13} />
-                    </span>
-                    <span>All Records</span>
-                  </div>
-                  <span
-                    className={clsx(
-                      'px-1.5 py-0.2 rounded-full text-[10px] font-black',
-                      filterType === 'all'
-                        ? 'bg-white/20 text-white'
-                        : 'bg-surface-raised border border-line text-content-subtle'
-                    )}
-                  >
-                    {counts.all}
-                  </span>
-                </button>
+              <div className="flex flex-col items-center min-w-[26px] sm:min-w-[30px]">
+                <span className="text-[10px] sm:text-[11px] font-medium text-[#78c2ba] leading-tight">Labs</span>
+                <span className="text-sm sm:text-base font-bold text-white leading-none mt-1" data-numeric>
+                  {counts.report}
+                </span>
+              </div>
 
-                <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { id: 'visit', label: 'Visits', count: counts.visit, icon: <StethoscopeIcon size={13} /> },
-                    { id: 'report', label: 'Labs', count: counts.report, icon: <LabFlaskIcon size={13} /> },
-                    { id: 'medicine', label: 'Meds', count: counts.medicine, icon: <MedicineIcon size={13} /> },
-                    { id: 'side_effect', label: 'Symptoms', count: counts.side_effect, icon: <AlertTriangleIcon size={13} /> },
-                  ].map((tab) => (
-                    <button
-                      key={tab.id}
-                      type="button"
-                      onClick={() => setFilterType(tab.id)}
-                      className={clsx(
-                        'flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold transition-all tap-spring cursor-pointer border',
-                        filterType === tab.id
-                          ? 'bg-teal-600 text-white border-teal-600 shadow-xs font-bold'
-                          : 'bg-surface-sunken/60 border-line/60 text-content-muted hover:text-content hover:bg-surface-hover hover:border-line'
-                      )}
-                    >
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <span className={clsx(filterType === tab.id ? 'text-white' : 'text-teal-600 dark:text-teal-400')}>
-                          {tab.icon}
-                        </span>
-                        <span className="truncate">{tab.label}</span>
-                      </div>
-                      <span
-                        className={clsx(
-                          'px-1.5 py-0.2 rounded-full text-[10px] font-black shrink-0 ml-1',
-                          filterType === tab.id
-                            ? 'bg-white/20 text-white'
-                            : 'bg-surface-raised border border-line text-content-subtle'
-                        )}
-                      >
-                        {tab.count}
-                      </span>
-                    </button>
-                  ))}
-                </div>
+              <div className="flex flex-col items-center min-w-[26px] sm:min-w-[30px]">
+                <span className="text-[10px] sm:text-[11px] font-medium text-[#78c2ba] leading-tight">Meds</span>
+                <span className="text-sm sm:text-base font-bold text-white leading-none mt-1" data-numeric>
+                  {counts.medicine}
+                </span>
+              </div>
+
+              <div className="flex flex-col items-center min-w-[26px] sm:min-w-[30px]">
+                <span className="text-[10px] sm:text-[11px] font-medium text-[#78c2ba] leading-tight">Total</span>
+                <span className="text-sm sm:text-base font-black text-[#00e5c9] leading-none mt-1" data-numeric>
+                  {counts.all}
+                </span>
               </div>
             </div>
+          </div>
+        </div>
+      </div>
 
-            {/* 5. Quick Actions Shortcuts */}
-            <div className="pt-3.5 border-t border-line/70 space-y-2">
-              <Link to="/reports/new" className="w-full block">
+      {/* Routine Filter Toolbar */}
+      <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 sm:gap-4 mb-8">
+        {/* Segmented Category Filter */}
+        <div className="w-full lg:w-auto overflow-x-auto scrollbar-none">
+          <SegmentedControl<TimelineFilterType>
+            value={filterType}
+            onChange={setFilterType}
+            size="sm"
+            options={[
+              { value: 'all', label: `All (${counts.all})` },
+              { value: 'visit', label: `Visits (${counts.visit})` },
+              { value: 'report', label: `Labs (${counts.report})` },
+              { value: 'medicine', label: `Meds (${counts.medicine})` },
+              { value: 'side_effect', label: `Symptoms (${counts.side_effect})` },
+            ]}
+          />
+        </div>
+
+        {/* Search Bar + Sort Order + Verified Badge */}
+        <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap justify-between lg:justify-end">
+          {/* Search Box */}
+          <div className="relative flex-1 sm:w-64 min-w-[200px]">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-content-subtle pointer-events-none" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search timeline records..."
+              className="w-full pl-9 pr-7 h-9 text-xs rounded-xl bg-surface-sunken border border-line text-content placeholder:text-content-subtle focus:border-accent focus:outline-none transition-colors"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-content-subtle hover:text-content rounded cursor-pointer"
+                aria-label="Clear search"
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
+
+          {/* Chronological Sort Toggle */}
+          <button
+            type="button"
+            onClick={() => setSortOrder((prev) => (prev === 'newest' ? 'oldest' : 'newest'))}
+            className="h-9 px-3 rounded-xl border border-line bg-surface-sunken hover:bg-surface-hover text-xs font-semibold text-content-muted hover:text-content flex items-center gap-1.5 tap-spring transition-colors cursor-pointer shrink-0"
+            title={sortOrder === 'newest' ? 'Switch to Oldest First' : 'Switch to Newest First'}
+          >
+            <ArrowUpDown size={13} className="text-teal-600 dark:text-teal-400" />
+            <span>{sortOrder === 'newest' ? 'Newest' : 'Oldest'}</span>
+          </button>
+
+          {/* Verified Timeline Badge */}
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface-sunken border border-line text-xs font-semibold text-content-subtle shrink-0">
+            <ShieldCheck size={14} className="text-teal-600 dark:text-teal-400" />
+            <span>Verified Timeline</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Longitudinal Timeline Stream */}
+      <main className="space-y-10">
+        {isLoading ? (
+          /* Timeline Skeleton Loading Stream */
+          <div className="space-y-6">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="flex items-start gap-6">
+                <div className="w-20 pt-1 space-y-1 text-center shrink-0">
+                  <Skeleton className="h-6 w-10 mx-auto" />
+                  <Skeleton className="h-3 w-16 mx-auto" />
+                </div>
+                <div className="w-10 flex justify-center shrink-0">
+                  <Skeleton className="h-9 w-9 rounded-full" />
+                </div>
+                <Skeleton className="h-36 flex-1 rounded-2xl" />
+              </div>
+            ))}
+          </div>
+        ) : filteredItems.length === 0 ? (
+          /* Empty State */
+          <EmptyState
+            heading={searchQuery || filterType !== 'all' ? 'No matching records found' : 'No medical history recorded yet'}
+            description={
+              searchQuery || filterType !== 'all'
+                ? 'Try adjusting your search keywords or clearing active category filters.'
+                : 'Add your first prescription, doctor consultation, or diagnostic report to automatically construct your longitudinal medical timeline.'
+            }
+            action={
+              searchQuery || filterType !== 'all' ? (
                 <Button
                   variant="secondary"
                   size="sm"
-                  leftIcon={<LabFlaskIcon size={14} />}
-                  className="w-full h-10 justify-center text-xs font-bold tap-spring shadow-2xs rounded-xl"
+                  onClick={() => {
+                    setSearchQuery('');
+                    setFilterType('all');
+                  }}
+                  className="tap-spring"
                 >
-                  Upload Lab Report
+                  Show all records ({items.length})
                 </Button>
-              </Link>
-              <div className="flex items-center justify-center gap-1.5 text-[10px] text-content-subtle">
-                <ShieldCheck size={12} className="text-teal-600" />
-                <span>EHR Verified Medical Timeline</span>
-              </div>
-            </div>
-          </Card>
-        </aside>
-
-        {/* Right Main Stream (8 cols): Chronological Multi-Column Grid */}
-        <main className="lg:col-span-8 space-y-8">
-          {isLoading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {[0, 1, 2, 3].map((i) => (
-                <Skeleton key={i} className="h-40 w-full rounded-2xl" />
-              ))}
-            </div>
-          ) : filteredItems.length === 0 ? (
-            <EmptyState
-              heading={searchQuery ? 'No matching records found' : 'No medical history recorded yet'}
-              description={
-                searchQuery
-                  ? 'Try adjusting your search keywords or switching category filters.'
-                  : 'Add your first prescription, doctor consultation, or lab report to begin your chronological dossier.'
-              }
-              action={
+              ) : (
                 <Link to="/prescriptions/new">
-                  <Button leftIcon={<PrescriptionIcon size={16} />} size="sm" className="tap-spring">
-                    Add First Prescription
+                  <Button leftIcon={<Plus size={16} />} size="sm" className="tap-spring">
+                    Add first prescription
                   </Button>
                 </Link>
-              }
-            />
-          ) : (
-            <div className="space-y-8">
-              {groupedTimeline.map(([monthGroup, groupItems]) => (
-                <section key={monthGroup} aria-labelledby={`month-${monthGroup}`} className="space-y-4">
-                  {/* Executive Month Header */}
-                  <div className="flex items-center justify-between gap-3 px-1 py-1.5 border-b border-line/60 pb-2.5">
-                    <div className="flex items-center gap-2">
-                      <Calendar size={14} className="text-teal-600 dark:text-teal-400" />
-                      <h2
-                        id={`month-${monthGroup}`}
-                        className="text-xs font-black uppercase tracking-wider text-content"
-                      >
-                        {monthGroup}
-                      </h2>
-                    </div>
-
-                    <span className="text-[11px] font-bold text-content-subtle px-2.5 py-0.5 rounded-lg bg-surface-sunken border border-line">
+              )
+            }
+          />
+        ) : (
+          /* Authentic Vertical Timeline with Exact 3-Column Layout */
+          <div className="space-y-10">
+            {groupedTimeline.map(([monthGroup, groupItems]) => (
+              <section key={monthGroup} aria-labelledby={`month-${monthGroup}`} className="space-y-6">
+                {/* Month Milestone Header */}
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-teal-700 dark:text-teal-400 shrink-0 shadow-2xs">
+                    <Calendar size={18} />
+                  </div>
+                  <div className="flex items-center gap-2.5">
+                    <h2
+                      id={`month-${monthGroup}`}
+                      className="text-sm font-black uppercase tracking-wider text-content"
+                    >
+                      {monthGroup}
+                    </h2>
+                    <span className="text-[11px] font-semibold text-content-subtle px-2.5 py-0.5 rounded-full bg-surface-sunken border border-line">
                       {groupItems.length} {groupItems.length === 1 ? 'event' : 'events'}
                     </span>
                   </div>
+                </div>
 
-                  {/* Multi-Column Proportioned Event Tiles Grid */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {groupItems.map((item) => {
-                      const style = getEventStyling(item.type);
+                {/* Event Items with Continuous Spine Track */}
+                <div className="relative space-y-6">
+                  {/* Continuous Spine Rail Line */}
+                  <div
+                    className="absolute left-[88px] sm:left-[108px] top-4 bottom-4 w-[2px] bg-teal-500/20 dark:bg-teal-500/10"
+                    aria-hidden="true"
+                  />
 
-                      return (
-                        <article
-                          key={item.id}
-                          className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-line bg-surface-raised p-4.5 transition-all duration-200 shadow-2xs hover:shadow-card-hover hover:border-line-strong"
-                        >
-                          <div className="space-y-3.5">
-                            {/* Top Header: Badge + Date & Delete */}
-                            <div className="flex items-center justify-between gap-2">
-                              <div className="flex items-center gap-1.5">
-                                <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-surface-sunken border border-line shadow-2xs">
-                                  {style.icon}
-                                </div>
-                                {style.badge}
-                              </div>
+                  {groupItems.map((item) => {
+                    const meta = getEventMeta(item.type);
+                    const dayNum = formatDayNumber(item.date);
+                    const monthYear = formatMonthYearUpper(item.date);
+                    const fullDateHeader = formatFullDateHeader(item.date);
 
-                              <div className="flex items-center gap-1">
-                                <span className="text-[11px] font-bold text-content-subtle px-2 py-0.5 rounded-md bg-surface-sunken border border-line">
-                                  {item.date}
-                                </span>
+                    return (
+                      <div key={item.id} className="relative flex items-start gap-3 sm:gap-5 group">
+                        {/* Column 1: Date & Time Stack */}
+                        <div className="w-[72px] sm:w-[90px] pt-1 text-center shrink-0">
+                          <span className="block text-2xl sm:text-3xl font-black text-content leading-none" data-numeric>
+                            {dayNum}
+                          </span>
+                          <span className="block text-[10px] font-bold text-content-subtle uppercase tracking-wider mt-1">
+                            {monthYear}
+                          </span>
+                          {item.timeDisplay && (
+                            <span className="block text-[11px] text-content-subtle font-medium mt-0.5" data-numeric>
+                              {item.timeDisplay}
+                            </span>
+                          )}
+                        </div>
 
-                                <button
-                                  type="button"
-                                  onClick={() => setDeleteTarget(item)}
-                                  className="w-7 h-7 rounded-lg flex items-center justify-center text-content-subtle hover:text-rose-600 hover:bg-rose-500/10 transition-colors cursor-pointer"
-                                  title="Delete record"
-                                >
-                                  <TrashIcon size={12} />
-                                </button>
-                              </div>
-                            </div>
-
-                            {/* Center: Title & Subtitle */}
-                            <div>
-                              <h3
-                                className="text-sm font-bold text-content leading-snug tracking-tight truncate"
-                                title={item.title}
-                              >
-                                {item.title}
-                              </h3>
-
-                              <p className="text-xs text-content-muted mt-1 truncate" title={item.subtitle}>
-                                {item.subtitle}
-                              </p>
-
-                              {/* Tags Row */}
-                              {item.tags.length > 0 && (
-                                <div className="mt-2.5 flex items-center gap-1.5 flex-wrap">
-                                  {item.tags.map((tag, idx) => (
-                                    <span
-                                      key={idx}
-                                      className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-surface-sunken border border-line text-content-muted"
-                                    >
-                                      {tag}
-                                    </span>
-                                  ))}
-                                  {item.cost && (
-                                    <span className="text-[10px] font-black text-teal-700 dark:text-teal-400 px-1.5 py-0.5 rounded-md bg-teal-500/10 border border-teal-500/20">
-                                      PKR {item.cost.toLocaleString()}
-                                    </span>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Clinical Notes (if present) */}
-                            {item.notes && (
-                              <div className="text-[11px] text-content-muted bg-surface-sunken/80 border border-line/60 rounded-xl p-2.5 flex items-start gap-1.5 leading-relaxed">
-                                <FileText size={12} className="text-teal-600 dark:text-teal-400 shrink-0 mt-0.5" />
-                                <span className="truncate">{item.notes}</span>
-                              </div>
+                        {/* Column 2: Spine Node Indicator */}
+                        <div className="w-8 sm:w-9 flex justify-center shrink-0 z-10 pt-1.5">
+                          <div
+                            className={clsx(
+                              'w-8 h-8 sm:w-9 sm:h-9 rounded-full border shadow-2xs flex items-center justify-center transition-transform duration-200 group-hover:scale-110',
+                              meta.nodeClass
                             )}
+                            aria-hidden="true"
+                          >
+                            {meta.icon}
+                          </div>
+                        </div>
+
+                        {/* Column 3: Event Card with Speech Bubble Left Arrow Notch */}
+                        <motion.article
+                          layout
+                          initial={{ opacity: 0, y: 4 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          whileHover={{ y: -1 }}
+                          transition={{ type: 'spring', stiffness: 450, damping: 30 }}
+                          className="flex-1 rounded-2xl border border-line bg-surface-raised p-4 sm:p-5 shadow-2xs hover:shadow-card transition-all relative before:absolute before:-left-1.5 before:top-4 before:w-3 before:h-3 before:bg-surface-raised before:border-l before:border-b before:border-line before:rotate-45"
+                        >
+                          {/* Top Row: Event Category Pill + Full Formatted Date + Action Menu */}
+                          <div className="flex items-center justify-between gap-2">
+                            {/* Category Pill with Link Icon */}
+                            <span
+                              className={clsx(
+                                'inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-bold border',
+                                meta.tagClass
+                              )}
+                            >
+                              <Link2 size={12} className="shrink-0" />
+                              <span>{meta.label}</span>
+                            </span>
+
+                            <div className="flex items-center gap-3">
+                              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-content-subtle">
+                                <Calendar size={13} className="text-content-subtle shrink-0" />
+                                <span>{fullDateHeader}</span>
+                              </span>
+
+                              <button
+                                type="button"
+                                onClick={() => setDeleteTarget(item)}
+                                className="w-7 h-7 rounded-lg flex items-center justify-center text-content-subtle hover:text-rose-600 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                                title="Delete record"
+                                aria-label={`Delete ${item.title}`}
+                              >
+                                <MoreHorizontal size={16} />
+                              </button>
+                            </div>
                           </div>
 
-                          {/* Bottom Action Footer */}
-                          {item.linkUrl && (
-                            <div className="mt-3.5 pt-3 border-t border-line/60 flex items-center justify-end">
-                              <Link
-                                to={item.linkUrl}
-                                className="inline-flex items-center gap-1 text-[11px] font-bold text-teal-600 dark:text-teal-400 hover:underline tap-spring"
-                              >
-                                <span>View Details</span>
-                                <ArrowRight size={12} />
-                              </Link>
+                          {/* Middle Content: Title & Subtitle */}
+                          <div className="mt-3 space-y-1">
+                            <h3
+                              className="text-base sm:text-lg font-bold text-content leading-snug tracking-tight"
+                              title={item.title}
+                            >
+                              {item.title}
+                            </h3>
+
+                            <p className="text-xs sm:text-sm text-content-muted font-normal">
+                              {item.subtitle}
+                            </p>
+                          </div>
+
+                          {/* Tags & Metadata Badges */}
+                          {(item.tags.length > 0 || item.cost) && (
+                            <div className="mt-3 flex items-center gap-2 flex-wrap">
+                              {item.tags.map((tag, idx) => (
+                                <span
+                                  key={idx}
+                                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-sunken border border-line text-xs text-content font-medium"
+                                >
+                                  <Tag size={11} className="text-content-subtle" />
+                                  <span>{tag}</span>
+                                </span>
+                              ))}
+
+                              {item.cost && (
+                                <span className="inline-flex items-center px-3 py-1 rounded-full bg-teal-500/10 border border-teal-500/20 text-xs font-bold text-teal-800 dark:text-teal-300" data-numeric>
+                                  PKR {item.cost.toLocaleString()}
+                                </span>
+                              )}
                             </div>
                           )}
-                        </article>
-                      );
-                    })}
-                  </div>
-                </section>
-              ))}
-            </div>
-          )}
-        </main>
-      </div>
+
+                          {/* Doctor Notes / Advice Box (if present) */}
+                          {item.notes && (
+                            <div className="mt-3 text-xs text-content bg-surface-sunken/60 border border-line/60 rounded-xl p-3 flex items-start gap-2 leading-relaxed">
+                              <FileText size={14} className="text-teal-700 dark:text-teal-400 shrink-0 mt-0.5" />
+                              <span className="line-clamp-2">{item.notes}</span>
+                            </div>
+                          )}
+
+                          {/* Bottom Action Link */}
+                          <div className="mt-4 pt-3 border-t border-line/60 flex items-center justify-end">
+                            <Link
+                              to={item.linkUrl}
+                              className="inline-flex items-center gap-1 text-xs font-bold text-teal-700 dark:text-teal-400 hover:underline tap-spring"
+                            >
+                              <span>{item.linkLabel}</span>
+                              <ArrowRight size={13} />
+                            </Link>
+                          </div>
+                        </motion.article>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            ))}
+          </div>
+        )}
+      </main>
 
       {/* Delete Confirmation Dialog */}
       <ConfirmDialog

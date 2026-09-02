@@ -4,7 +4,7 @@ import { clsx } from 'clsx';
 import { motion } from 'motion/react';
 import { Sheet } from '../ui/Sheet';
 import { MenuIcon } from '../ui/icons';
-import { PRIMARY_NAV, SECONDARY_NAV, isNavItemActive } from './navigation';
+import { BOTTOM_NAV_ITEMS, MOBILE_MORE_NAV, isNavItemActive } from './navigation';
 
 export function BottomNav() {
   const location = useLocation();
@@ -12,7 +12,7 @@ export function BottomNav() {
 
   useEffect(() => setIsMoreOpen(false), [location.pathname]);
 
-  const isMoreActive = SECONDARY_NAV.some((item) => isNavItemActive(item.path, location.pathname));
+  const isMoreActive = MOBILE_MORE_NAV.some((item) => isNavItemActive(item.path, location.pathname));
 
   return (
     <>
@@ -21,7 +21,7 @@ export function BottomNav() {
         aria-label="Main"
       >
         <div className="grid h-16 grid-cols-5 items-center relative">
-          {PRIMARY_NAV.map((item) => {
+          {BOTTOM_NAV_ITEMS.map((item) => {
             const active = isNavItemActive(item.path, location.pathname);
             return (
               <Link
@@ -80,7 +80,7 @@ export function BottomNav() {
         description="Everything in your health record."
       >
         <ul className="flex flex-col gap-1.5">
-          {SECONDARY_NAV.map((item) => {
+          {MOBILE_MORE_NAV.map((item) => {
             const active = isNavItemActive(item.path, location.pathname);
             return (
               <li key={item.path}>
