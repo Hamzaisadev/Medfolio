@@ -333,7 +333,7 @@ export function TimelinePage() {
             </div>
 
             {/* 2. Unified 4-Column Metric Strip */}
-            <div>
+            <div className="pt-2 sm:pt-2.5">
               <div className="grid grid-cols-4 gap-1 p-2.5 rounded-2xl bg-surface-sunken/80 border border-line text-center">
                 <div className="py-0.5">
                   <span className="text-[10px] font-bold text-content-subtle block uppercase tracking-wider">Visits</span>
