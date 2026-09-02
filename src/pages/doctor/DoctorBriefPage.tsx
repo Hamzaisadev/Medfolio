@@ -37,7 +37,7 @@ export function DoctorBriefPage() {
       setIsLoading(true);
       try {
         const [p, meds, visits, reports] = await Promise.all([
-          profilesRepo.getDefaultProfile(effectiveUserId),
+          authProfile ? Promise.resolve(authProfile) : profilesRepo.getDefaultProfile(effectiveUserId),
           medicinesRepo.listMedicines(effectiveProfileId),
           visitsRepo.listVisits(effectiveProfileId),
           reportsRepo.listReports(effectiveProfileId),
@@ -63,7 +63,7 @@ export function DoctorBriefPage() {
       }
     }
     loadData();
-  }, [effectiveUserId, effectiveProfileId]);
+  }, [authProfile, effectiveUserId, effectiveProfileId]);
 
   const currentlyTaking = useMemo(() => {
     return activeMedicines(medicines, today);

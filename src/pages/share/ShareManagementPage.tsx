@@ -235,7 +235,7 @@ export function ShareManagementPage() {
       >
         <div className="space-y-4">
           <div>
-            <label className="text-xs font-bold text-ink-700 block mb-2">Link Expiry Duration</label>
+            <span className="text-xs font-bold text-ink-700 block mb-2">Link Expiry Duration</span>
             <div className="grid grid-cols-3 gap-2">
               {[
                 { id: '24h' as const, label: '24 Hours', desc: 'Emergency / 1 visit' },

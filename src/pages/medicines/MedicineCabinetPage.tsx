@@ -19,6 +19,7 @@ import { medicinesRepo, dosesRepo } from '../../lib/db';
 import { readInventory, writeInventory } from '../../lib/inventory';
 import { todayInAppTz, addDaysAppTz, formatDateShort, formatDateMedium } from '../../lib/time';
 import { isActive, recentlyFinishedMedicines } from '../../domain/activeMedicines';
+import { defaultDoseTimes, parseFrequency, type FrequencyCode } from '../../domain/frequency';
 import { mealRelationLabel } from '../../domain/mealRelation';
 import type { Tables } from '../../lib/supabase/types';
 
@@ -26,18 +27,12 @@ type Medicine = Tables<'medicines'>;
 
 const REFILL_PACK_SIZES = [10, 20, 30, 60];
 
-/** Tablets consumed per day, from the frequency code. */
+/** Tablets consumed per day, accurately computed from the frequency code / slot notation. */
 function dailyBurn(code: string | null | undefined): number {
-  switch (code) {
-    case 'BD':
-      return 2;
-    case 'TDS':
-      return 3;
-    case 'QID':
-      return 4;
-    default:
-      return 1;
-  }
+  if (!code) return 1;
+  const parsed = parseFrequency(code);
+  const times = defaultDoseTimes(parsed ?? (code as FrequencyCode));
+  return times.length > 0 ? times.length : 1;
 }
 
 /** A course is flagged for refill at three days of supply or less. */

@@ -376,7 +376,7 @@ export function SymptomTriagePage() {
     <AppShell>
       <PageHeader
         title="Dynamic Symptom Triage & Event Timeline"
-        description="Log symptoms chronologically as your day evolves. The clinical AI continuously updates triage, checks red flags, and correlates with your active medications."
+        description="Log symptoms chronologically as your day evolves to track real-time clinical triage, check red flags, and correlate with your active medications."
       />
 
       <Toast
@@ -482,8 +482,11 @@ export function SymptomTriagePage() {
 
             <div className="space-y-3 text-xs">
               <div>
-                <label className="font-bold text-content block mb-1">Symptom Name / Feeling</label>
+                <label htmlFor="symptom-name" className="font-bold text-content block mb-1">
+                  Symptom Name / Feeling
+                </label>
                 <input
+                  id="symptom-name"
                   type="text"
                   value={newSymptomName}
                   onChange={(e) => setNewSymptomName(e.target.value)}
@@ -494,8 +497,11 @@ export function SymptomTriagePage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="font-bold text-content block mb-1">Time of Day</label>
+                  <label htmlFor="symptom-time" className="font-bold text-content block mb-1">
+                    Time of Day
+                  </label>
                   <Select
+                    id="symptom-time"
                     value={newTimeLabel}
                     onValueChange={(val) => setNewTimeLabel(val)}
                     options={TIME_OPTIONS.map((opt) => ({ value: opt, label: opt }))}
@@ -504,7 +510,7 @@ export function SymptomTriagePage() {
                 </div>
 
                 <div>
-                  <label className="font-bold text-content block mb-1">Severity Level</label>
+                  <span className="font-bold text-content block mb-1">Severity Level</span>
                   <div className="grid grid-cols-3 gap-1 h-10">
                     {(['mild', 'moderate', 'severe'] as const).map((sev) => (
                       <button
@@ -529,8 +535,11 @@ export function SymptomTriagePage() {
               </div>
 
               <div>
-                <label className="font-bold text-content block mb-1">Context / Details (Optional)</label>
+                <label htmlFor="symptom-context" className="font-bold text-content block mb-1">
+                  Context / Details (Optional)
+                </label>
                 <input
+                  id="symptom-context"
                   type="text"
                   value={newNote}
                   onChange={(e) => setNewNote(e.target.value)}
@@ -629,7 +638,7 @@ export function SymptomTriagePage() {
                 <StethoscopeIcon size={17} className="text-accent" /> Live Clinical Triage
               </span>
               <span className="text-2xs text-accent font-bold px-2 py-0.5 rounded-md bg-accent-subtle border border-accent/20">
-                Continuous AI Eval
+                Continuous Clinical Eval
               </span>
             </div>
 

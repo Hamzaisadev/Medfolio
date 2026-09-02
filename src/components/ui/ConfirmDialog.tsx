@@ -53,7 +53,6 @@ export function ConfirmDialog({
               value={typedPhrase}
               onChange={(e) => setTypedPhrase(e.target.value)}
               placeholder={`Type "${requiredPhrase}"`}
-              autoFocus
             />
           </div>
         )}

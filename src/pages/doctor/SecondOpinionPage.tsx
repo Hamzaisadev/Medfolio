@@ -123,20 +123,21 @@ export function SecondOpinionPage() {
 
         {/* Configuration Bar (Hidden in Print) */}
         <div className="p-4 rounded-2xl bg-white border border-ink-200 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 print:hidden">
-          <label className="flex items-center gap-2.5 cursor-pointer">
+          <div className="flex items-center gap-2.5">
             <input
+              id="anonymize-toggle"
               type="checkbox"
               checked={anonymize}
               onChange={(e) => setAnonymize(e.target.checked)}
-              className="h-4 w-4 rounded text-teal-800 focus:ring-teal-600"
+              className="h-4 w-4 rounded text-teal-800 focus:ring-teal-600 cursor-pointer"
             />
-            <div>
-              <span className="text-xs font-bold text-ink-900">Anonymize Patient Identity</span>
-              <p className="text-[11px] text-ink-500">
+            <label htmlFor="anonymize-toggle" className="cursor-pointer">
+              <span className="text-xs font-bold text-ink-900 block">Anonymize Patient Identity</span>
+              <span className="text-[11px] text-ink-500 block">
                 Masks full name, phone number, and exact address for medical privacy
-              </p>
-            </div>
-          </label>
+              </span>
+            </label>
+          </div>
 
           <div className="text-right text-xs font-mono text-ink-500 flex items-center gap-1">
             Security Status: <span className="text-emerald-700 font-bold flex items-center gap-1"><ShieldIcon size={13} /> SHA-256 Watermarked</span>
@@ -145,10 +146,11 @@ export function SecondOpinionPage() {
 
         {/* Questions for the Specialist Input (Hidden in Print if empty) */}
         <div className="p-4 rounded-2xl bg-indigo-50/60 border border-indigo-200 print:bg-white print:border-ink-300">
-          <label className="block text-xs font-bold text-indigo-950 mb-1.5">
+          <label htmlFor="specialist-notes" className="block text-xs font-bold text-indigo-950 mb-1.5">
             Key Questions for the Consulting Specialist:
           </label>
           <textarea
+            id="specialist-notes"
             value={specialistNotes}
             onChange={(e) => setSpecialistNotes(e.target.value)}
             placeholder="e.g. Seeking second opinion on diagnosis; are alternative therapies or surgical interventions indicated?"
