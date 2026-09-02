@@ -79,7 +79,6 @@ export function DoseCard({
   const relation = mealRelationOf(withFood);
   const badge = statusBadge[status];
   const isActionable = status === 'pending' || status === 'missed';
-  const isSettled = status === 'taken' || status === 'skipped';
   const isOutOfStock = typeof remaining === 'number' && remaining <= 0;
   const isLowStock = typeof remaining === 'number' && remaining > 0 && remaining <= 5;
 
@@ -114,9 +113,8 @@ export function DoseCard({
         status === 'missed'
           ? 'border-amber-300 dark:border-amber-700/60 bg-amber-500/5 hover:border-amber-500'
           : status === 'taken'
-            ? 'border-line/60 bg-surface-raised/85'
+            ? 'border-line/60 bg-surface-raised'
             : 'border-line hover:border-line-strong',
-        isSettled && 'opacity-85',
         className
       )}
     >
@@ -135,16 +133,28 @@ export function DoseCard({
           {/* Scheduled Time Chip with High-Contrast Accessible Colors */}
           <span
             className={clsx(
-              'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold border shadow-2xs',
+              'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-black border shadow-2xs transition-colors',
               status === 'taken'
-                ? 'bg-teal-500/15 text-teal-900 dark:text-teal-200 border-teal-500/30'
+                ? 'bg-emerald-50 dark:bg-emerald-950/80 text-emerald-950 dark:text-emerald-100 border-emerald-300 dark:border-emerald-700'
                 : status === 'missed'
                   ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-950 dark:text-amber-100 border-amber-300 dark:border-amber-700'
-                  : 'bg-surface-sunken text-content border-line'
+                  : 'bg-surface-sunken text-content border-line-strong/60'
             )}
           >
-            <span aria-hidden="true" className="shrink-0">{slot.icon(13)}</span>
-            <time data-numeric className="whitespace-nowrap font-bold">
+            <span
+              aria-hidden="true"
+              className={clsx(
+                'shrink-0',
+                status === 'taken'
+                  ? 'text-emerald-800 dark:text-emerald-300'
+                  : status === 'missed'
+                    ? 'text-amber-900 dark:text-amber-300'
+                    : 'text-accent'
+              )}
+            >
+              {slot.icon(13)}
+            </span>
+            <time data-numeric className="whitespace-nowrap font-black tracking-tight text-inherit">
               {formatDoseTime(scheduledMinutes)}
             </time>
           </span>

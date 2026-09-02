@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AppShell } from '../../components/layout/AppShell';
 import { useAuth } from '../../lib/auth/AuthContext';
@@ -51,6 +51,7 @@ export function VitalsTrackerPage() {
   const [glucoseUnit, setGlucoseUnit] = useState<'mg/dL' | 'mmol/L'>('mg/dL');
   const [glucoseNotes, setGlucoseNotes] = useState('');
   const [glucoseSaveError, setGlucoseSaveError] = useState<string | null>(null);
+  const glucoseInputRef = useRef<HTMLInputElement>(null);
 
   // Blood Pressure Entry Form State
   const [isBpModalOpen, setIsBpModalOpen] = useState(false);
@@ -61,8 +62,30 @@ export function VitalsTrackerPage() {
   const [bpPosture, setBpPosture] = useState<'sitting' | 'standing' | 'lying'>('sitting');
   const [bpNotes, setBpNotes] = useState('');
   const [bpSaveError, setBpSaveError] = useState<string | null>(null);
+  const systolicInputRef = useRef<HTMLInputElement>(null);
 
   const [isSaving, setIsSaving] = useState(false);
+
+  // Auto-focus primary input when modal opens
+  useEffect(() => {
+    if (isGlucoseModalOpen) {
+      const timer = setTimeout(() => {
+        glucoseInputRef.current?.focus();
+        glucoseInputRef.current?.select();
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [isGlucoseModalOpen]);
+
+  useEffect(() => {
+    if (isBpModalOpen) {
+      const timer = setTimeout(() => {
+        systolicInputRef.current?.focus();
+        systolicInputRef.current?.select();
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [isBpModalOpen]);
 
   const loadData = useCallback(async () => {
     if (!effectiveProfileId) return;
@@ -88,8 +111,8 @@ export function VitalsTrackerPage() {
   }, [loadData]);
 
   // Handle Glucose Submission
-  const handleSaveGlucose = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSaveGlucose = useCallback(async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!glucoseValue || !effectiveUserId || !effectiveProfileId || isSaving) return;
 
     let mgDl = glucoseValue;
@@ -119,11 +142,11 @@ export function VitalsTrackerPage() {
     } finally {
       setIsSaving(false);
     }
-  };
+  }, [glucoseValue, effectiveUserId, effectiveProfileId, isSaving, glucoseUnit, glucoseType, glucoseNotes, loadData]);
 
   // Handle Blood Pressure Submission
-  const handleSaveBp = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSaveBp = useCallback(async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!systolic || !diastolic || !effectiveUserId || !effectiveProfileId || isSaving) return;
 
     const newReading: BloodPressureReading = {
@@ -151,7 +174,71 @@ export function VitalsTrackerPage() {
     } finally {
       setIsSaving(false);
     }
-  };
+  }, [systolic, diastolic, effectiveUserId, effectiveProfileId, isSaving, pulse, bpArm, bpPosture, bpNotes, loadData]);
+
+  // Global Keyboard Shortcuts: L/N to log, Enter to save active modal, G/1 for Glucose, B/2 for BP
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // If glucose modal is open, Enter submits the form
+      if (isGlucoseModalOpen) {
+        if (e.key === 'Enter') {
+          const target = e.target as HTMLElement;
+          if (target?.tagName === 'TEXTAREA') return;
+          if (target?.getAttribute('data-action') === 'cancel') return;
+          e.preventDefault();
+          handleSaveGlucose();
+        }
+        return;
+      }
+
+      // If BP modal is open, Enter submits the form
+      if (isBpModalOpen) {
+        if (e.key === 'Enter') {
+          const target = e.target as HTMLElement;
+          if (target?.tagName === 'TEXTAREA') return;
+          if (target?.getAttribute('data-action') === 'cancel') return;
+          e.preventDefault();
+          handleSaveBp();
+        }
+        return;
+      }
+
+      const activeEl = document.activeElement;
+      const isInput =
+        activeEl instanceof HTMLInputElement ||
+        activeEl instanceof HTMLTextAreaElement ||
+        activeEl?.getAttribute('contenteditable') === 'true';
+
+      if (!isInput) {
+        const key = e.key.toLowerCase();
+
+        // L or N opens the active vitals logging modal
+        if (key === 'l' || key === 'n') {
+          e.preventDefault();
+          if (activeTab === 'glucose') {
+            setIsGlucoseModalOpen(true);
+          } else {
+            setIsBpModalOpen(true);
+          }
+        }
+
+        // G or 1 switches to Blood Glucose tab
+        if (key === 'g' || key === '1') {
+          e.preventDefault();
+          setActiveTab('glucose');
+        }
+
+        // B or 2 switches to Blood Pressure tab
+        if (key === 'b' || key === '2') {
+          e.preventDefault();
+          setActiveTab('bp');
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeTab, isGlucoseModalOpen, isBpModalOpen, handleSaveGlucose, handleSaveBp]);
 
   // Vitals Statistics Computations
   const glucoseStats = useMemo(() => {
@@ -219,6 +306,9 @@ export function VitalsTrackerPage() {
                 leftIcon={<DropletIcon size={16} />}
               >
                 Log Blood Sugar
+                <kbd className="ml-1.5 px-1.5 py-0.5 text-3xs font-mono font-bold bg-white/20 text-white rounded border border-white/30 shadow-2xs">
+                  L
+                </kbd>
               </Button>
             ) : (
               <Button
@@ -228,6 +318,9 @@ export function VitalsTrackerPage() {
                 leftIcon={<HeartPulseIcon size={16} />}
               >
                 Log Blood Pressure
+                <kbd className="ml-1.5 px-1.5 py-0.5 text-3xs font-mono font-bold bg-white/20 text-white rounded border border-white/30 shadow-2xs">
+                  L
+                </kbd>
               </Button>
             )}
           </div>
@@ -539,6 +632,7 @@ export function VitalsTrackerPage() {
                   <button
                     key={type}
                     type="button"
+                    tabIndex={-1}
                     onClick={() => setGlucoseType(type)}
                     className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
                       glucoseType === type
@@ -574,6 +668,7 @@ export function VitalsTrackerPage() {
                         <button
                           key={unit}
                           type="button"
+                          tabIndex={-1}
                           onClick={() => {
                             if (unit !== glucoseUnit) {
                               if (unit === 'mmol/L') {
@@ -599,6 +694,7 @@ export function VitalsTrackerPage() {
                   {/* Main Stepper Input */}
                   <div className="flex flex-col items-center justify-center py-1">
                     <RollerNumberInput
+                      inputRef={glucoseInputRef}
                       unit={glucoseUnit}
                       value={glucoseValue}
                       onChange={setGlucoseValue}
@@ -635,18 +731,39 @@ export function VitalsTrackerPage() {
                 type="text"
                 value={glucoseNotes}
                 onChange={(e) => setGlucoseNotes(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleSaveGlucose();
+                  }
+                }}
                 placeholder="e.g. 2 hours after breakfast"
                 className="w-full px-3 py-2 rounded-xl border border-line bg-surface text-xs text-content placeholder:text-content-subtle focus:outline-accent"
               />
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-line">
-              <Button variant="secondary" size="sm" type="button" onClick={() => setIsGlucoseModalOpen(false)}>
-                Cancel
-              </Button>
-              <Button variant="primary" size="sm" type="submit" loading={isSaving}>
-                Save Reading
-              </Button>
+            <div className="flex items-center justify-between gap-2 pt-2 border-t border-line">
+              <div className="hidden sm:flex items-center gap-1.5 text-2xs text-content-subtle">
+                <span>Press</span>
+                <kbd className="px-1.5 py-0.5 rounded bg-surface border border-line text-content font-mono text-3xs font-semibold shadow-2xs">
+                  Enter ↵
+                </kbd>
+                <span>to save</span>
+              </div>
+              <div className="flex items-center gap-2 ml-auto">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  type="button"
+                  data-action="cancel"
+                  onClick={() => setIsGlucoseModalOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button variant="primary" size="sm" type="submit" loading={isSaving}>
+                  Save Reading
+                </Button>
+              </div>
             </div>
           </form>
         </Dialog>
@@ -691,6 +808,7 @@ export function VitalsTrackerPage() {
                         <span className="text-2xs font-semibold text-content-subtle">mmHg</span>
                       </div>
                       <RollerNumberInput
+                        inputRef={systolicInputRef}
                         value={systolic}
                         onChange={setSystolic}
                         min={70}
@@ -704,6 +822,7 @@ export function VitalsTrackerPage() {
                           <button
                             key={preset}
                             type="button"
+                            tabIndex={-1}
                             onClick={() => setSystolic(preset)}
                             className={`px-2 py-0.5 rounded text-2xs font-bold transition-all cursor-pointer ${
                               systolic === preset
@@ -739,6 +858,7 @@ export function VitalsTrackerPage() {
                           <button
                             key={preset}
                             type="button"
+                            tabIndex={-1}
                             onClick={() => setDiastolic(preset)}
                             className={`px-2 py-0.5 rounded text-2xs font-bold transition-all cursor-pointer ${
                               diastolic === preset
@@ -832,6 +952,12 @@ export function VitalsTrackerPage() {
                     type="text"
                     value={bpNotes}
                     onChange={(e) => setBpNotes(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleSaveBp();
+                      }
+                    }}
                     placeholder="e.g. Morning reading before coffee"
                     className="w-full px-3 py-2 rounded-xl border border-line bg-surface text-xs text-content placeholder:text-content-subtle focus:outline-accent"
                   />
@@ -839,13 +965,28 @@ export function VitalsTrackerPage() {
               </div>
             </details>
 
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-line">
-              <Button variant="secondary" size="sm" type="button" onClick={() => setIsBpModalOpen(false)}>
-                Cancel
-              </Button>
-              <Button variant="primary" size="sm" type="submit" loading={isSaving}>
-                Save BP Log
-              </Button>
+            <div className="flex items-center justify-between gap-2 pt-2 border-t border-line">
+              <div className="hidden sm:flex items-center gap-1.5 text-2xs text-content-subtle">
+                <span>Press</span>
+                <kbd className="px-1.5 py-0.5 rounded bg-surface border border-line text-content font-mono text-3xs font-semibold shadow-2xs">
+                  Enter ↵
+                </kbd>
+                <span>to save</span>
+              </div>
+              <div className="flex items-center gap-2 ml-auto">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  type="button"
+                  data-action="cancel"
+                  onClick={() => setIsBpModalOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button variant="primary" size="sm" type="submit" loading={isSaving}>
+                  Save BP Log
+                </Button>
+              </div>
             </div>
           </form>
         </Dialog>

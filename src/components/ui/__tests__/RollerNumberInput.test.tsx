@@ -76,4 +76,37 @@ describe('RollerNumberInput', () => {
     fireEvent.keyDown(input, { key: 'ArrowDown' });
     expect(handleChange).toHaveBeenCalledWith(79);
   });
+
+  it('triggers onEnter callback on Enter key press', () => {
+    const handleEnter = vi.fn();
+    render(
+      <RollerNumberInput
+        value={130}
+        onChange={() => {}}
+        onEnter={handleEnter}
+      />
+    );
+
+    const input = screen.getByDisplayValue('130');
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(handleEnter).toHaveBeenCalledTimes(1);
+  });
+
+  it('sets tabIndex -1 on nudge buttons for clean keyboard flow', () => {
+    render(
+      <RollerNumberInput
+        value={100}
+        onChange={() => {}}
+        label="Glucose"
+        showNudgeButtons={true}
+        showQuickPills={true}
+      />
+    );
+
+    const minusBtn = screen.getByLabelText('Decrease Glucose');
+    const plusBtn = screen.getByLabelText('Increase Glucose');
+    expect(minusBtn).toHaveAttribute('tabIndex', '-1');
+    expect(plusBtn).toHaveAttribute('tabIndex', '-1');
+  });
 });
+

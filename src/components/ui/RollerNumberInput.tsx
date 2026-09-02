@@ -15,6 +15,11 @@ export interface RollerNumberInputProps {
   disabled?: boolean;
   showNudgeButtons?: boolean;
   showQuickPills?: boolean;
+  autoFocus?: boolean;
+  id?: string;
+  name?: string;
+  inputRef?: React.RefObject<HTMLInputElement | null>;
+  onEnter?: () => void;
 }
 
 /**
@@ -40,15 +45,34 @@ export function RollerNumberInput({
   disabled = false,
   showNudgeButtons = true,
   showQuickPills = false,
+  autoFocus = false,
+  id,
+  name,
+  inputRef: externalInputRef,
+  onEnter,
 }: RollerNumberInputProps) {
   const [inputValue, setInputValue] = useState<string>(value.toString());
   const [isFocused, setIsFocused] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const internalInputRef = useRef<HTMLInputElement>(null);
+  const activeInputRef = externalInputRef || internalInputRef;
   const dragStartXRef = useRef(0);
   const dragStartValueRef = useRef(value);
+
+  // Auto-focus and select text when requested
+  useEffect(() => {
+    if (autoFocus && activeInputRef.current) {
+      const timer = setTimeout(() => {
+        if (activeInputRef.current) {
+          activeInputRef.current.focus();
+          activeInputRef.current.select();
+        }
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [autoFocus, activeInputRef]);
 
   // Sync internal string when external value updates while not focused
   useEffect(() => {
@@ -98,7 +122,7 @@ export function RollerNumberInput({
 
   // Pointer drag scrubbing (horizontal swipe/drag on the badge/container)
   const handlePointerDown = (e: React.PointerEvent) => {
-    if (disabled || e.target === inputRef.current) return;
+    if (disabled || e.target === activeInputRef.current) return;
     if (e.button !== 0 && e.pointerType === 'mouse') return;
 
     dragStartXRef.current = e.clientX;
@@ -149,7 +173,7 @@ export function RollerNumberInput({
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     const multiplier = e.shiftKey ? 5 : 1;
     if (e.key === 'ArrowUp') {
       e.preventDefault();
@@ -158,7 +182,11 @@ export function RollerNumberInput({
       e.preventDefault();
       updateValue(value - step * multiplier);
     } else if (e.key === 'Enter') {
-      inputRef.current?.blur();
+      const parsed = parseFloat(inputValue);
+      if (!isNaN(parsed)) {
+        updateValue(parsed);
+      }
+      onEnter?.();
     }
   };
 
@@ -230,7 +258,9 @@ export function RollerNumberInput({
           )}
         >
           <input
-            ref={inputRef}
+            ref={activeInputRef}
+            id={id}
+            name={name}
             type="number"
             value={inputValue}
             onChange={handleInputChange}

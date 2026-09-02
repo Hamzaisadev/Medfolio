@@ -284,30 +284,30 @@ export function TimelinePage() {
     switch (type) {
       case 'visit':
         return {
-          label: 'Visit',
+          label: 'Doctor Visit',
           tagClass: 'bg-amber-500/10 text-amber-800 dark:text-amber-300 border-amber-500/20',
-          nodeClass: 'text-amber-600 border-2 border-amber-400 bg-white shadow-xs',
+          nodeClass: 'text-amber-600 border-2 border-amber-400 bg-surface-raised shadow-xs',
           icon: <Stethoscope size={16} className="text-amber-600 stroke-[2.2]" />,
         };
       case 'report':
         return {
           label: 'Lab Report',
           tagClass: 'bg-blue-500/10 text-blue-800 dark:text-blue-300 border-blue-500/20',
-          nodeClass: 'text-blue-600 border-2 border-blue-400 bg-white shadow-xs',
+          nodeClass: 'text-blue-600 border-2 border-blue-400 bg-surface-raised shadow-xs',
           icon: <FlaskConical size={16} className="text-blue-600 stroke-[2.2]" />,
         };
       case 'medicine':
         return {
           label: 'Prescription',
           tagClass: 'bg-teal-500/10 text-teal-800 dark:text-teal-300 border-teal-500/20',
-          nodeClass: 'text-teal-600 border-2 border-teal-400 bg-white shadow-xs',
+          nodeClass: 'text-teal-600 border-2 border-teal-400 bg-surface-raised shadow-xs',
           icon: <Pill size={16} className="text-teal-600 stroke-[2.2]" />,
         };
       case 'side_effect':
         return {
           label: 'Symptom',
           tagClass: 'bg-rose-500/10 text-rose-800 dark:text-rose-300 border-rose-500/20',
-          nodeClass: 'text-rose-600 border-2 border-rose-400 bg-white shadow-xs',
+          nodeClass: 'text-rose-600 border-2 border-rose-400 bg-surface-raised shadow-xs',
           icon: <AlertCircle size={16} className="text-rose-600 stroke-[2.2]" />,
         };
     }
@@ -539,7 +539,7 @@ export function TimelinePage() {
                 <div className="relative space-y-6">
                   {/* Continuous Spine Rail Line */}
                   <div
-                    className="absolute left-[88px] sm:left-[108px] top-4 bottom-4 w-[2px] bg-teal-500/20 dark:bg-teal-500/10"
+                    className="absolute left-[100px] sm:left-[128px] -translate-x-1/2 top-4 bottom-4 w-[2px] bg-teal-500/20 dark:bg-teal-500/10"
                     aria-hidden="true"
                   />
 
