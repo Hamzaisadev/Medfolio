@@ -462,7 +462,7 @@ export function TodaySchedulePage() {
         bare
         className="p-3 sm:p-4 rounded-2xl sm:rounded-3xl border border-line bg-surface-raised/95 backdrop-blur-md shadow-card mb-6 overflow-visible relative z-30"
       >
-        <div className="flex items-center justify-between gap-2 sm:gap-3 flex-nowrap w-full overflow-x-auto no-scrollbar py-0.5">
+        <div className="flex items-center justify-between gap-2 sm:gap-3 flex-nowrap w-full overflow-visible py-0.5">
           {/* Left: App Icon + Title + Subtitle */}
           <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
             <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-teal-600 dark:bg-teal-500 text-white flex items-center justify-center shrink-0 shadow-xs">
@@ -493,7 +493,10 @@ export function TodaySchedulePage() {
               <div className="relative">
                 <button
                   type="button"
-                  onClick={() => setIsCalendarOpen((prev) => !prev)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsCalendarOpen((prev) => !prev);
+                  }}
                   className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 rounded-full border border-line bg-surface-sunken/80 hover:bg-surface-hover text-content text-xs font-bold shadow-2xs tap-spring whitespace-nowrap transition-colors"
                   aria-expanded={isCalendarOpen}
                   aria-label="Select date"
@@ -627,13 +630,14 @@ export function TodaySchedulePage() {
               </button>
             </div>
 
-            {/* Cabinet Pill Button Right Beside Date Controls */}
+            {/* Cabinet Icon-Only Button Right Beside Date Controls */}
             <Link
               to="/medicines/cabinet"
-              className="inline-flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-full border border-line bg-surface-sunken/80 hover:bg-surface-hover hover:border-line-strong text-content text-xs font-bold shadow-2xs tap-spring transition-colors shrink-0"
+              aria-label="Medicine Cabinet"
+              title="Medicine Cabinet"
+              className="w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-full border border-line bg-surface-sunken/80 hover:bg-surface-hover hover:border-line-strong text-content-muted hover:text-content flex items-center justify-center shadow-2xs tap-spring transition-colors shrink-0"
             >
-              <Archive size={13} className="text-content-muted" />
-              <span>Cabinet</span>
+              <Archive size={14} />
             </Link>
           </div>
 
