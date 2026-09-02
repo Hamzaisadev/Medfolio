@@ -639,9 +639,9 @@ export function TodaySchedulePage() {
             </Link>
           </div>
 
-          {/* Right: 3 KPI Metrics + Circular Progress Gauge */}
+          {/* Right: 3 KPI Metrics (Total, Due, Taken) + Circular Progress Gauge */}
           <div className="flex items-center gap-3 sm:gap-4 shrink-0">
-            <div className="text-center min-w-[32px] sm:min-w-[36px]">
+            <div className="text-center min-w-[32px] sm:min-w-[36px]" title="Total doses scheduled for today">
               <span className="text-sm sm:text-base font-bold text-white block leading-none" data-numeric>
                 {doses.length}
               </span>
@@ -652,23 +652,23 @@ export function TodaySchedulePage() {
 
             <div className="h-6 w-[1px] bg-[#0d544f]" />
 
-            <div className="text-center min-w-[32px] sm:min-w-[36px]">
+            <div className="text-center min-w-[32px] sm:min-w-[36px]" title="Actionable doses pending or overdue">
               <span className="text-sm sm:text-base font-bold text-white block leading-none" data-numeric>
-                {doses.length - takenCount}
+                {actionableCount}
               </span>
               <span className="text-[10px] font-medium text-[#78c2ba] block mt-1">
-                Remaining
+                Due
               </span>
             </div>
 
             <div className="h-6 w-[1px] bg-[#0d544f]" />
 
-            <div className="text-center min-w-[32px] sm:min-w-[36px]">
+            <div className="text-center min-w-[32px] sm:min-w-[36px]" title="Doses logged as completed">
               <span className="text-sm sm:text-base font-bold text-white block leading-none" data-numeric>
-                {pendingCount}
+                {takenCount}
               </span>
               <span className="text-[10px] font-medium text-[#78c2ba] block mt-1">
-                Pending
+                Taken
               </span>
             </div>
 
@@ -875,7 +875,7 @@ export function TodaySchedulePage() {
                           key={dose.id}
                           medicineName={medicine?.medicine_name || 'Prescribed medicine'}
                           strength={medicine?.strength}
-                          doseAmount={medicine?.dose_amount}
+                          doseAmount={medicine?.dose_amount || (medicine?.form ? `1 ${medicine.form}` : undefined)}
                           scheduledMinutes={dose.scheduled_minutes}
                           status={deriveStatusOnRead(dose, new Date())}
                           withFood={medicine?.with_food}

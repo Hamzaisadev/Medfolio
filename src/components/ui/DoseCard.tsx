@@ -84,13 +84,13 @@ export function DoseCard({
       whileHover={{ y: -2 }}
       transition={{ type: 'spring', stiffness: 450, damping: 30 }}
       className={clsx(
-        'group relative flex flex-col justify-between overflow-hidden rounded-2xl border bg-surface-raised p-4 sm:p-4.5 transition-all duration-200 shadow-2xs hover:shadow-card-hover hover:border-line-strong',
+        'group relative flex flex-col justify-between overflow-hidden rounded-2xl border bg-surface-raised p-4 sm:p-4.5 transition-all duration-200 shadow-2xs hover:shadow-card-hover',
         status === 'missed'
-          ? 'border-amber-500/40 bg-amber-500/[0.025] ring-1 ring-amber-500/20'
+          ? 'border-line-strong hover:border-amber-500/40'
           : status === 'taken'
-            ? 'border-teal-500/30 bg-teal-500/[0.015]'
-            : 'border-line',
-        isSettled && 'opacity-90',
+            ? 'border-line/60 bg-surface-raised/85'
+            : 'border-line hover:border-line-strong',
+        isSettled && 'opacity-85',
         className
       )}
     >
@@ -98,7 +98,7 @@ export function DoseCard({
       <span
         className={clsx(
           'absolute top-0 inset-x-0 h-1 transition-all',
-          status === 'taken' ? 'bg-teal-500' : status === 'missed' ? 'bg-amber-500' : slot.surface
+          status === 'taken' ? 'bg-teal-500' : status === 'missed' ? 'bg-amber-500/80' : slot.surface
         )}
         aria-hidden="true"
       />
@@ -113,7 +113,7 @@ export function DoseCard({
               status === 'taken'
                 ? 'bg-teal-500/10 text-teal-700 dark:text-teal-400 border-teal-500/20'
                 : status === 'missed'
-                  ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20'
+                  ? 'bg-amber-500/10 text-amber-800 dark:text-amber-300 border-amber-500/20'
                   : 'bg-surface-sunken text-content border-line'
             )}
           >
@@ -160,7 +160,7 @@ export function DoseCard({
               status === 'taken'
                 ? 'bg-teal-500/10 text-teal-600 border-teal-500/20'
                 : status === 'missed'
-                  ? 'bg-amber-500/10 text-amber-600 border-amber-500/20'
+                  ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20'
                   : 'bg-surface-sunken text-accent border-line'
             )}
           >
@@ -184,28 +184,38 @@ export function DoseCard({
               {medicineName}
             </h3>
 
-            {/* Strength & Dosage metadata */}
+            {/* Strength & Dosage metadata - Guarantees consistent badge structure across all single & combo drugs */}
             <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
-              {strength && (
-                <span className="px-1.5 py-0.5 rounded-md bg-surface-sunken border border-line text-content font-bold text-[11px]">
-                  {strength}
+              {strength ? (
+                <>
+                  <span className="px-2 py-0.5 rounded-md bg-surface-sunken border border-line text-content font-bold text-[11px]">
+                    {strength}
+                  </span>
+                  {doseAmount && (
+                    <span className="text-content-muted font-medium text-[11px]">
+                      {doseAmount}
+                    </span>
+                  )}
+                </>
+              ) : doseAmount ? (
+                <span className="px-2 py-0.5 rounded-md bg-surface-sunken border border-line text-content font-bold text-[11px]">
+                  {doseAmount}
                 </span>
-              )}
-              {doseAmount && (
-                <span className="text-content-muted font-medium text-[11px]">
-                  · {doseAmount}
+              ) : (
+                <span className="px-2 py-0.5 rounded-md bg-surface-sunken border border-line text-content-subtle font-medium text-[11px]">
+                  1 dose
                 </span>
               )}
             </div>
           </div>
         </div>
 
-        {/* Cabinet Inventory Status Strip */}
+        {/* Cabinet Inventory & Routine Schedule Context Strip */}
         <div className="flex items-center justify-between gap-2 p-2 rounded-xl bg-surface-sunken/60 border border-line/50 text-xs">
           {typeof remaining === 'number' ? (
             <span
               className={clsx(
-                'inline-flex items-center gap-1 text-[11px] font-semibold',
+                'inline-flex items-center gap-1.5 text-[11px] font-semibold',
                 isLowStock ? 'text-rose-600 dark:text-rose-400 font-bold animate-pulse' : 'text-content-subtle'
               )}
             >
@@ -247,8 +257,8 @@ export function DoseCard({
                 className={clsx(
                   'flex-1 h-9 font-bold tap-spring shadow-2xs text-xs rounded-xl whitespace-nowrap',
                   status === 'missed'
-                    ? 'bg-amber-600 hover:bg-amber-700 border-amber-600'
-                    : 'bg-teal-600 hover:bg-teal-700 border-teal-600'
+                    ? 'bg-amber-600 hover:bg-amber-700 border-amber-600 text-white'
+                    : 'bg-teal-600 hover:bg-teal-700 border-teal-600 text-white'
                 )}
               >
                 {status === 'missed' ? 'Take Overdue' : 'Take Dose'}
