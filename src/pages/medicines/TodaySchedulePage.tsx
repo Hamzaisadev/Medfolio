@@ -642,63 +642,69 @@ export function TodaySchedulePage() {
             {/* Vertical Divider between Date Controls & KPI Stats */}
             <div className="h-7 w-[1px] bg-teal-500/25 mx-1 hidden md:block" />
 
-            {/* 3 KPI Metrics (Total, Remaining, Pending) */}
+            {/* 3 KPI Metrics (Total, Remaining, Pending) + Progress Meter */}
             <div className="flex items-center gap-3 sm:gap-4 lg:gap-5 shrink-0">
-              <div className="text-center min-w-[32px] sm:min-w-[36px]">
-                <span className="text-sm sm:text-base font-bold text-white block leading-none" data-numeric>
-                  {doses.length}
-                </span>
-                <span className="text-[10px] font-medium text-[#78c2ba] block mt-1">
+              <div className="flex flex-col items-center min-w-[32px] sm:min-w-[36px]">
+                <div className="h-7 sm:h-7.5 flex items-center justify-center">
+                  <span className="text-sm sm:text-base font-bold text-white leading-none" data-numeric>
+                    {doses.length}
+                  </span>
+                </div>
+                <span className="text-[10px] font-medium text-[#78c2ba] block mt-1 leading-tight text-center">
                   Total
                 </span>
               </div>
 
               <div className="h-6 w-[1px] bg-teal-500/25" />
 
-              <div className="text-center min-w-[32px] sm:min-w-[36px]">
-                <span className="text-sm sm:text-base font-bold text-white block leading-none" data-numeric>
-                  {doses.length - takenCount}
-                </span>
-                <span className="text-[10px] font-medium text-[#78c2ba] block mt-1">
+              <div className="flex flex-col items-center min-w-[32px] sm:min-w-[36px]">
+                <div className="h-7 sm:h-7.5 flex items-center justify-center">
+                  <span className="text-sm sm:text-base font-bold text-white leading-none" data-numeric>
+                    {doses.length - takenCount}
+                  </span>
+                </div>
+                <span className="text-[10px] font-medium text-[#78c2ba] block mt-1 leading-tight text-center">
                   Remaining
                 </span>
               </div>
 
               <div className="h-6 w-[1px] bg-teal-500/25" />
 
-              <div className="text-center min-w-[32px] sm:min-w-[36px]">
-                <span className="text-sm sm:text-base font-bold text-white block leading-none" data-numeric>
-                  {pendingCount}
-                </span>
-                <span className="text-[10px] font-medium text-[#78c2ba] block mt-1">
+              <div className="flex flex-col items-center min-w-[32px] sm:min-w-[36px]">
+                <div className="h-7 sm:h-7.5 flex items-center justify-center">
+                  <span className="text-sm sm:text-base font-bold text-white leading-none" data-numeric>
+                    {pendingCount}
+                  </span>
+                </div>
+                <span className="text-[10px] font-medium text-[#78c2ba] block mt-1 leading-tight text-center">
                   Pending
                 </span>
               </div>
 
-              {/* Circular Progress Gauge */}
+              {/* Circular Progress Gauge - Vertically Aligned with Numbers and Baseline Labels */}
               {(() => {
-                const radius = 14;
-                const strokeWidth = 3;
+                const radius = 11;
+                const strokeWidth = 2.5;
                 const circumference = 2 * Math.PI * radius;
                 const strokeOffset =
                   circumference -
                   (Math.min(100, Math.max(0, adherence.percentage)) / 100) * circumference;
 
                 return (
-                  <div className="flex flex-col items-center shrink-0 min-w-[42px] ml-1 sm:ml-2">
-                    <div className="relative w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center">
-                      <svg className="w-9 h-9 sm:w-10 sm:h-10 -rotate-90" viewBox="0 0 36 36">
+                  <div className="flex flex-col items-center min-w-[36px] sm:min-w-[40px]">
+                    <div className="relative w-7 h-7 sm:w-7.5 sm:h-7.5 flex items-center justify-center">
+                      <svg className="w-7 h-7 sm:w-7.5 sm:h-7.5 -rotate-90" viewBox="0 0 28 28">
                         <circle
-                          cx="18"
-                          cy="18"
+                          cx="14"
+                          cy="14"
                           r={radius}
                           className="stroke-[#05413c]"
                           strokeWidth={strokeWidth}
                           fill="none"
                         />
                         <circle
-                          cx="18"
-                          cy="18"
+                          cx="14"
+                          cy="14"
                           r={radius}
                           className="stroke-[#00e5c9] transition-all duration-500 ease-out"
                           strokeWidth={strokeWidth}
@@ -709,13 +715,13 @@ export function TodaySchedulePage() {
                         />
                       </svg>
                       <span
-                        className="absolute text-[10px] sm:text-[11px] font-bold text-white tracking-tight"
+                        className="absolute text-[9px] sm:text-[10px] font-bold text-white tracking-tight leading-none"
                         data-numeric
                       >
                         {adherence.percentage}%
                       </span>
                     </div>
-                    <span className="text-[10px] font-medium text-[#78c2ba] block -mt-0.5">
+                    <span className="text-[10px] font-medium text-[#78c2ba] block mt-1 leading-tight text-center">
                       Progress
                     </span>
                   </div>
